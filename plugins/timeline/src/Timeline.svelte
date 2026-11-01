@@ -17,7 +17,9 @@
    *   whole precision span, hatched with a dashed outline (it prints) — never
    *   `--accent-dim`. A backwards or unreadable `end` leaves the event at its
    *   start and the hover preview says so. Undated events go to the **Undated**
-   *   tray with a reason; clicking one opens it.
+   *   tray with a reason; clicking one opens it. Its heading hides and shows
+   *   the list (the count stays), for the life of the frame; an export always
+   *   lists it.
    * - **Lanes** are `packLanes` in px at the current zoom
    *   (`timeline-layout.ts`): recomputed on zoom, never on pan.
    * - **Zoom and pan.** Wheel/pinch zooms about the pointer, drag pans
@@ -42,13 +44,6 @@
    *   the snippet, minus the dates. Its text comes back as a `preview` event,
    *   which describes the event inside the frame. Escape closes it and keeps
    *   focus where it is.
-   * - **The list alternative is a toggle**, not a visually hidden copy: the
-   *   **List** button swaps the drawing for an ordered list of the same events
-   *   in the same order with the same names and dates (the Undated tray is
-   *   under both). A hidden duplicate would make a screen reader read every
-   *   event twice and either add a tab stop per event or hide its links from
-   *   the keyboard; a visible toggle serves a sighted keyboard or magnifier
-   *   user as well, and stays whole when the drawing is virtualised.
    * - **Scale.** Above `VIRTUALIZE_ABOVE` dated events only those in view
    *   (half a screen of overscan each side, and the visible lanes) are drawn;
    *   the tab stop is always kept, so the keyboard order stays whole.
@@ -71,7 +66,6 @@
    *   drawing alone can't be *read* on paper: an event's dates live in the
    *   hover card, a label is shortened past 40 characters, the axis only
    *   places an event to within a tick, and lanes past the cap aren't drawn.
-   *   It is also the live view's List alternative, which a page can't toggle.
    *   **Fallback:** when the drawing can't be made (no dated events, or the
    *   layout throws), the export is that list (and the Undated tray) with a
    *   line saying so — never the raw spec.
@@ -351,36 +345,20 @@
     description = text === null ? (description?.path === path ? null : description) : { path, text };
   }));
 
-  let listMode = $state(false);
+  let undatedOpen = $state(true);
   const rangeLabel = $derived(`${type.label} timeline, ${order.length} dated ${order.length === 1 ? 'event' : 'events'}`);
 </script>
 
 <div class="tl" class:tl-export={exportMode}>
-  {#if !exportMode}
+  {#if !exportMode && interactive}
     <div class="tl-toolbar" data-export-omit>
-      {#if interactive && !listMode}
-        <button type="button" class="tl-btn" aria-label="Zoom out" title="Zoom out (−)" onclick={() => zoomBy(1 / ZOOM_STEP)}>−</button>
-        <button type="button" class="tl-btn" aria-label="Zoom in" title="Zoom in (+)" onclick={() => zoomBy(ZOOM_STEP)}>+</button>
-        <button type="button" class="tl-btn" title="Show every dated event" onclick={fitAll}>Fit</button>
-      {/if}
-      <button type="button" class="tl-btn" aria-pressed={listMode} title="Show the events as a list" onclick={() => (listMode = !listMode)}>List</button>
+      <button type="button" class="tl-btn" aria-label="Zoom out" title="Zoom out (−)" onclick={() => zoomBy(1 / ZOOM_STEP)}>−</button>
+      <button type="button" class="tl-btn" aria-label="Zoom in" title="Zoom in (+)" onclick={() => zoomBy(ZOOM_STEP)}>+</button>
+      <button type="button" class="tl-btn" title="Show every dated event" onclick={fitAll}>Fit</button>
     </div>
   {/if}
 
-  {#if listMode}
-    <ol class="tl-list" aria-label="{type.label} in time order">
-      {#each order as key (key)}
-        {@const ev = byKey.get(key)!}
-        <li>
-          <button type="button" class="tl-list-row" data-note-path={ev.key} onclick={() => onOpenNote(ev.key)}>
-            <span class="tl-list-title">{ev.title}</span>
-            <span class="tl-list-date">{ev.dateText}{ev.approx ? ' (approximate)' : ''}</span>
-            {#if ev.endNote}<span class="tl-list-flag">{ev.endNote}</span>{/if}
-          </button>
-        </li>
-      {/each}
-    </ol>
-  {:else if model.dated.length === 0}
+  {#if model.dated.length === 0}
     <p class="tl-empty">No {type.label.toLowerCase()} here has a date yet.</p>
   {:else if exportPlan && !exportPlan.ok}
     <p class="tl-export-note tl-fallback">The timeline couldn't be drawn, so its events are listed below.</p>
@@ -522,9 +500,23 @@
   {/if}
 
   {#if model.undated.length > 0}
-    <section class="tl-undated" aria-labelledby="{uid}-undated">
-      <h3 id="{uid}-undated" class="tl-undated-head">Undated <span class="tl-undated-count">{model.undated.length}</span></h3>
-      <ul class="tl-undated-list">
+    <section class="tl-undated" class:tl-undated-closed={!undatedOpen && !exportMode} aria-labelledby="{uid}-undated">
+      {#if exportMode}
+        <h3 id="{uid}-undated" class="tl-undated-head">Undated <span class="tl-undated-count">{model.undated.length}</span></h3>
+      {:else}
+        <h3 class="tl-undated-head">
+          <button
+            type="button"
+            id="{uid}-undated"
+            class="tl-undated-toggle"
+            aria-expanded={undatedOpen}
+            aria-controls="{uid}-undated-list"
+            title={undatedOpen ? 'Hide the undated events' : 'Show the undated events'}
+            onclick={() => (undatedOpen = !undatedOpen)}
+          ><span class="tl-undated-chevron" aria-hidden="true">{undatedOpen ? '▾' : '▸'}</span> Undated <span class="tl-undated-count">{model.undated.length}</span></button>
+        </h3>
+      {/if}
+      <ul id="{uid}-undated-list" class="tl-undated-list" hidden={!undatedOpen && !exportMode}>
         {#each model.undated as u (u.key)}
           <li>
             {#if exportMode}
@@ -586,8 +578,7 @@
   .tl-label-inside { fill: var(--accent-ink); }
   .tl-empty { padding: 24px 16px; color: var(--text-muted); font-size: 13px; }
 
-  .tl-list { list-style: none; margin: 0; padding: 6px; overflow-y: auto; flex: 1; min-height: 0; }
-  .tl-list-row, .tl-undated-row {
+  .tl-undated-row {
     display: flex;
     flex-wrap: wrap;
     align-items: baseline;
@@ -602,13 +593,22 @@
     text-align: left;
     cursor: pointer;
   }
-  .tl-list-row:hover, .tl-undated-row:hover { background: color-mix(in oklch, var(--text) 5%, transparent); }
+  .tl-undated-row:hover { background: color-mix(in oklch, var(--text) 5%, transparent); }
   .tl-list-title { font-size: 13px; font-weight: 500; }
   .tl-list-date { font-size: 11.5px; color: var(--text-muted); }
   .tl-list-flag { font-size: 11.5px; color: var(--text); font-weight: 600; }
 
   .tl-undated { flex-shrink: 0; max-height: 30%; overflow-y: auto; border-top: 1px solid var(--border); padding: 6px 6px 8px; }
   .tl-undated-head { margin: 2px 10px 4px; font-size: 12px; font-weight: 600; color: var(--text); font-family: var(--font-sans); }
+  .tl-undated-closed { padding-bottom: 2px; }
+  .tl-undated-toggle {
+    display: inline-flex; align-items: baseline; gap: 4px;
+    padding: 1px 4px; margin-left: -4px; border: none; border-radius: 4px;
+    background: none; color: inherit; font: inherit; cursor: pointer;
+  }
+  .tl-undated-toggle:hover { background: color-mix(in oklch, var(--text) 5%, transparent); }
+  .tl-undated-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .tl-undated-chevron { width: 0.8em; color: var(--text-muted); }
   .tl-undated-count { font-family: var(--font-mono); font-weight: 400; color: var(--text-muted); }
   .tl-undated-list { list-style: none; margin: 0; padding: 0; }
 

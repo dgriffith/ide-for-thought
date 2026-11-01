@@ -269,7 +269,7 @@ describe('hydrateObjectViewBlocks (#2067)', () => {
     stop();
   });
 
-  it('a timeline embed is read-only: no zoom/pan/Fit, a wheel moves nothing, not export mode; List and opening still work (#2608, pinned by #2609)', async () => {
+  it('a timeline embed is read-only: no toolbar, a wheel moves nothing, not export mode; opening still works (#2608, pinned by #2609)', async () => {
     const EVENT = {
       id: 'event', label: 'Event', classLocalName: 'Event', icon: '📅', source: 'stock' as const,
       properties: [{ name: 'date', type: 'datetime' as const }, { name: 'end', type: 'datetime' as const }],
@@ -292,8 +292,7 @@ describe('hydrateObjectViewBlocks (#2067)', () => {
 
     expect(block.querySelector('.tl')!.classList.contains('tl-export')).toBe(false);
     expect(block.querySelector('.tv-header')).toBeNull();
-    const buttons = [...block.querySelectorAll('.tl-toolbar button')].map((b) => b.textContent.trim());
-    expect(buttons).toEqual(['List']);
+    expect(block.querySelector('.tl-toolbar')).toBeNull(); // read-only: no zoom controls, so no toolbar
     expect(block.querySelector('.tl-viewport')!.classList.contains('tl-pannable')).toBe(false);
     const plot = block.querySelector<SVGSVGElement>('.tl-plot')!;
     const before = [plot.dataset['domainStart'], plot.dataset['domainEnd']];

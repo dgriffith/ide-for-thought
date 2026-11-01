@@ -79,7 +79,7 @@ test('a Timeline exports as a static, linked picture of its range, with its list
       // The embed is the Timeline plugin's, in its frame (#2829).
       const embed = win.locator('.preview .object-view-block [data-plugin-layout="timeline"] iframe').contentFrame();
       await expect(embed.locator('[data-timeline-event]').first()).toBeVisible({ timeout: 15_000 });
-      await expect(embed.locator('.tl-toolbar button')).toHaveText(['List']);
+      await expect(embed.locator('.tl-toolbar')).toHaveCount(0); // read-only: no zoom controls, so no toolbar
       await expect(embed.locator('.tl-export, .tl-pannable, .tl-export-events')).toHaveCount(0);
       await win.locator('.preview').screenshot({ path: 'test-results/export-timeline-preview.png' });
     });

@@ -3,10 +3,10 @@
  *
  * The Timeline layout (#2608), as the Timeline plugin draws it (#2829):
  * points and bars, partial dates drawn as hatched spans, lanes for overlaps,
- * the Undated tray, every keyboard binding on a single roving tab stop,
+ * the Undated tray (and hiding it), every keyboard binding on a single roving tab stop,
  * zoom/pan/Fit writing `from`/`to` back through `view.setState` (Fit bounded
  * by a range filter), the preview it asks the app for — a backwards `end`
- * flagged on it — the list alternative, the read-only embed, and export
+ * flagged on it — the read-only embed, and export
  * mode (#2609). The view is built the way the host builds it, and the
  * plugin API is a fake that records each call.
  */
@@ -440,22 +440,24 @@ describe('zoom controls and Fit', () => {
   });
 });
 
-describe('the list alternative', () => {
-  it('List swaps the drawing for the same events in the same order, with the Undated tray', async () => {
-    const { container, onOpenNote } = setup();
-    const toggle = screen.getByRole('button', { name: 'List' });
-    expect(toggle.getAttribute('aria-pressed')).toBe('false');
+describe('hiding the Undated tray', () => {
+  it('its heading hides and shows the list, and the count stays', async () => {
+    const { container } = setup();
+    const toggle = screen.getByRole('button', { name: /Undated\s*2/ });
+    const list = () => container.querySelector<HTMLElement>('.tl-undated-list')!;
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(list().hidden).toBe(false);
     await fireEvent.click(toggle);
-    expect(toggle.getAttribute('aria-pressed')).toBe('true');
-    expect(container.querySelector('.tl-plot')).toBeNull();
-    const list = screen.getByRole('list', { name: 'Event in time order' });
-    const items = within(list).getAllByRole('button').map((b) => b.dataset['notePath']);
-    expect(items).toEqual(['decade.md', 'apollo.md', 'moon.md', 'woodstock.md', 'typo.md']);
-    expect(within(list).getByRole('button', { name: /Woodstock/ }).textContent).toContain('(approximate)');
-    expect(within(list).getByRole('button', { name: /Typo/ }).textContent).toContain('End date ignored');
-    expect(container.querySelector('.tl-undated')).toBeTruthy();
-    await fireEvent.click(within(list).getByRole('button', { name: /Moon landing/ }));
-    expect(onOpenNote).toHaveBeenCalledWith('moon.md');
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(list().hidden).toBe(true);
+    expect(toggle.textContent).toMatch(/Undated\s*2/);
+    await fireEvent.click(toggle);
+    expect(list().hidden).toBe(false);
+  });
+
+  it('there is no List toggle: the drawing is the view', () => {
+    setup();
+    expect(screen.queryByRole('button', { name: 'List' })).toBeNull();
   });
 });
 
@@ -465,7 +467,7 @@ describe('read-only (an embed) and export', () => {
     const { event, domain, onStateChange, container } = setup({ readOnly: true, from: '1960', to: '1979' });
     expect(screen.queryByRole('button', { name: 'Zoom in' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Fit' })).toBeNull();
-    expect(screen.getByRole('button', { name: 'List' })).toBeTruthy();
+    expect(container.querySelector('.tl-toolbar')).toBeNull(); // nothing left in it
     const before = domain();
     event('moon.md').focus();
     await fireEvent.keyDown(event('moon.md'), { key: '+' });

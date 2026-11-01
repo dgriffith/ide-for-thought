@@ -53,7 +53,7 @@ test('an Event timeline: draw, zoom, keyboard, open, and the range round-trips (
     });
 
     await test.step('step through by keyboard: one tab stop, ←/→, Home/End, Enter opens', async () => {
-      await tl.getByRole('button', { name: 'List' }).focus();
+      await tl.getByRole('button', { name: 'Fit' }).focus();
       await win.keyboard.press('Tab');
       const stop = tl.locator('.tl-plot [data-timeline-event][tabindex="0"]');
       await expect(stop).toHaveCount(1);

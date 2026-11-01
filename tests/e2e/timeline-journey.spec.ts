@@ -1,7 +1,7 @@
 /**
  * The Timeline journey (#2610, epic #2606), end to end in one flow: open
  * Events as a timeline, zoom it from the keyboard, step to an event and open
- * it with Enter, come back and switch to the List alternative and back, save
+ * it with Enter, come back and hide the Undated tray and show it again, save
  * the timeline as a note (checking its `object-view` fence carries the
  * layout and the zoomed range), and export that note through the real
  * `publish.runExport`.
@@ -30,7 +30,7 @@ const NOTES: SeedNotes = {
   'events/Someday.md': '---\ntype: event\n---\n# Someday\n',
   'meetings/Splashdown debrief.md': '---\ntype: meeting\ndate: 1969-07-25\n---\n# Splashdown debrief\n',
 };
-/** The dated events, in time order — the keyboard's and the list's order. */
+/** The dated events, in time order — the keyboard's order. */
 const IN_TIME_ORDER = ['Ides of March', 'Apollo 11', 'Moon landing', 'Splashdown debrief', 'Woodstock'];
 const MOON_LANDING = Date.UTC(1969, 6, 20);
 const IDES_OF_MARCH = Date.UTC(-43, 2, 15); // astronomical year -43 = 44 BC
@@ -38,7 +38,7 @@ const IDES_OF_MARCH = Date.UTC(-43, 2, 15); // astronomical year -43 = 44 BC
 /** The year a date value starts in: `-0043-03-15` → -43, `1969` → 1969. */
 const yearOf = (value: string): number => Number(/^([+-]?\d+)/.exec(value)![1]);
 
-test('the Timeline journey: Events as a timeline, zoomed and stepped by keyboard, listed, saved as a note, exported (#2610)', async () => {
+test('the Timeline journey: Events as a timeline, zoomed and stepped by keyboard, tray hidden, saved as a note, exported (#2610)', async () => {
   const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-timeline-journey-userdata-'));
   const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-timeline-journey-project-'));
   const outDir = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-timeline-journey-out-'));
@@ -62,7 +62,7 @@ test('the Timeline journey: Events as a timeline, zoomed and stepped by keyboard
     const fitWidth = await domainWidth(win);
 
     await test.step('zoom from the keyboard: + twice, − once', async () => {
-      await tl.getByRole('button', { name: 'List' }).focus();
+      await tl.getByRole('button', { name: 'Fit' }).focus();
       await win.keyboard.press('Tab'); // the drawing is one tab stop
       await expect(tl.locator('.tl-plot [data-timeline-event][tabindex="0"]')).toBeFocused();
       await win.keyboard.press('Home');
@@ -103,18 +103,14 @@ test('the Timeline journey: Events as a timeline, zoomed and stepped by keyboard
       expect(d.end).toBeGreaterThan(MOON_LANDING);
     });
 
-    await test.step('the List alternative, and back to the drawing', async () => {
-      const list = tl.getByRole('button', { name: 'List' });
-      await list.click();
-      await expect(list).toHaveAttribute('aria-pressed', 'true');
-      await expect(tl.locator('.tl-plot')).toHaveCount(0);
-      const rows = tl.locator('.tl-list .tl-list-row');
-      await expect(rows.locator('.tl-list-title')).toHaveText(IN_TIME_ORDER);
-      await expect(rows.filter({ hasText: 'Ides of March' })).toContainText('44 BC');
-      await expect(rows.filter({ hasText: 'Woodstock' })).toContainText('(approximate)');
-      await expect(undated).toContainText('Someday'); // the tray is under both
-      await list.click();
-      await expect(list).toHaveAttribute('aria-pressed', 'false');
+    await test.step('hide the Undated tray, and show it again', async () => {
+      const toggle = tl.getByRole('button', { name: /^Undated/ });
+      await toggle.click();
+      await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+      await expect(undated.locator('.tl-undated-list')).toBeHidden();
+      await expect(toggle).toContainText('Undated');
+      await toggle.click();
+      await expect(undated).toContainText('Someday');
       await expect(events).toHaveCount(IN_TIME_ORDER.length);
     });
 

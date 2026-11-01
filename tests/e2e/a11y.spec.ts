@@ -362,8 +362,8 @@ for (const theme of THEMES) {
     test('Timeline', async () => {
       // Stock Event (#2608): a point, a span, a partial (hatched) date, a
       // backwards end, a Meeting, and an undated event in the Undated tray —
-      // scanned with an event focused (its hover card showing), then as the
-      // list alternative.
+      // scanned with an event focused (its hover card showing), then with the
+      // tray hidden.
       await withApp({
         theme,
         withProject: true,
@@ -381,9 +381,9 @@ for (const theme of THEMES) {
         await expect(win.getByRole('tooltip')).toBeVisible();
         await expect(win.locator('.note-hover-preview .nhp-snippet:not(.nhp-loading)')).toHaveCount(1, { timeout: 5_000 });
         await expectNoSerious(win, 'Timeline', theme);
-        await tl.getByRole('button', { name: 'List' }).click();
-        await expect(tl.locator('.tl-list')).toBeVisible();
-        await expectNoSerious(win, 'Timeline list', theme);
+        await tl.getByRole('button', { name: /^Undated/ }).click();
+        await expect(tl.locator('.tl-undated-list')).toBeHidden();
+        await expectNoSerious(win, 'Timeline, Undated hidden', theme);
       });
     });
 

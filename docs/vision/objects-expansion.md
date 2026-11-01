@@ -230,7 +230,9 @@ are mostly frame wait.)
   `role="link"` with a label like "Moon landing, 20 July 1969" or "Apollo 11,
   16–24 July 1969". Chromium's accessibility tree reports exactly that.
 - The accessible **list alternative** is the same events in the same order, as
-  a list of links. The Undated tray is part of it.
+  a list of links. The Undated tray is part of it. *(Shipped as a List toggle,
+  then removed by the maintainer's decision, 2026-11-01: each event is already
+  a named link on the drawing's one tab stop, and the tray can be hidden.)*
 
 **Theming** pairs a surface token with a text token, never one alone
 (#2679/#2688). Contrast was measured from `global.css`'s values:
