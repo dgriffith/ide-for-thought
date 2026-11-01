@@ -354,7 +354,7 @@ for (const theme of THEMES) {
         // Focus opens the card's hover preview (#2710), so it's scanned too.
         await board.locator('[data-kanban-card]').first().focus();
         await expect(win.getByRole('tooltip')).toBeVisible();
-        await expect(win.locator('.note-hover-preview .nhp-snippet:not(.nhp-loading)')).toHaveCount(1, { timeout: 5_000 });
+        await expect(win.locator('.note-hover-preview[data-status="ready"]')).toHaveCount(1, { timeout: 5_000 });
         await expectNoSerious(win, 'Kanban board', theme);
       });
     });
@@ -379,7 +379,7 @@ for (const theme of THEMES) {
         const { eventFor, frame: tl } = await openEventTimeline(win, 5);
         await eventFor('Typo').focus();
         await expect(win.getByRole('tooltip')).toBeVisible();
-        await expect(win.locator('.note-hover-preview .nhp-snippet:not(.nhp-loading)')).toHaveCount(1, { timeout: 5_000 });
+        await expect(win.locator('.note-hover-preview[data-status="ready"]')).toHaveCount(1, { timeout: 5_000 });
         await expectNoSerious(win, 'Timeline', theme);
         await tl.getByRole('button', { name: /^Undated/ }).click();
         await expect(tl.locator('.tl-undated-list')).toBeHidden();
@@ -417,7 +417,7 @@ for (const theme of THEMES) {
         await win.keyboard.press('Enter');
         await expect(cal.dayList).toBeVisible();
         await expect(win.getByRole('tooltip')).toBeVisible();
-        await expect(win.locator('.note-hover-preview .nhp-snippet:not(.nhp-loading)')).toHaveCount(1, { timeout: 5_000 });
+        await expect(win.locator('.note-hover-preview[data-status="ready"]')).toHaveCount(1, { timeout: 5_000 });
         await expectNoSerious(win, 'Calendar day list', theme);
       });
     });

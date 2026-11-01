@@ -53,6 +53,8 @@ export interface ViewLayoutDef {
    * is off; it just isn't offered, and a view saved with it shows the table.
    */
   plugin?: string;
+  /** Offers Export CSV: a table's rows and columns are what a CSV holds. Absent: it doesn't. */
+  exportsCsv?: true;
   /**
    * The layout moves notes (#2829): which ⌘Z they go back on — a board's
    * card moves, or a calendar's reschedules, each its own undo. Absent: the
@@ -66,7 +68,7 @@ const datedRule = (ctx: LayoutContext): boolean => hasDateProperty(ctx.typeId, c
 
 export const VIEW_LAYOUTS = [
   { id: 'list', label: 'List', noteName: 'list', appliesTo: always, dated: false, grouped: false, specFields: [] },
-  { id: 'table', label: 'Table', noteName: 'table', appliesTo: always, dated: false, grouped: false, specFields: [] },
+  { id: 'table', label: 'Table', noteName: 'table', appliesTo: always, dated: false, grouped: false, specFields: [], exportsCsv: true },
   { id: 'gallery', label: 'Gallery', noteName: 'gallery', appliesTo: always, dated: false, grouped: false, specFields: [] },
   // A location-shaped property (#2066) — not offered for Book/Person/etc.
   { id: 'map', label: 'Map', noteName: 'map', appliesTo: (ctx) => ctx.properties.some((p) => p.type === 'geo'), dated: false, grouped: false, specFields: ['mapStyle'] },

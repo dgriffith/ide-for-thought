@@ -460,7 +460,9 @@
           </div>
         {/if}
         <button class="tv-btn" onclick={copyAsMarkdown}>{markdownCopied ? 'Copied' : 'Copy as markdown'}</button>
-        <button class="tv-btn" onclick={exportCsv} title="Save the notes this view shows, with their properties, as a CSV file">Export CSV</button>
+        {#if layoutDef(shown).exportsCsv}
+          <button class="tv-btn" onclick={exportCsv} title="Save the notes this view shows, with their properties, as a CSV file">Export CSV</button>
+        {/if}
         {#if onSaveView}
           <button class="tv-btn" onclick={handleSaveViewClick} title="Save this view as a note, with the view embedded live">{viewSaved ? 'Saved' : 'Save as note'}</button>
         {/if}

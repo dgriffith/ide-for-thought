@@ -22,6 +22,7 @@ const { NOTES, markerInstances, FakeMap, FakeMarker, FakeNavigationControl, Fake
     'projects/alpha.md': '---\ntitle: Project Alpha\ntype: project\nstatus: active\n---\n\nAlpha opens with this sentence.',
     'projects/bravo.md': '# Bravo\n\nBravo body.',
     'places/sf.md': '# San Francisco\n\nFog and hills.',
+    'places/empty.md': '# Nowhere Yet\n',
   };
   const markerInstances: InstanceType<typeof FakeMarker>[] = [];
   class FakeLngLatBounds { extend(): this { return this; } isEmpty(): boolean { return false; } }
@@ -80,12 +81,12 @@ async function linkHover(target: string): Promise<{ title: string; snippet: stri
 /** The open preview, once its note has loaded. */
 async function openPreview(): Promise<HTMLElement> {
   const tip = await screen.findByRole('tooltip', {}, { timeout: 2000 });
-  await waitFor(() => expect(tip.querySelector('.nhp-snippet:not(.nhp-loading)')).not.toBeNull());
+  await waitFor(() => expect(tip.dataset['status']).toBe('ready'));
   return tip;
 }
 function expectLinkContent(tip: HTMLElement, link: { title: string; snippet: string }): void {
   expect(tip.querySelector('.nhp-title-text')!.textContent).toBe(link.title);
-  expect(tip.querySelector('.nhp-snippet')!.textContent).toBe(link.snippet);
+  expect(tip.querySelector('.nhp-snippet')?.textContent ?? '').toBe(link.snippet); // an empty note has none
 }
 
 afterEach(() => { cleanup(); markerInstances.length = 0; });
@@ -125,5 +126,19 @@ describe('map pins (#2710)', () => {
     expect(pin.getAttribute('aria-describedby')).toBe(tip.id);
     await fireEvent.keyDown(document.body, { key: 'Escape' });
     await waitFor(() => expect(screen.queryByRole('tooltip')).toBeNull());
+  });
+
+  it('an empty note shows its title and fields, with no snippet and no "(empty note)"', async () => {
+    render(TypeViewMap, {
+      instances: [{ path: 'places/empty.md', title: 'Nowhere Yet', values: { location: '1,1', kind: 'Town' }, cover: null }],
+      locationProperty: 'location', onOpenNote: vi.fn(), type: PLACE, properties: PLACE.properties,
+    });
+    await waitFor(() => expect(markerInstances).toHaveLength(1));
+    await fireEvent.pointerEnter(markerInstances[0]!.getElement());
+    const tip = await openPreview();
+    expect(tip.querySelector('.nhp-title-text')!.textContent).toBe('Nowhere Yet');
+    expect(tip.querySelector('.nhp-snippet')).toBeNull();
+    expect(tip.textContent).not.toContain('empty note');
+    expect(tip.querySelector('.nhp-fields')!.textContent).toContain('Town');
   });
 });
