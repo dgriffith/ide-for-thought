@@ -12,7 +12,8 @@ import { parseFrontmatter } from '../../src/shared/frontmatter-parse';
 import { buildTimelineModel } from '../../src/shared/timeline/timeline-events';
 import { buildCalendarModel } from '../../src/shared/calendar/calendar-model';
 import { isViewLayout } from '../../src/shared/objects/view-layouts';
-import { parseViewFilters } from '../../src/shared/objects/view-spec';
+import { applyViewSpec, parseViewFilters, type ViewFilter } from '../../src/shared/objects/view-spec';
+import { parseMarkdown } from '../../src/main/graph/parser';
 import type { TypeInstanceRow } from '../../src/shared/objects/type-def';
 
 const TODAY = new Date(2026, 10, 1); // 1 November 2026, a Sunday
@@ -71,7 +72,7 @@ describe('the Events sample thoughtbase', () => {
   it('every saved view is a layout spec, with filters that survive parsing', () => {
     const specOf = (content: string) => JSON.parse(/```object-view\n([\s\S]*?)\n```/.exec(content)![1]!) as Record<string, unknown>;
     const views = Object.entries(files).filter(([p]) => p.startsWith('Views/')).map(([, c]) => specOf(c));
-    expect(views).toHaveLength(8);
+    expect(views).toHaveLength(13);
     for (const spec of views) {
       expect(isViewLayout(spec.layout)).toBe(true);
       expect(spec.typeId).toBe(spec.layout === 'kanban' ? 'project' : 'event');
@@ -84,6 +85,33 @@ describe('the Events sample thoughtbase', () => {
     const statuses = Object.entries(files).filter(([p]) => p.startsWith('projects/'))
       .map(([, c]) => { const v = parseFrontmatter(c).status; return typeof v === 'string' ? v : ''; });
     expect(statuses.sort()).toEqual(['', 'abandoned', 'active', 'active', 'blocked', 'done', 'done', 'paused']);
+  });
+
+  it('each tag view keeps exactly the notes its description names', () => {
+    // A note's tags as the indexer reads them: inline `#tags` plus frontmatter `tags:`.
+    const rows = Object.entries(files).map(([path, content]) => {
+      const parsed = parseMarkdown(content);
+      const fm = parsed.frontmatter.tags;
+      const tags = [...parsed.tags, ...(Array.isArray(fm) ? fm.filter((t): t is string => typeof t === 'string') : [])];
+      return { path, title: /^# (.+)$/m.exec(content)![1]!, values: {}, tags, type: parsed.frontmatter.type } as TypeInstanceRow & { type: unknown };
+    });
+    const shown = (view: string) => {
+      const spec = JSON.parse(/```object-view\n([\s\S]*?)\n```/.exec(files[`Views/${view}.md`])![1]!) as { typeId: string; filters: ViewFilter[] };
+      const ofType = rows.filter((r) => (spec.typeId === 'event' ? ['event', 'meeting'] : [spec.typeId]).includes(r.type as string));
+      return applyViewSpec(ofType, { filters: spec.filters }).map((r) => r.title).sort();
+    };
+    expect(shown('Timeline - Technology in History')).toEqual(['Cassini Mission', 'Moon Landing', 'Printing Press']);
+    expect(shown('Project Board - Not Archived')).toEqual(['Data Migration', 'Mobile App', 'Office Move', 'Quarterly Report', 'Vendor Integration', 'Website Redesign']);
+    const work = shown('Calendar - Work');
+    expect(work).toEqual(expect.arrayContaining(['Coffee Chat', 'Team Standup', 'Lisbon Offsite', 'Team Drinks']));
+    expect(work).not.toContain('Dentist');
+    const notWork = shown('Calendar - Not Work');
+    expect(notWork).toEqual(expect.arrayContaining(['Release Cut', 'Dentist', 'Woodstock']));
+    expect(notWork).not.toContain('Team Drinks');
+    expect([...work, ...notWork].sort()).toEqual(rows.filter((r) => ['event', 'meeting'].includes(r.type as string)).map((r) => r.title).sort());
+    expect(shown('Timeline - Travel or Space')).toEqual(['Apollo 11', 'Cassini Mission', 'Conference', 'Holiday', 'Lisbon Offsite', 'Moon Landing']);
+    // Woodstock's only tags are inline, one in mixed case.
+    expect(rows.find((r) => r.title === 'Woodstock')!.tags).toEqual(expect.arrayContaining(['History/Modern', 'music']));
   });
 
   it('handles a last-of-month today without spilling the crowded day into next month', () => {

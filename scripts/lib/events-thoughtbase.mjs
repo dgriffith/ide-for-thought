@@ -9,7 +9,8 @@
  * end, an unreadable date and an undated note. `history/` spans 753 BC to
  * 2017 for zooming the timeline, `projects/` fills a Kanban board (Project's
  * `status` is a choice field; Event has none, so it gets no board), and
- * `Views/` holds saved views of each kind.
+ * `Views/` holds saved views of each kind. `TAGS` tags most of it, nested,
+ * in frontmatter and inline, for the views' tag filters.
  * `Start Here.md` says what to look for in each.
  */
 
@@ -24,12 +25,62 @@ const addDays = (x, n) => day(x.y, x.m, x.d + n);
 const ymd = (x) => `${x.y}-${pad(x.m)}-${pad(x.d)}`;
 const ym = (x) => `${x.y}-${pad(x.m)}`;
 
+/**
+ * Tags by note title: `fm` goes in frontmatter `tags:`, `inline` in the body
+ * as `#tags`. Both count the same to a filter, a tag covers the ones nested
+ * under it (`work` takes in `work/meetings`), and case doesn't matter
+ * (`#History/Modern` is `history/modern`).
+ */
+const TAGS = {
+  'Team Standup': { fm: ['work/meetings'] },
+  'Design Review': { fm: ['work/meetings'], inline: ['design'] },
+  'Lunch with Ben': { fm: ['personal/social'] },
+  'Coffee Chat': { inline: ['work'] },
+  'Code Review': { fm: ['work'] },
+  'One-on-One': { fm: ['work/meetings'] },
+  'Lunch and Learn': { fm: ['work', 'learning'] },
+  'Sprint Planning': { fm: ['work/meetings'] },
+  'Vendor Call': { fm: ['work/meetings', 'vendor'] },
+  'Team Drinks': { fm: ['personal/social'], inline: ['work'] },
+  'Lisbon Offsite': { fm: ['work/travel'] },
+  'Conference': { fm: ['work/travel'], inline: ['learning'] },
+  'Moving Weekend': { fm: ['personal/home'] },
+  'Quarterly Planning': { fm: ['work'] },
+  'Annual Retreat': { fm: ['work', 'personal'] },
+  'Product Launch': { fm: ['work', 'launch'] },
+  'Evening Call with SF': { fm: ['work/meetings', 'vendor'] },
+  'Backwards Workshop': { fm: ['work', 'archived/2025'] },
+  'Typo Date': { fm: ['archived'] },
+  'Someday Hike': { fm: ['personal/outdoors'] },
+  'Dentist': { fm: ['personal/health'] },
+  'Holiday': { fm: ['personal/travel'] },
+  'Founding of Rome': { fm: ['history/ancient'] },
+  'Ides of March': { fm: ['history/ancient'] },
+  'Reign of Augustus': { fm: ['history/ancient'] },
+  'Printing Press': { fm: ['history/modern', 'technology'] },
+  'Apollo 11': { fm: ['history/space'] },
+  'Moon Landing': { fm: ['history/space'], inline: ['technology'] },
+  'Woodstock': { inline: ['History/Modern', 'music'] },
+  'Fall of the Berlin Wall': { fm: ['history/modern'] },
+  'Cassini Mission': { fm: ['history/space', 'technology'] },
+  'Website Redesign': { fm: ['work', 'design'] },
+  'Mobile App': { fm: ['work', 'technology'] },
+  'Data Migration': { fm: ['work', 'technology'] },
+  'Onboarding Revamp': { fm: ['work', 'archived/2025'] },
+  'Quarterly Report': { fm: ['work'] },
+  'Blockchain Pilot': { fm: ['work', 'technology', 'archived/2025'] },
+  'Vendor Integration': { fm: ['work', 'vendor'] },
+  'Office Move': { fm: ['personal/home'], inline: ['work'] },
+};
+
 function note(fields, title, body = '') {
-  const fm = Object.entries(fields)
+  const { fm: tags, inline } = TAGS[title] ?? {};
+  if (inline) body = `${body ? `${body}\n\n` : ''}Tagged inline: ${inline.map((t) => `#${t}`).join(' ')}`;
+  const fm = Object.entries(tags ? { ...fields, tags: `[${tags.join(', ')}]` } : fields)
     .filter(([, v]) => v !== undefined)
     // Quoted when YAML would read it as something else: a link, a time, a
     // signed or bare year (a number to YAML), so every date stays a string.
-    .map(([k, v]) => `${k}: ${/^\[\[|[:#]|^-?\d/.test(String(v)) ? JSON.stringify(String(v)) : v}`)
+    .map(([k, v]) => `${k}: ${k !== 'tags' && /^\[\[|[:#]|^-?\d/.test(String(v)) ? JSON.stringify(String(v)) : v}`)
     .join('\n');
   return `---\n${fm}\n---\n# ${title}\n${body ? `\n${body}\n` : ''}`;
 }
@@ -133,6 +184,11 @@ export function eventsThoughtbase(today) {
     ['Timeline - Rome', { typeId: 'event', layout: 'timeline', from: '-0099', to: '0014', folder: 'history' }, 'A saved range, 100 BC to AD 14.'],
     ['Project Board', { typeId: 'project', layout: 'kanban' }, 'Grouped by status: active, paused, done, abandoned, then blocked and No value.'],
     ['Project Board - Done First', { typeId: 'project', layout: 'kanban', groupBy: 'status', columnOrder: ['done', 'active'], showEmptyColumns: false }, 'A saved column order: done and active first, the rest after.'],
+    ['Calendar - Work', { typeId: 'event', layout: 'calendar', filters: [{ property: 'tags', values: ['work'] }] }, 'Tagged work, or anything nested under it (work/meetings, work/travel), in frontmatter or inline: Coffee Chat is only #work in its text.'],
+    ['Calendar - Not Work', { typeId: 'event', layout: 'calendar', filters: [{ property: 'tags', values: ['work'], match: 'none' }] }, 'match none: everything without a work tag, untagged notes included. Team Drinks and Office Move are gone too (each has an inline #work).'],
+    ['Timeline - Travel or Space', { typeId: 'event', layout: 'timeline', filters: [{ property: 'tags', values: ['work/travel', 'personal/travel', 'history/space'] }] }, 'match any (the default) over three tags.'],
+    ['Timeline - Technology in History', { typeId: 'event', layout: 'timeline', filters: [{ property: 'tags', values: ['history', 'technology'], match: 'all' }] }, 'match all: Printing Press, Moon Landing and Cassini Mission, not Apollo 11.'],
+    ['Project Board - Not Archived', { typeId: 'project', layout: 'kanban', filters: [{ property: 'tags', values: ['archived'], match: 'none' }] }, 'match none on archived also hides archived/2025: Onboarding Revamp and Blockchain Pilot drop off.'],
     ['Timeline - Around Now', { typeId: 'event', layout: 'timeline', filters: [{ property: 'date', min: ym(prevLast), max: ym(next) }] }, 'A date range filter: Fit stays inside last month to next.'],
   ];
   for (const [title, spec, body] of views) files[`Views/${title}.md`] = `# ${title}\n\n${body}\n\n${view(spec)}\n`;
@@ -177,6 +233,20 @@ notes in \`Views/\`.
 - Drag a card to another column and its \`status\` line changes; ⌘Z takes it back.
 - Shift+F10 → Move to ▸ by keyboard; ⌘-click several cards to move them together.
 - Drag a column header, or its ⋯ menu, to reorder; toggle Show empty columns.
+
+## Tags
+
+Most notes are tagged, some in frontmatter \`tags:\`, some inline as \`#tags\`
+in their text. Try **Filter → Tags** in any view, or the tag views in \`Views/\`.
+
+- **Nesting:** \`work\` covers \`work/meetings\` and \`work/travel\`; \`history\` covers \`ancient\`, \`modern\`, \`space\`.
+- **Inline only:** Coffee Chat (\`#work\`), Woodstock (\`#History/Modern\`, mixed case, \`#music\`).
+- **Both:** Design Review, Conference, Team Drinks, Moon Landing, Office Move.
+- **Any / all / none:** \`all\` of history + technology is Printing Press, Moon Landing and
+  Cassini; \`none\` of archived hides \`archived/2025\` too.
+- **Untagged:** Release Cut, on purpose. A \`none\` filter keeps it; \`any\` and \`all\` don't.
+- Undated and band events filter too: Someday Hike (personal/outdoors) in the Undated tray,
+  Annual Retreat (work and personal) in the year band.
 
 ## Settings worth flipping
 
