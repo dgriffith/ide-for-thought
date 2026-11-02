@@ -120,6 +120,27 @@ describe('TypeViewMap (#2066)', () => {
     expect(onOpenNote).toHaveBeenCalledWith('NYC.md');
   });
 
+  it("right-clicking a pin hands its note to the view's menu, not the map's or the page's (#2930)", async () => {
+    const onPinContextMenu = vi.fn();
+    const outer = vi.fn();
+    document.body.addEventListener('contextmenu', outer);
+    render(TypeViewMap, { instances: INSTANCES, locationProperty: 'location', onOpenNote: vi.fn(), onPinContextMenu });
+    await waitFor(() => expect(markerInstances.length).toBe(2));
+    await fireEvent.contextMenu(markerInstances[1]!.getElement(), { clientX: 12, clientY: 34 });
+    expect(onPinContextMenu).toHaveBeenCalledOnce();
+    expect(onPinContextMenu.mock.calls[0]![1]).toBe('NYC.md');
+    expect(outer).not.toHaveBeenCalled(); // a note's preview menu never hears it
+    document.body.removeEventListener('contextmenu', outer);
+  });
+
+  it('with no menu handler a right-click on a pin is left alone', async () => {
+    render(TypeViewMap, { instances: INSTANCES, locationProperty: 'location', onOpenNote: vi.fn() });
+    await waitFor(() => expect(markerInstances.length).toBe(2));
+    const ev = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
+    markerInstances[0]!.getElement().dispatchEvent(ev);
+    expect(ev.defaultPrevented).toBe(false);
+  });
+
   it('removes the map and every marker on unmount', async () => {
     const { unmount } = render(TypeViewMap, { instances: INSTANCES, locationProperty: 'location', onOpenNote: vi.fn() });
     await waitFor(() => expect(markerInstances.length).toBe(2));
