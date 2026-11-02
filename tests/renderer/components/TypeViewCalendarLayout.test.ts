@@ -164,7 +164,7 @@ describe('calendar layout (#2701, #2702)', () => {
   describe("Minerva's note menu on an event (#2929)", () => {
     const actions = () => ({ editProperties: vi.fn(), addTag: vi.fn(), removeTag: vi.fn(), clearProperty: vi.fn() });
     const event = (root: HTMLElement, path: string) => root.querySelector<HTMLElement>(`[data-plugin-loopback] [data-note-path="${path}"]`)!;
-    const items = () => screen.getAllByRole('menuitem').map((i) => i.textContent!.trim());
+    const items = () => screen.getAllByRole('menuitem').map((i) => i.textContent.trim());
 
     it("in the panel: the note actions, and Move to date… starts the calendar's day picker", async () => {
       h.instances.mockResolvedValue({ type: JOURNAL, instances: ENTRIES });
