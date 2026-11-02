@@ -191,4 +191,40 @@ describe('timeline layout (#2607, #2608, #2715)', () => {
     expect((await copied()).spec).toMatchObject({ typeId: 'conference', layout: 'timeline', from: '1960', to: null });
   });
 
+  describe("Minerva's note menu on an event (#2928)", () => {
+    const actions = () => ({ editProperties: vi.fn(), addTag: vi.fn(), removeTag: vi.fn(), clearProperty: vi.fn() });
+    const event = (root: HTMLElement, path: string) => root.querySelector<SVGGElement>(`[data-plugin-loopback] [data-timeline-event][data-note-path="${path}"]`)!;
+    const items = () => screen.getAllByRole('menuitem').map((i) => i.textContent.trim());
+
+    it('in the panel: the note actions for that event, and Add Tag reaches the host', async () => {
+      h.instances.mockResolvedValue({ type: EVENT, instances: EVENTS });
+      const noteActions = actions();
+      const { container } = render(TypeView, props({ noteActions }));
+      await waitFor(() => expect(drawn(container)).toEqual(['moon.md', 'war.md']));
+      await fireEvent.contextMenu(event(container, 'moon.md'), { clientX: 40, clientY: 50 });
+      await screen.findByRole('menu');
+      expect(items()).toEqual(['Add Tag…', 'Remove Tag▸', 'Set Property▸', 'Clear Property▸', 'Edit Properties…']);
+      await fireEvent.click(screen.getByRole('menuitem', { name: 'Add Tag…' }));
+      expect(noteActions.addTag).toHaveBeenCalledWith(['moon.md']);
+    });
+
+    it('in an embed: the same menu, for that one note', async () => {
+      h.instances.mockResolvedValue({ type: EVENT, instances: EVENTS });
+      const noteActions = actions();
+      const { container } = render(TypeView, props({ chromeless: true, noteActions }));
+      await waitFor(() => expect(drawn(container)).toEqual(['moon.md', 'war.md']));
+      await fireEvent.contextMenu(event(container, 'war.md'));
+      await screen.findByRole('menu');
+      await fireEvent.click(screen.getByRole('menuitem', { name: 'Edit Properties…' }));
+      expect(noteActions.editProperties).toHaveBeenCalledWith(['war.md']);
+    });
+
+    it('without note actions (an export, or a host that offers none) a right-click opens nothing', async () => {
+      h.instances.mockResolvedValue({ type: EVENT, instances: EVENTS });
+      const { container } = render(TypeView, props());
+      await waitFor(() => expect(drawn(container)).toEqual(['moon.md', 'war.md']));
+      await fireEvent.contextMenu(event(container, 'moon.md'));
+      expect(screen.queryByRole('menu')).toBeNull();
+    });
+  });
 });
