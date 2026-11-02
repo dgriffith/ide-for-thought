@@ -59,14 +59,19 @@
    * - **Reschedule** (#2703; not read-only, not export): drag an event onto
    *   another day (`calendar/event-drag.ts`, pointer events) and the whole
    *   event moves by drop day − grab day, whichever segment was grabbed; or,
-   *   from the day's list, Shift+F10 / ContextMenu → *Move to date…*, which
-   *   puts the grid in "choose a day" mode (`CalendarMoveBar`: Enter or a
+   *   from Minerva's note menu, *Move to date…* (the `moveToDate` event,
+   *   #2929), which puts the grid in "choose a day" mode (`CalendarMoveBar`: Enter or a
    *   click on a day moves it there, a typed date works too, Escape cancels).
    *   The write is Minerva's, asked for with `view.reschedule` (its
    *   `rescheduleEvent`: start and end in one save, `date-shift.ts`'s rule,
    *   and Local History says the Calendar did it); ⌘Z here (`view.undoMove`)
    *   undoes the calendar's last move. An event whose start or end is only a
    *   month or year doesn't move: a drag or the menu says why.
+   * - **The note menu** (#2929; where the view has one, `view.rowMenu`, never
+   *   in an export): a right-click on any event — in the grid, a band, the
+   *   Undated tray or a day's list — or the menu key on a focused one, asks
+   *   for Minerva's own note menu (`ui.showNoteMenu`): its tags and
+   *   properties, and *Move to date…* where the calendar can move notes.
    */
   import { tick, untrack } from 'svelte';
   import type { MinervaPlugin, PluginViewState } from '/@minerva/plugin-api.js';
@@ -83,6 +88,7 @@
   import { timelineProperties, type TimelineEvent } from '../../../src/shared/timeline/timeline-events';
   import { buildCalendarModel, dayEvents, dayName, monthTitle, pageBands, pageItems, timeOf, weekdayNames, writtenAs, yearName } from '../../../src/shared/calendar/calendar-model';
   import { eventDrag } from './event-drag';
+  import { isMenuKey, openMenuAt } from './drag-keys';
   import CalendarMoveBar from './CalendarMoveBar.svelte';
   import { createReschedule } from './reschedule-controller.svelte';
 
@@ -303,6 +309,24 @@
     focusDay: (day) => void focusDay(day, 'other-month'), closeList: () => closeList(false),
   });
   const moveBarId = `${uid}-move`;
+
+  // ── The note menu (#2929): Minerva's, for one event ─────────────────────
+  const noteMenu = $derived(view.rowMenu && !exportMode);
+  function onNoteMenu(e: MouseEvent, key: string): void {
+    if (!noteMenu) return;
+    e.preventDefault();
+    e.stopPropagation(); // an event in a day cell: not the cell's as well
+    hover.close();
+    quietly(minerva.ui.showNoteMenu({ paths: [key], x: e.clientX, y: e.clientY }));
+  }
+  function onMenuKey(e: KeyboardEvent): void {
+    if (!noteMenu || !isMenuKey(e)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    openMenuAt(e.currentTarget as HTMLElement);
+  }
+  // *Move to date…*, chosen in that menu: choose the day here.
+  $effect(() => connection.on('moveToDate', ({ path }) => move.start(path)));
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -418,6 +442,7 @@
                   data-slot={s.slot}
                   aria-describedby={[eventDescId(s.key), cardKey === s.key ? cardId : null].filter(Boolean).join(' ')}
                   onclick={(e) => { e.stopPropagation(); onOpenNote(s.key); }}
+                  oncontextmenu={(e) => onNoteMenu(e, s.key)}
                   onpointerenter={(e) => hoverIn(ev, e.currentTarget)}
                   onpointerleave={() => hover.pointerLeave(s.key)}
                 >
@@ -454,6 +479,7 @@
     <CalendarBands
       bands={[{ id: 'year', head: `${yearName(page.year, locale)} · no month`, entries: bands.year }, { id: 'month', head: `${title} · no day`, entries: bands.month }]}
       {hover} {cardId} {cardKey} {exportMode} {onOpenNote}
+      onMenu={noteMenu ? onNoteMenu : null}
     />
   </div>
 
@@ -484,7 +510,16 @@
                 <span class="cal-undated-reason">{u.reasonText}</span>
               </div>
             {:else}
-              <button type="button" class="cal-undated-row" data-note-path={u.key} data-undated-reason={u.reason} onclick={() => onOpenNote(u.key)}>
+              <button
+                type="button"
+                class="cal-undated-row"
+                data-note-path={u.key}
+                data-undated-reason={u.reason}
+                aria-haspopup={noteMenu ? 'menu' : undefined}
+                onclick={() => onOpenNote(u.key)}
+                oncontextmenu={(e) => onNoteMenu(e, u.key)}
+                onkeydown={onMenuKey}
+              >
                 <span class="cal-undated-title">{u.title}</span>
                 <span class="cal-undated-reason">{u.reasonText}</span>
               </button>
@@ -506,7 +541,7 @@
       {cardKey}
       onOpen={(key) => { closeList(false); onOpenNote(key); }}
       onClose={closeList}
-      menu={interactive ? { refusal: move.refusalOf, onMoveToDate: move.start } : null}
+      onMenu={noteMenu ? onNoteMenu : null}
     />
   {/if}
 

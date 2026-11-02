@@ -297,6 +297,19 @@ describe('export requests (#2828, part B)', () => {
   });
 });
 
+describe('Move to date (#2929)', () => {
+  it("passes a note in the session's scope on to the plugin, and refuses any other", async () => {
+    const w = fakeWindow(1);
+    const { sessionId } = openPluginSession(w.win, 'calendar', ['a.md']);
+    const events: unknown[] = [];
+    w.posted[0]!.ports[0]!.on('message', (e: { data: string }) => { const m = JSON.parse(e.data); if (m.event) events.push(m); });
+    await expect(sendPluginSessionEvent(w.win, sessionId, { kind: 'moveToDate', path: 'other.md' })).rejects.toThrow('isn’t in this view');
+    await sendPluginSessionEvent(w.win, sessionId, { kind: 'moveToDate', path: 'a.md' });
+    await vi.waitFor(() => expect(events).toEqual([{ event: 'moveToDate', data: { path: 'a.md' } }]));
+    w.closeWindow();
+  });
+});
+
 describe('a view event names linked notes too (#2828, C1)', () => {
   it("scopes the session to the view's notes and the notes their link fields name; a refused link loses its ref", async () => {
     const w = fakeWindow(1);

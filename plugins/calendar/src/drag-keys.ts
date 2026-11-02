@@ -10,6 +10,16 @@ export function isMenuKey(e: KeyboardEvent): boolean {
   return e.key === 'ContextMenu' || (e.key === 'F10' && e.shiftKey && !e.metaKey && !e.ctrlKey && !e.altKey);
 }
 
+/** Open an element's context menu from the keyboard (#2929): the same
+ *  `contextmenu` event a right-click sends, placed at the element, so it takes
+ *  the same route — Kanban's `openMenuAt`. */
+export function openMenuAt(el: HTMLElement): void {
+  const r = el.getBoundingClientRect();
+  el.dispatchEvent(new MouseEvent('contextmenu', {
+    bubbles: true, cancelable: true, clientX: r.left + Math.min(24, r.width / 2), clientY: r.bottom - 4,
+  }));
+}
+
 /** Travel (px) before a press becomes a drag, so a click stays a click. */
 export const DRAG_THRESHOLD_PX = 5;
 

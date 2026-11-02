@@ -50,8 +50,10 @@ export function pluginLoopback(into: Partial<LoopbackState>, load: () => Promise
         moveCard: (p: { path: string; target: never }) => call(() => host.moveCard?.(p.path, p.target)),
         undoMove: () => call(() => host.undoMove?.()),
         moveColumn: (p: { key: string; target: string; side: 'before' | 'after' }) => call(() => host.moveColumn?.(p.key, p.target, p.side)),
+        reschedule: (p: { path: string; days: number }) => call(() => host.reschedule?.(p.path, p.days)),
       },
       ui: {
+        announce: () => call(() => {}),
         previewNote: (p: { path: string; x: number; y: number; width: number; height: number; via?: 'pointer' | 'focus'; extra?: string[]; omit?: string[] }) =>
           call(() => host.previewNote?.(p.path, { x: p.x, y: p.y, width: p.width, height: p.height }, p.via ?? 'pointer', { extra: p.extra ?? [], omit: p.omit ?? [] })),
         hidePreview: (p: { path: string; via?: 'pointer' | 'focus' }) => call(() => host.hidePreview?.(p.path, p.via ?? 'pointer')),
@@ -69,6 +71,7 @@ export function pluginLoopback(into: Partial<LoopbackState>, load: () => Promise
       sendView: vi.fn(async (v: PluginViewState) => { state.views.push(v); emit('view', v); }),
       requestExport: vi.fn(async (requestId: string) => { emit('export', { requestId }); }),
       sendPreview: vi.fn(async (path: string, description: string | null) => { emit('preview', { path, description }); }),
+      startMoveToDate: vi.fn(async (path: string) => { emit('moveToDate', { path }); }),
       close: vi.fn(async () => { void unmount(app); target.remove(); }),
     };
   });

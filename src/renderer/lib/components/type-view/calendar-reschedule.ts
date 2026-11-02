@@ -4,6 +4,10 @@
  * `kanban-moves` store's `rescheduleEvent` — start and end in one save, with
  * its undo and its announcement — naming the days the way the calendar did,
  * and Local History the plugin that asked.
+ *
+ * The row menu's *Move to date…* (#2929) asks the plugin to let the user
+ * choose the day; `moveToDateRefusal` is why it's disabled, the same sentence
+ * the calendar speaks on a refused drag.
  */
 import { addDays } from '../../../../shared/objects/calendar-grid';
 import { startDayOf } from '../../../../shared/objects/date-shift';
@@ -11,6 +15,7 @@ import { dayName } from '../../../../shared/calendar/calendar-model';
 import { timelineProperties } from '../../../../shared/timeline/timeline-events';
 import type { PropertyDef, TypeInstanceRow } from '../../../../shared/objects/type-def';
 import type { getKanbanMoveStore } from '../../stores/kanban-moves.svelte';
+import { refusalFor } from '../../../../shared/calendar/reschedule-refusal';
 
 /** Move `inst` by `days` whole days on the view's *Date by* (and, for Event, its `end`). */
 export function rescheduleInView(
@@ -30,4 +35,12 @@ export function rescheduleInView(
     { to: dayName(addDays(from, days), view.locale), back: dayName(from, view.locale) },
     view.cause ? { cause: view.cause } : {},
   );
+}
+
+/** Why `inst` can't be moved to another day on the view's *Date by*, or null when it can (#2929). */
+export function moveToDateRefusal(
+  inst: TypeInstanceRow,
+  view: { properties: readonly PropertyDef[]; dateBy: string | null },
+): string | null {
+  return refusalFor({ inst, title: inst.title }, timelineProperties(view.dateBy, view.properties));
 }

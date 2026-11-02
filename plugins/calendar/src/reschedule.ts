@@ -1,41 +1,16 @@
 /**
- * The Calendar's side of a reschedule (#2703) that isn't drawing: what an
- * event's written dates are, whether it can move (and the sentence when it
- * can't), and reading a typed *Move to date…* day. Pure, so it tests without
- * a DOM; the rule itself is `shared/objects/date-shift.ts`'s and the write is
- * the `kanban-moves` store's.
+ * The Calendar's side of a reschedule (#2703) that isn't drawing: the day
+ * *Move to date…* counts from, and reading a typed day. Pure, so it tests
+ * without a DOM. Whether an event can move, and the sentence when it can't,
+ * is `shared/calendar/reschedule-refusal.ts`'s since #2929 (Minerva's row
+ * menu says it too); the write is the `kanban-moves` store's.
  */
-import { rescheduleRefusal, startDayOf } from '../../../src/shared/objects/date-shift';
-import { rescheduleRefusalText } from '../../../src/shared/objects/reschedule-text';
+import { startDayOf } from '../../../src/shared/objects/date-shift';
+import { writtenDates } from '../../../src/shared/calendar/reschedule-refusal';
 import { civilMs, parseDateValue } from '../../../src/shared/objects/date-precision';
 import type { TimelineEvent, TimelineProperties } from '../../../src/shared/timeline/timeline-events';
 
-/** The day list's event-menu hooks (#2703). */
-export interface DayListMenu {
-  /** Why the event can't be rescheduled, or null. */
-  refusal: (key: string) => string | null;
-  /** *Move to date…* (also on a refused event, to say why again). */
-  onMoveToDate: (key: string) => void;
-}
-
-function text(v: string | null | undefined): string | null {
-  return v === null || v === undefined || v.trim() === '' ? null : v.trim();
-}
-
-/** An event's start and end as the index read them (the view's *Date by* and, for Event, `end`). */
-export function writtenDates(ev: Pick<TimelineEvent, 'inst'>, dates: TimelineProperties): { start: string; end: string | null } {
-  return {
-    start: text(ev.inst.values[dates.dateProperty]) ?? '',
-    end: dates.endProperty === null ? null : text(ev.inst.values[dates.endProperty]),
-  };
-}
-
-/** Why `ev` can't be rescheduled, as the live region says it; null when it can. */
-export function refusalFor(ev: Pick<TimelineEvent, 'inst' | 'title'>, dates: TimelineProperties): string | null {
-  const { start, end } = writtenDates(ev, dates);
-  const reason = rescheduleRefusal(start, end);
-  return reason === null ? null : rescheduleRefusalText(reason, { title: ev.title, start, end });
-}
+export { refusalFor, writtenDates } from '../../../src/shared/calendar/reschedule-refusal';
 
 /** The civil day the event's start shows on for this viewer (what *Move to date…* counts from). */
 export function eventStartDay(ev: Pick<TimelineEvent, 'inst'>, dates: TimelineProperties): number | null {

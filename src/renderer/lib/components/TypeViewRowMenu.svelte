@@ -3,6 +3,9 @@
    * Right-click menu for a type view's selected rows (#2431). It offers:
    * - **Move to ▸** (#2603), on a Kanban board only: every column, with the
    *   one the selection is already in disabled;
+   * - **Move to date…** (#2929), on a calendar only, for one event: the
+   *   calendar then lets the user choose the day. An event that can't move
+   *   keeps the item, disabled, with the reason under it;
    * - **Add Tag…**, **Remove Tag ▸** (the selection's tags, with counts),
    *   **Set Property ▸** (the type's properties, each opening its own value
    *   widget) and **Clear Property ▸** (the properties the selection has set)
@@ -32,6 +35,8 @@
     /** The value the whole selection already has (undefined = mixed). */
     moveFrom?: string | null | undefined;
     onMove?: ((target: MoveTarget) => void) | undefined;
+    /** Calendar only: *Move to date…*, and why it's refused (null when it isn't). */
+    moveToDate?: { refusal: string | null; onPick: () => void } | undefined;
     /** Note actions (#2773). Absent → the items aren't offered. */
     onAddTag?: (() => void) | undefined;
     /** A note named inside a row (#2775): the note the menu acts on, shown first. */
@@ -46,7 +51,7 @@
     onClearProperty?: ((name: string) => void) | undefined;
   }
   let {
-    x, y, count, onEdit, onClose, moveTargets, moveFrom, onMove,
+    x, y, count, onEdit, onClose, moveTargets, moveFrom, onMove, moveToDate,
     onAddTag, heading, onRemoveTagPrompt, removeTags = [], onRemoveTag, setProperties = [], onSetProperty, clearProperties = [], onClearProperty,
   }: Props = $props();
 
@@ -55,6 +60,7 @@
   let subEl = $state<HTMLDivElement>();
   let openSubName = $state<Sub | null>(null);
   let returnFocus: HTMLElement | null = null;
+  const uid = $props.id();
 
   const items = (root: HTMLElement | undefined) =>
     [...(root?.querySelectorAll<HTMLButtonElement>(':scope > [role="menuitem"]:not(:disabled)') ?? [])];
@@ -139,6 +145,17 @@
     {/if}
     <div class="tv-menu-sep" role="separator"></div>
   {/if}
+  {#if moveToDate}
+    <button
+      role="menuitem"
+      data-move-to-date
+      aria-disabled={moveToDate.refusal ? 'true' : undefined}
+      aria-describedby={moveToDate.refusal ? `${uid}-refusal` : undefined}
+      onclick={moveToDate.onPick}
+    >Move to date…</button>
+    {#if moveToDate.refusal}<p class="tv-menu-note" id="{uid}-refusal" data-move-refusal>{moveToDate.refusal}</p>{/if}
+    <div class="tv-menu-sep" role="separator"></div>
+  {/if}
   {#if heading}
     <div class="tv-menu-heading">{heading}</div>
   {/if}
@@ -199,5 +216,7 @@
   .tv-menu-novalue { font-style: italic; }
   .tv-menu-count { margin-left: auto; padding-left: 12px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
   .tv-menu-heading { padding: 4px 8px 6px; font-size: 11.5px; font-weight: 600; color: var(--text-muted); border-bottom: 1px solid var(--border); margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 260px; }
+  .tv-menu button[aria-disabled='true'] { color: var(--text-muted); cursor: default; }
+  .tv-menu-note { margin: 0 8px 4px; max-width: 240px; font-size: 11.5px; color: var(--text-muted); }
   .tv-menu-sep { height: 1px; margin: 4px 2px; background: var(--border); }
 </style>

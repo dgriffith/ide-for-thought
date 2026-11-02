@@ -23,7 +23,9 @@
    * The pin keeps its enlarged hit target (the `::before` below), and its
    * accessible name is the instance's title (MapLibre's default is "Map
    * marker"). Pins take no tab stop, as before; the preview is pointer-only
-   * here. An export mounts no preview.
+   * here. An export mounts no preview. Right-clicking a pin opens the view's
+   * note menu for its note (#2930), where the view has one; with no tab stop
+   * that is pointer-only too, for now.
    *
    * The tile style is the view's `mapStyle` (#2665): `light` / `dark` pin
    * OpenFreeMap's named style, `auto` follows the app theme (`styleUrlForTheme`,
@@ -75,8 +77,11 @@
     type?: TypeInfo;
     properties?: readonly PropertyDef[];
     display?: (prop: PropertyDef, value: string | null) => string;
+    /** Right-click a pin (#2930): the view's note menu for its note. Absent
+     *  (no note actions, an export) → the right-click is left alone. */
+    onPinContextMenu?: (e: MouseEvent, relativePath: string) => void;
   }
-  let { instances, locationProperty, onOpenNote, exportHooks, mapStyle = 'auto', onMapStyleChange, type, properties, display }: Props = $props();
+  let { instances, locationProperty, onOpenNote, exportHooks, mapStyle = 'auto', onMapStyleChange, type, properties, display, onPinContextMenu }: Props = $props();
 
   const uid = $props.id();
   const hover = createNoteHover();
@@ -142,6 +147,15 @@
       pin.setAttribute('aria-label', inst.title);
       pin.addEventListener('click', () => onOpenNote(inst.path));
       if (!exportHooks) {
+        // The menu for THIS pin's note (#2930) — not the map's, nor, in an
+        // embed, the note around it. Read at the event, so a handler that
+        // arrives after the pins were placed still applies.
+        pin.addEventListener('contextmenu', (e) => {
+          if (!onPinContextMenu) return;
+          e.stopPropagation();
+          hover.close();
+          onPinContextMenu(e, inst.path);
+        });
         const subject = { key: inst.path, target: inst.path, anchor: pin, fallbackTitle: inst.title };
         pin.addEventListener('pointerenter', () => hover.pointerEnter(subject));
         pin.addEventListener('pointerleave', () => hover.pointerLeave(inst.path));

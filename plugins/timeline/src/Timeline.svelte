@@ -44,6 +44,12 @@
    *   the snippet, minus the dates. Its text comes back as a `preview` event,
    *   which describes the event inside the frame. Escape closes it and keeps
    *   focus where it is.
+   * - **The note menu** (#2928; where the view has one, `view.rowMenu`,
+   *   never in an export): a right-click on an event or an Undated row, or
+   *   Shift+F10 / the menu key on a focused one, asks for Minerva's own note
+   *   menu (`ui.showNoteMenu`) for that one note — its tags and properties.
+   *   The preview closes first, and a range still on its debounce is written,
+   *   since a change the menu makes re-renders the view.
    * - **Scale.** Above `VIRTUALIZE_ABOVE` dated events only those in view
    *   (half a screen of overscan each side, and the visible lanes) are drawn;
    *   the tab stop is always kept, so the keyboard order stays whole.
@@ -81,6 +87,7 @@
   import { timelineGestures } from './timeline-gestures';
   import { EXPORT_MAX_LANES, planTimelineExport, type TimelineExportPlan } from './timeline-export';
   import { logger } from '../../../src/shared/logger';
+  import { isMenuKey, openMenuAt } from './keys';
 
   interface Props {
     minerva: MinervaPlugin;
@@ -283,7 +290,10 @@
     // Escape closes the preview and leaves focus where it is; with none up,
     // the plugin runtime gives focus back to Minerva.
     if (e.key === 'Escape' && previewing) { e.preventDefault(); unpreviewAll(); return; }
-    const key = (e.target as Element | null)?.closest<SVGGElement>('[data-timeline-event]')?.dataset['notePath'] ?? tabStop;
+    const focused = (e.target as Element | null)?.closest<SVGGElement>('[data-timeline-event]');
+    // Shift+F10 / the menu key: the focused event's menu, the way a right-click opens it.
+    if (focused && noteMenu && isMenuKey(e)) { e.preventDefault(); openMenuAt(focused); return; }
+    const key = focused?.dataset['notePath'] ?? tabStop;
     if (!key) return;
     const i = order.indexOf(key);
     const step = (k: string | undefined) => { e.preventDefault(); if (k) void focusEvent(k); };
@@ -344,6 +354,23 @@
   $effect(() => minerva.on('preview', ({ path, description: text }) => {
     description = text === null ? (description?.path === path ? null : description) : { path, text };
   }));
+
+  // ── The note menu (#2928): Minerva's, for one event ───────────────────
+  const noteMenu = $derived(view.rowMenu && !exportMode);
+  function onNoteMenu(e: MouseEvent, key: string): void {
+    if (!noteMenu) return;
+    e.preventDefault();
+    e.stopPropagation();
+    flushCommit();
+    unpreviewAll();
+    quietly(minerva.ui.showNoteMenu({ paths: [key], x: e.clientX, y: e.clientY }));
+  }
+  function onMenuKey(e: KeyboardEvent): void {
+    if (!noteMenu || !isMenuKey(e)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    openMenuAt(e.currentTarget as Element);
+  }
 
   let undatedOpen = $state(true);
   const rangeLabel = $derived(`${type.label} timeline, ${order.length} dated ${order.length === 1 ? 'event' : 'events'}`);
@@ -427,7 +454,9 @@
               data-kind={p.point ? 'point' : 'bar'}
               data-lane={p.lane}
               data-end-issue={ev.endNote ? '' : undefined}
+              aria-haspopup={noteMenu ? 'menu' : undefined}
               onclick={() => onOpenNote(ev.key)}
+              oncontextmenu={(e) => onNoteMenu(e, ev.key)}
               onfocus={(e) => { focusedKey = ev.key; preview(ev, e.currentTarget, 'focus'); }}
               onblur={() => unpreview(ev.key, 'focus')}
               onpointerenter={(e) => preview(ev, e.currentTarget, 'pointer')}
@@ -526,7 +555,16 @@
                 <span class="tl-list-date">{u.reasonText}</span>
               </div>
             {:else}
-              <button type="button" class="tl-undated-row" data-note-path={u.key} data-undated-reason={u.reason} onclick={() => onOpenNote(u.key)}>
+              <button
+                type="button"
+                class="tl-undated-row"
+                data-note-path={u.key}
+                data-undated-reason={u.reason}
+                aria-haspopup={noteMenu ? 'menu' : undefined}
+                onclick={() => onOpenNote(u.key)}
+                oncontextmenu={(e) => onNoteMenu(e, u.key)}
+                onkeydown={onMenuKey}
+              >
                 <span class="tl-list-title">{u.title}</span>
                 <span class="tl-list-date">{u.reasonText}</span>
               </button>

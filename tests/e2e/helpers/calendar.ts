@@ -37,9 +37,10 @@ export function civilDay(year: number, month: number, day: number): number {
 export interface Calendar {
   /**
    * The Calendar plugin's frame (#2829): the whole layout below the view's
-   * header — grid, toolbar, day list and its menu, move bar, bands, tray. The
-   * keyboard follows focus into it, and boxes inside it come back in the
-   * window's coordinates, so drags work as they did.
+   * header — grid, toolbar, day list, move bar, bands, tray (an event's menu
+   * is the app's, outside it, #2929). The keyboard follows focus into it, and
+   * boxes inside it come back in the window's coordinates, so drags work as
+   * they did.
    */
   frame: FrameLocator;
   grid: Locator;
@@ -120,8 +121,9 @@ export async function dragEventToDay(
 /**
  * Keyboard only, put the grid into "choose a day" mode for one event: focus
  * its day, Enter for the day's list (focus lands on the event, the day's only
- * one), Shift+F10 for its menu, Enter on *Move to date…*. Focus is then back
- * on the event's day; the arrows move it, Enter moves the event there, and
+ * one), Shift+F10 for its menu — Minerva's note menu, drawn by the app
+ * outside the frame (#2929) — and Enter on *Move to date…*, which it puts
+ * first. Focus is then back in the frame, on the event's day; the arrows move it, Enter moves the event there, and
  * the move bar's text field takes a typed date (#2703).
  *
  * `noteFile` is the end of the event's note path (`Standup.md`).
@@ -138,7 +140,7 @@ export async function startMoveToDate(
   await expect(cal.dayList).toBeVisible();
   await expect(cal.dayList.locator(`[data-day-event][data-note-path$="${noteFile}"]`)).toBeFocused();
   await win.keyboard.press('Shift+F10');
-  await expect(cal.frame.getByRole('menuitem', { name: 'Move to date…' })).toBeFocused();
+  await expect(win.getByRole('menuitem', { name: 'Move to date…' })).toBeFocused();
   await win.keyboard.press('Enter');
   await expect(cal.day(m.year, m.month, day)).toBeFocused();
 }
