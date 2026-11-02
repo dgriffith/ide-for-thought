@@ -511,6 +511,13 @@ put both patterns together:
 - **The viewer's week** (its first day, week numbers) is in the view as
   `week`: "automatic" needs the OS region, which only main can read, so the
   host resolves it.
+- **The event's menu is Minerva's** (#2929): a right-click or the menu key
+  on any event calls `ui.showNoteMenu` when the view has `rowMenu`. Where the
+  view reschedules, that menu offers *Move to date…*; choosing it sends the
+  plugin a `moveToDate` event (API 1.13.0), and the calendar's own "choose a
+  day" mode does the rest. The host also shows the item disabled for an event
+  that can't move, with the reason from `shared/calendar/reschedule-refusal.ts`,
+  the same rule the plugin refuses a drag by.
 - **A sandboxed frame can't submit a form** (no `allow-forms`, by design): the
   *Move to date…* bar acts on Enter and on its button's click instead.
 - **An export inliner must not copy what is the frame's**: a computed height

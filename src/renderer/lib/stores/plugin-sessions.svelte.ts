@@ -48,6 +48,8 @@ export interface PluginFrameConnection {
   sendPreview(path: string, description: string | null): Promise<void>;
   /** A global view's or live block's (#2640, #2641): run its query again and send the plugin the results; resolves once they're sent. */
   refreshQuery(): Promise<void>;
+  /** *Move to date…* from the app's note menu (#2929): the plugin lets the user choose the day. */
+  startMoveToDate(path: string): Promise<void>;
   close(): Promise<void>;
 }
 
@@ -248,6 +250,7 @@ export async function connectPluginFrame(
     requestExport: (requestId) => api.plugins.sendSessionEvent(sessionId, { kind: 'exportRequest', requestId }),
     sendPreview: (path, description) => api.plugins.sendSessionEvent(sessionId, { kind: 'preview', path, description }),
     refreshQuery: () => api.plugins.sendSessionEvent(sessionId, { kind: 'refreshQuery' }),
+    startMoveToDate: (path) => api.plugins.sendSessionEvent(sessionId, { kind: 'moveToDate', path }),
     close: () => {
       hosts.delete(sessionId);
       return api.plugins.closeSession(sessionId);

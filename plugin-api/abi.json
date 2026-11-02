@@ -1,5 +1,5 @@
 {
-  "version": "1.12.0",
+  "version": "1.13.0",
   "errorCodes": [
     "bad-request",
     "busy",
@@ -51,6 +51,15 @@
       "members": [
         {
           "name": "requestId",
+          "optional": false,
+          "type": "string"
+        }
+      ]
+    },
+    "moveToDate": {
+      "members": [
+        {
+          "name": "path",
           "optional": false,
           "type": "string"
         }

@@ -10,10 +10,12 @@
    * Ordinary buttons, one tab stop each, AFTER the grid in tab order (the
    * vision doc's keyboard model) though shown above it (`order: -1` in the
    * calendar's column). Focus and hover show the shared hover preview. In an
-   * export (#2704) they follow the grid on the page too, as links.
+   * export (#2704) they follow the grid on the page too, as links. A
+   * right-click, or the menu key, asks for Minerva's note menu (#2929).
    */
   import type { BandEntry } from '../../../src/shared/calendar/calendar-model';
   import type { NoteHover } from './hover.svelte';
+  import { isMenuKey, openMenuAt } from './drag-keys';
 
   interface Band {
     id: 'year' | 'month';
@@ -28,8 +30,10 @@
     cardKey: string | null;
     exportMode: boolean;
     onOpenNote: (path: string) => void;
+    /** Minerva's note menu for an entry, at the pointer; absent → no menu. */
+    onMenu?: ((e: MouseEvent, key: string) => void) | null;
   }
-  let { bands, hover, cardId, cardKey, exportMode, onOpenNote }: Props = $props();
+  let { bands, hover, cardId, cardKey, exportMode, onOpenNote, onMenu = null }: Props = $props();
 
   const uid = $props.id();
   const shown = $derived(bands.filter((b) => b.entries.length > 0));
@@ -58,7 +62,10 @@
                   class="cal-chip"
                   data-note-path={b.ev.key}
                   aria-describedby={cardKey === b.ev.key ? cardId : undefined}
+                  aria-haspopup={onMenu ? 'menu' : undefined}
                   onclick={() => onOpenNote(b.ev.key)}
+                  oncontextmenu={onMenu ? (e) => onMenu(e, b.ev.key) : undefined}
+                  onkeydown={onMenu ? (e) => { if (isMenuKey(e)) { e.preventDefault(); openMenuAt(e.currentTarget); } } : undefined}
                   onfocus={(e) => { if (!exportMode) hover.focus(subject(b, e.currentTarget)); }}
                   onblur={() => hover.blur(b.ev.key)}
                   onpointerenter={(e) => { if (!exportMode) hover.pointerEnter(subject(b, e.currentTarget)); }}
