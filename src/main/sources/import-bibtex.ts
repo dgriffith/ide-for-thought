@@ -20,7 +20,11 @@
 
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { parse as parseBibtex } from '@retorquere/bibtex-parser';
+// The `/js` entry: the parser in TypeScript, as through v12. Since v13 the
+// package's default entry is a WebAssembly build that must be `init()`ed
+// before the first parse — and whose `.wasm` would have to ship beside the
+// bundle — while `/js` needs neither and keeps the same `parse` API.
+import { parse as parseBibtex } from '@retorquere/bibtex-parser/js';
 import { canonicalSourceId } from './source-id';
 import { mergeMetaTtl } from './source-merge';
 import { buildMetaTtl } from './ingest-identifier';
