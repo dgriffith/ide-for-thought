@@ -176,8 +176,8 @@ importers:
         specifier: ^0.6.0
         version: 0.6.0
       '@retorquere/bibtex-parser':
-        specifier: ^12.1.13
-        version: 12.1.13
+        specifier: ^13.0.4
+        version: 13.0.4
       '@traqula/parser-sparql-1-1':
         specifier: 1.4.0
         version: 1.4.0
@@ -272,8 +272,8 @@ importers:
         specifier: ^7.2.4
         version: 7.2.4
       unpdf:
-        specifier: ^1.9.1
-        version: 1.9.1(@napi-rs/canvas@1.0.3)
+        specifier: ^2.1.0
+        version: 2.1.0(@napi-rs/canvas@1.0.3)
       update-electron-app:
         specifier: ^3.3.0
         version: 3.3.0
@@ -2515,8 +2515,8 @@ packages:
   '@rdfjs/types@2.0.1':
     resolution: {integrity: sha512-uyAzpugX7KekAXAHq26m3JlUIZJOC0uSBhpnefGV5i15bevDyyejoB7I+9MKeUrzXD8OOUI3+4FeV1wwQr5ihA==}
 
-  '@retorquere/bibtex-parser@12.1.13':
-    resolution: {integrity: sha512-BBZY4oKsgi0zXHEoD9VYGFYijz5nURwEjCqlCfmqyD0zRv9M2gVZUpsAHj7auTz1LG6NuQMiaaxqlnEeUkaV2g==}
+  '@retorquere/bibtex-parser@13.0.4':
+    resolution: {integrity: sha512-ywQq82EGiw1eokPp5NSHxa0qgYgIMH/wHUSEgOELkKwmUODxbx1QAUBbfa7DrnEpkmP6pRsuiBJlPd0dsPDLbw==}
 
   '@rolldown/binding-android-arm-eabi@1.2.15':
     resolution: {integrity: sha512-aLcgK9gIJ3YRvrrtfSBbRa27F5WrpiTaPulnFpsHPxpUHgFlSgnU4854MHwoRGEBhfRJDWCS2WQ7lIjskE9Olw==}
@@ -5800,9 +5800,9 @@ packages:
     resolution: {integrity: sha512-b2/KCUlYZUeA7JFUuRJZPUtr4gZvBh7tavtv4fvk4+KV9pfGiR6CQAQAWl49ZpR3ts2dk4FYkP7EIgDJoiOLDA==}
     engines: {node: '>= 0.4.0'}
 
-  unpdf@1.9.1:
-    resolution: {integrity: sha512-nO1npM2kNyd4hj1fKzUVU6bvnWjDSxI97eycM/DgzI83dYyW+pNRI9NeMQVEfef8fI3Q06i9lkMeE1HxrQqKoA==}
-    engines: {node: '>=22'}
+  unpdf@2.1.0:
+    resolution: {integrity: sha512-G/Hsrm++g0EoubUhV8TDFItq6oQ+FUu9EMvIRtHUwseKXB0iJoCvaLvBGOpYUBqyvggv/XfxhYYtohL2QpE3xQ==}
+    engines: {node: '>=24'}
     peerDependencies:
       '@napi-rs/canvas': ^0.1.69 || ^1.0.0
     peerDependenciesMeta:
@@ -10693,7 +10693,7 @@ snapshots:
     dependencies:
       '@types/node': 26.4.0
 
-  '@retorquere/bibtex-parser@12.1.13':
+  '@retorquere/bibtex-parser@13.0.4':
     dependencies:
       '@unified-latex/unified-latex-util-pegjs': 1.8.4
       '@unified-latex/unified-latex-util-print-raw': 1.8.4
@@ -14364,7 +14364,7 @@ snapshots:
   unorm@1.6.0:
     optional: true
 
-  unpdf@1.9.1(@napi-rs/canvas@1.0.3):
+  unpdf@2.1.0(@napi-rs/canvas@1.0.3):
     optionalDependencies:
       '@napi-rs/canvas': 1.0.3
 
