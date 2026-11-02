@@ -7,6 +7,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, fireEvent, waitFor, cleanup } from '@testing-library/svelte';
+import { tick } from 'svelte';
 
 const h = vi.hoisted(() => ({
   connect: vi.fn(),
@@ -42,7 +43,7 @@ function fakeView(over: Partial<LayoutView> = {}): LayoutView {
     readOnly: false, exportMode: false, onStateChange: vi.fn(), openRowMenu: vi.fn(),
     display: (_p: unknown, v: string | null) => (v ? v.toUpperCase() : ''), rowType: () => null, pluginExport: undefined,
     refPath: () => null, isSelected: (p: string) => p === 'a.md', selectable: true, rowMenu: true, group: null,
-    spec: { groupBy: 'status', columnOrder: [], showEmptyColumns: true, cardOrder: [] }, board: [], canUndoMove: false, lastMove: null, filters: [], week: { start: 1, numbers: false }, onReschedule: undefined,
+    spec: { groupBy: 'status', columnOrder: [], showEmptyColumns: true, cardOrder: [] }, board: [], canUndoMove: false, lastMove: null, filters: [], week: { start: 1, numbers: false }, onReschedule: undefined, provideMoveToDate: vi.fn(),
     onMoveCard: undefined, onUndoMove: undefined, onMoveColumn: undefined,
     onRowClick: vi.fn(), selectAll: vi.fn(), clearSelection: vi.fn(),
     ...over,
@@ -60,7 +61,7 @@ beforeEach(() => {
 });
 afterEach(() => cleanup());
 
-async function mounted(view = fakeView(), layout: 'kanban' | 'timeline' = 'kanban') {
+async function mounted(view = fakeView(), layout: 'kanban' | 'timeline' | 'calendar' = 'kanban') {
   const r = render(PluginLayout, { view, layout, pluginId: layout });
   await fireEvent.load(r.container.querySelector('iframe')!);
   await waitFor(() => expect(h.sendView).toHaveBeenCalled());
@@ -218,6 +219,28 @@ describe("a card's hover preview (#2710, #2828)", () => {
     expect(h.sendView.mock.calls.at(-1)![0]).toMatchObject({ week: { start: 7, numbers: true }, movable: true });
     (h.host as unknown as { reschedule(p: string, d: number): void }).reschedule('a.md', 3);
     expect(onReschedule).toHaveBeenCalledWith('a.md', 3);
+  });
+
+  it('where the view reschedules, it hands the row menu a Move to date that asks the plugin (#2929)', async () => {
+    const provideMoveToDate = vi.fn();
+    const startMoveToDate = vi.fn(async () => {});
+    h.connect.mockImplementation(async (_f: unknown, _id: string, _s: string[], host: typeof h.host) => {
+      h.host = host;
+      return { sessionId: 's', setScope: vi.fn(async () => {}), sendTheme: vi.fn(async () => {}), drop: vi.fn(), sendView: h.sendView, requestExport: h.requestExport, sendPreview: vi.fn(async () => {}), startMoveToDate, close: vi.fn(async () => {}) };
+    });
+    const { unmount } = await mounted(fakeView({ onReschedule: vi.fn(), provideMoveToDate }), 'calendar');
+    await vi.waitFor(() => expect(provideMoveToDate).toHaveBeenCalledWith(expect.any(Function)));
+    (provideMoveToDate.mock.calls.at(-1)![0] as (p: string) => void)('a.md');
+    expect(startMoveToDate).toHaveBeenCalledWith('a.md');
+    unmount();
+    expect(provideMoveToDate).toHaveBeenLastCalledWith(null);
+  });
+
+  it('a view that does not reschedule (an embed, a board) offers no Move to date (#2929)', async () => {
+    const provideMoveToDate = vi.fn();
+    await mounted(fakeView({ provideMoveToDate }), 'calendar');
+    await tick();
+    expect(provideMoveToDate).not.toHaveBeenCalledWith(expect.any(Function));
   });
 
   it("draws the plugin's extra lines in the preview, and leaves off the fields it names (#2829)", async () => {

@@ -81,6 +81,14 @@ test('Calendar events reschedule by pointer drag, by keyboard and by a typed dat
       await expectAnnounced(win, 'Moved Standup to');
     });
 
+    await test.step("right-click an event: Minerva's note menu, Move to date… first (#2929)", async () => {
+      await cal.day(NOW.year, NOW.month, 13).locator('[data-calendar-event]').click({ button: 'right' });
+      await expect(win.getByRole('menuitem', { name: 'Move to date…' })).toBeFocused();
+      await expect(win.getByRole('menuitem', { name: 'Add Tag…' })).toBeVisible();
+      await win.keyboard.press('Escape');
+      await expect(win.getByRole('menu')).toHaveCount(0);
+    });
+
     await test.step('typed date: Kickoff (BOM + CRLF) to the 3rd of next month; the page follows', async () => {
       await startMoveToDate(win, cal, NOW, 8, 'Kickoff.md');
       await calendarOf(win).frame.getByRole('textbox', { name: 'Date to move Kickoff to' }).fill(ymd(NEXT, 3));
