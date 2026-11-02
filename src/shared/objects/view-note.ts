@@ -43,6 +43,9 @@ export interface ViewNoteSpec {
   columnOrder?: readonly string[] | undefined;
   /** Kanban's Show empty columns (#2614); written only when off. */
   showEmptyColumns?: boolean | undefined;
+  /** Kanban's card order (#2922), note paths; written only when not empty —
+   *  absent means the view's sort. */
+  cardOrder?: readonly string[] | undefined;
   /** Timeline's visible range (#2607); each edge written only when set —
    *  both absent means fit all events. */
   from?: string | null | undefined;
@@ -81,6 +84,7 @@ export function buildViewEmbed(spec: ViewNoteSpec): string {
   if (spec.groupBy) body.groupBy = spec.groupBy;
   if (spec.columnOrder && spec.columnOrder.length > 0) body.columnOrder = [...spec.columnOrder];
   if (spec.showEmptyColumns === false) body.showEmptyColumns = false;
+  if (spec.cardOrder && spec.cardOrder.length > 0) body.cardOrder = [...spec.cardOrder];
   if (spec.from) body.from = spec.from;
   if (spec.to) body.to = spec.to;
   if (spec.month) body.month = spec.month;

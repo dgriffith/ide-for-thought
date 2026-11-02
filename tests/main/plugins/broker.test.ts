@@ -516,6 +516,22 @@ describe('the kit gaps for layouts (#2828, part B)', () => {
   });
 });
 
+describe('reordering a card (#2922)', () => {
+  it('passes a card put beside another on as an intent — both notes ones it was given, the side one of two', async () => {
+    const s = open({ scope: ['a.md', 'b.md'] });
+    await s.call('view.reorderCard', { path: './a.md', target: 'b.md', side: 'after' });
+    expect(s.intents).toEqual([{ kind: 'reorderCard', path: 'a.md', target: 'b.md', side: 'after' }]);
+    expect((await s.call('view.reorderCard', { path: 'a.md', target: 'c.md', side: 'before' })).error?.code).toBe('scope');
+    expect((await s.call('view.reorderCard', { path: 'a.md', target: 'b.md', side: 'above' })).error?.code).toBe('bad-request');
+    expect(s.intents).toHaveLength(1);
+  });
+
+  it('needs only the ui capability: it changes the view, not a note', async () => {
+    expect((await open({ capabilities: ['ui'], scope: ['a.md', 'b.md'] }).call('view.reorderCard', { path: 'a.md', target: 'b.md', side: 'before' })).error).toBeUndefined();
+    expect((await open({ capabilities: ['notes:read'], scope: ['a.md', 'b.md'] }).call('view.reorderCard', { path: 'a.md', target: 'b.md', side: 'before' })).error?.code).toBe('capability');
+  });
+});
+
 describe("the view's own selection (#2828, C1)", () => {
   it('passes a click on a note it was given, ⌘A and Escape on as intents', async () => {
     const s = open({ scope: ['a.md'] });

@@ -13,8 +13,15 @@
  *   (`section.kb-column`, identified by `data-column-value` /
  *   `data-column-kind`) carries `data-drop-target`. The board styles both
  *   with theme tokens; the ghost is styled inline from the same tokens.
- * - Release over a different column calls `onDrop(path, target)`; release
- *   anywhere else, Escape, or a cancelled pointer drops nothing. The click
+ * - **Where in the column** (#2922): the drop lands between the two cards the
+ *   pointer is between — the card whose middle is first below it, or after
+ *   the column's last card. That card carries `data-drop-before` /
+ *   `data-drop-after` (a line the board draws). A drop in the card's own
+ *   column reorders it; a drop on the spot it already holds does nothing.
+ * - Release calls `onDrop(path, target, anchor)`: `target` is the column
+ *   when it is a different one (null in the card's own), `anchor` the card it
+ *   lands beside (null in an empty column, or where `canReorder` is off).
+ *   Release anywhere else, Escape, or a cancelled pointer drops nothing. The click
  *   the browser fires after a drag is swallowed, so a drop never opens the
  *   note. Near the board's edge the board scrolls, so a far column is
  *   reachable on a narrow window.
@@ -32,10 +39,17 @@ export const DRAG_THRESHOLD_PX = 5;
 const EDGE_PX = 40;
 const EDGE_STEP_PX = 16;
 
+/** The card a dropped card lands beside (#2922). */
+export interface DropAnchor { path: string; side: 'before' | 'after' }
+
 export interface CardDragOptions {
   /** False (an embed, an export): cards don't drag. */
   enabled: boolean;
-  onDrop: (path: string, target: MoveTarget) => void;
+  /** Cards can change column (`view.moveCard`). Off: only their own column takes a drop. */
+  canMove?: boolean;
+  /** Cards can be put in order (`view.reorderCard`). Off: a drop has no anchor. */
+  canReorder?: boolean;
+  onDrop: (path: string, target: MoveTarget | null, anchor: DropAnchor | null) => void;
 }
 
 interface Drag {
@@ -50,6 +64,31 @@ interface Drag {
   started: boolean;
   ghost: HTMLElement | null;
   over: HTMLElement | null;
+  /** The card the drop would land beside, and the element showing it. */
+  anchor: DropAnchor | null;
+  anchorEl: HTMLElement | null;
+}
+
+/** A column's cards, in the order drawn. */
+function cardsOf(col: HTMLElement): HTMLElement[] {
+  return [...col.querySelectorAll<HTMLElement>('[data-kanban-card]')];
+}
+
+/**
+ * Where a card dragged to height `y` lands in `col` (#2922): beside the first
+ * other card whose middle is below `y`, else after the last one. Null when
+ * the column has no other card, or the spot is the one the card already holds.
+ */
+export function dropAnchorAt(col: HTMLElement, dragged: HTMLElement, y: number): { anchor: DropAnchor; el: HTMLElement } | null {
+  const cards = cardsOf(col);
+  const others = cards.filter((c) => c !== dragged);
+  if (others.length === 0) return null;
+  let at = others.findIndex((c) => { const r = c.getBoundingClientRect(); return r.top + r.height / 2 > y; });
+  if (at === -1) at = others.length;
+  if (cards.indexOf(dragged) === at) return null; // where it already is
+  const el = at < others.length ? others[at]! : others[others.length - 1]!;
+  const path = el.dataset['notePath'];
+  return path ? { anchor: { path, side: at < others.length ? 'before' : 'after' }, el } : null;
 }
 
 function columnAt(board: HTMLElement, x: number, y: number): HTMLElement | null {
@@ -91,11 +130,23 @@ export const cardDrag: Action<HTMLElement, CardDragOptions> = (board, initial) =
   let swallowClick = false;
   let savedUserSelect = '';
 
-  function setOver(col: HTMLElement | null): void {
-    if (!drag || drag.over === col) return;
-    drag.over?.removeAttribute('data-drop-target');
-    drag.over = col && col !== drag.fromColumn ? col : null;
-    drag.over?.setAttribute('data-drop-target', '');
+  function setOver(col: HTMLElement | null, y: number): void {
+    if (!drag) return;
+    const own = col !== null && col === drag.fromColumn;
+    const usable = col !== null && (own || opts.canMove !== false) ? col : null;
+    if (drag.over !== usable) {
+      drag.over?.removeAttribute('data-drop-target');
+      drag.over = usable;
+      if (usable && !own) usable.setAttribute('data-drop-target', '');
+    }
+    const at = usable && opts.canReorder !== false ? dropAnchorAt(usable, drag.card, y) : null;
+    if (drag.anchorEl !== (at?.el ?? null) || drag.anchor?.side !== at?.anchor.side) {
+      drag.anchorEl?.removeAttribute('data-drop-before');
+      drag.anchorEl?.removeAttribute('data-drop-after');
+      drag.anchorEl = at?.el ?? null;
+      drag.anchorEl?.setAttribute(at!.anchor.side === 'before' ? 'data-drop-before' : 'data-drop-after', '');
+    }
+    drag.anchor = at?.anchor ?? null;
   }
 
   function end(commit: boolean): void {
@@ -114,10 +165,12 @@ export const cardDrag: Action<HTMLElement, CardDragOptions> = (board, initial) =
     d.ghost?.remove();
     d.card.removeAttribute('data-dragging');
     d.over?.removeAttribute('data-drop-target');
+    d.anchorEl?.removeAttribute('data-drop-before');
+    d.anchorEl?.removeAttribute('data-drop-after');
     document.body.style.userSelect = savedUserSelect;
-    if (commit && d.over) {
-      opts.onDrop(d.path, targetOfColumn(d.over.dataset['columnValue'] ?? '', d.over.dataset['columnKind'] ?? ''));
-    }
+    if (!commit || !d.over) return;
+    const target = d.over === d.fromColumn ? null : targetOfColumn(d.over.dataset['columnValue'] ?? '', d.over.dataset['columnKind'] ?? '');
+    if (target || d.anchor) opts.onDrop(d.path, target, d.anchor);
   }
 
   function edgeScroll(x: number, y: number): void {
@@ -143,12 +196,12 @@ export const cardDrag: Action<HTMLElement, CardDragOptions> = (board, initial) =
     e.preventDefault();
     if (d.ghost) d.ghost.style.transform = `translate(${e.clientX - d.offsetX}px, ${e.clientY - d.offsetY}px) rotate(1.5deg)`;
     edgeScroll(e.clientX, e.clientY);
-    setOver(columnAt(board, e.clientX, e.clientY));
+    setOver(columnAt(board, e.clientX, e.clientY), e.clientY);
   }
 
   function onUp(e: PointerEvent): void {
     if (!drag || e.pointerId !== drag.pointerId) return;
-    if (drag.started) setOver(columnAt(board, e.clientX, e.clientY));
+    if (drag.started) setOver(columnAt(board, e.clientX, e.clientY), e.clientY);
     end(true);
   }
   function onCancel(): void { end(false); }
@@ -170,7 +223,7 @@ export const cardDrag: Action<HTMLElement, CardDragOptions> = (board, initial) =
       fromColumn: card.closest<HTMLElement>('section.kb-column'),
       startX: e.clientX, startY: e.clientY,
       offsetX: e.clientX - rect.left, offsetY: e.clientY - rect.top,
-      started: false, ghost: null, over: null,
+      started: false, ghost: null, over: null, anchor: null, anchorEl: null,
     };
     window.addEventListener('pointermove', onMove, true);
     window.addEventListener('pointerup', onUp, true);

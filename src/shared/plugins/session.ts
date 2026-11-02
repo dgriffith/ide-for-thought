@@ -31,6 +31,8 @@ export type PluginIntent =
   | { kind: 'moveCard'; path: string; target: PluginMoveTarget }
   | { kind: 'undoMove' }
   | { kind: 'moveColumn'; key: string; target: string; side: 'before' | 'after' }
+  /** A card put beside another in the view's order (#2922): the host changes the view, no note. */
+  | { kind: 'reorderCard'; path: string; target: string; side: 'before' | 'after' }
   | { kind: 'reschedule'; path: string; days: number }
   /** A live block's frame height (#2641), clamped by the broker. */
   | { kind: 'setHeight'; height: number };

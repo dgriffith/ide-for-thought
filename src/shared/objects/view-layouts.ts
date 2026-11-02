@@ -74,7 +74,7 @@ export const VIEW_LAYOUTS = [
   { id: 'map', label: 'Map', noteName: 'map', appliesTo: (ctx) => ctx.properties.some((p) => p.type === 'geo'), dated: false, grouped: false, specFields: ['mapStyle'] },
   // A board's columns are an enum's options (#2601).
   // Drawn by the built-in Kanban plugin (#2828), in a plugin frame.
-  { id: 'kanban', label: 'Kanban', noteName: 'board', appliesTo: (ctx) => canShowKanban(ctx.properties), dated: false, grouped: true, specFields: ['groupBy', 'columnOrder', 'showEmptyColumns'], plugin: 'kanban', moves: 'board' },
+  { id: 'kanban', label: 'Kanban', noteName: 'board', appliesTo: (ctx) => canShowKanban(ctx.properties), dated: false, grouped: true, specFields: ['groupBy', 'columnOrder', 'showEmptyColumns', 'cardOrder'], plugin: 'kanban', moves: 'board' },
   // A date or datetime property, own or inherited (#2715).
   { id: 'timeline', label: 'Timeline', noteName: 'timeline', appliesTo: datedRule, dated: true, grouped: false, specFields: ['from', 'to', 'dateBy'], plugin: 'timeline' },
   // The same rule as Timeline (#2702).

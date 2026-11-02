@@ -160,6 +160,7 @@
       onMoveCard={(path, target) => view.onMoveCard?.(path, target)}
       onUndoMove={() => view.onUndoMove?.()}
       onMoveColumn={(key, target, side) => view.onMoveColumn?.(key, target, side)}
+      onReorderCard={(path, target, side) => view.onReorderCard?.(path, target, side)}
       onReschedule={(path, days) => view.onReschedule?.(path, days)}
       onExportHtml={(id, html) => { void onExportHtml(id, html); }}
       {hoverInstance}

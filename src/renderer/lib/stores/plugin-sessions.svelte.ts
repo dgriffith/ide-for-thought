@@ -69,6 +69,8 @@ export interface PluginFrameHost {
   moveCard?(path: string, target: PluginMoveTarget): void;
   undoMove?(): void;
   moveColumn?(key: string, target: string, side: 'before' | 'after'): void;
+  /** A card put beside another in the view's order (#2922). */
+  reorderCard?(path: string, target: string, side: 'before' | 'after'): void;
   /** A calendar's reschedule (#2829): the host moves the note's dates by whole days, with its own undo. */
   reschedule?(path: string, days: number): void;
   /** A live block's frame height (#2641), already clamped. */
@@ -159,6 +161,9 @@ function onIntent({ sessionId, pluginId, intent }: PluginIntentEvent): void {
       return;
     case 'moveColumn':
       hosts.get(sessionId)?.moveColumn?.(intent.key, intent.target, intent.side);
+      return;
+    case 'reorderCard':
+      hosts.get(sessionId)?.reorderCard?.(intent.path, intent.target, intent.side);
       return;
     case 'reschedule':
       hosts.get(sessionId)?.reschedule?.(intent.path, intent.days);

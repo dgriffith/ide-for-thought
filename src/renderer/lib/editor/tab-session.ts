@@ -10,7 +10,7 @@
  */
 import { normalizeFolder, parseViewFilters } from '../../../shared/objects/view-spec';
 import { parseMapStyle } from '../../../shared/objects/map-style';
-import { parseColumnOrder, parseGroupBy, parseShowEmptyColumns } from '../../../shared/objects/kanban';
+import { parseCardOrder, parseColumnOrder, parseGroupBy, parseShowEmptyColumns } from '../../../shared/objects/kanban';
 import { parseTimelineRange } from '../../../shared/objects/timeline';
 import { parseCalendarMonth } from '../../../shared/objects/calendar';
 import { parseDateBy } from '../../../shared/objects/date-by';
@@ -57,6 +57,7 @@ export function toSavedTab(t: Tab): SavedTab {
       ...(t.groupBy ? { groupBy: t.groupBy } : {}),
       ...(t.columnOrder.length > 0 ? { columnOrder: [...t.columnOrder] } : {}),
       ...(t.showEmptyColumns ? {} : { showEmptyColumns: false }),
+      ...(t.cardOrder.length > 0 ? { cardOrder: [...t.cardOrder] } : {}),
       ...(t.from !== null ? { from: t.from } : {}),
       ...(t.to !== null ? { to: t.to } : {}),
       ...(t.month !== null ? { month: t.month } : {}),
@@ -148,6 +149,7 @@ export async function reconstructTab(saved: SavedTab, nextQueryId: () => string)
       groupBy: parseGroupBy(saved.groupBy),
       columnOrder: parseColumnOrder(saved.columnOrder),
       showEmptyColumns: parseShowEmptyColumns(saved.showEmptyColumns),
+      cardOrder: parseCardOrder(saved.cardOrder),
       ...parseTimelineRange(saved.from, saved.to),
       month: parseCalendarMonth(saved.month),
       dateBy: parseDateBy(saved.dateBy),

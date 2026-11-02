@@ -134,6 +134,7 @@ async function renderAtWidth(spec: ReturnType<typeof parseObjectViewSpec>, width
           groupBy: spec.groupBy,
           columnOrder: spec.columnOrder,
           showEmptyColumns: spec.showEmptyColumns,
+          cardOrder: spec.cardOrder,
           from: spec.from,
           to: spec.to,
           month: spec.month,
