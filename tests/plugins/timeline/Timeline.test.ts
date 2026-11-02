@@ -7,7 +7,7 @@
  * zoom/pan/Fit writing `from`/`to` back through `view.setState` (Fit bounded
  * by a range filter), the preview it asks the app for — a backwards `end`
  * flagged on it — the read-only embed, and export
- * mode (#2609). The view is built the way the host builds it, and the
+ * mode (#2609), and Minerva's note menu on an event (#2928). The view is built the way the host builds it, and the
  * plugin API is a fake that records each call.
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
@@ -66,6 +66,8 @@ type Over = {
   dateBy?: string | null;
   readOnly?: boolean;
   exportMode?: boolean;
+  /** The view has a note menu (#2928): the panel, or an embed with note actions. */
+  rowMenu?: boolean;
 };
 
 /** The view as Minerva sends it (`PluginLayout`): the spec's own fields, the filters, the instances. */
@@ -81,7 +83,7 @@ function viewOf(o: Over): PluginViewState {
     spec: { from: o.from ?? null, to: o.to ?? null, dateBy: o.dateBy ?? null },
     filters: o.filters ?? [],
     readOnly: o.readOnly ?? false, exportMode: o.exportMode ?? false,
-    selected: [], selectable: false, rowMenu: false,
+    selected: [], selectable: false, rowMenu: o.rowMenu ?? false,
     groupProperty: null, groups: [], movable: false, canUndoMove: false, lastMove: null,
   };
 }
@@ -592,5 +594,62 @@ describe('virtualised above the threshold', () => {
     await waitFor(() => expect(document.activeElement).toBe(event('e0000.md')));
     await fireEvent.keyDown(document.activeElement!, { key: 'ArrowRight' });
     await waitFor(() => expect(document.activeElement).toBe(event('e0001.md')));
+  });
+});
+
+describe("Minerva's note menu (#2928)", () => {
+  const menus = (api: ReturnType<typeof fakeMinerva>) => api.of('ui.showNoteMenu');
+
+  it('a right-click on an event asks for the menu for that note, at the pointer', () => {
+    const { event, api } = setup({ rowMenu: true });
+    expect(event('moon.md').getAttribute('aria-haspopup')).toBe('menu');
+    const ev = new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 30, clientY: 40 });
+    event('moon.md').dispatchEvent(ev);
+    expect(ev.defaultPrevented).toBe(true);
+    expect(menus(api)).toEqual([{ paths: ['moon.md'], x: 30, y: 40 }]);
+  });
+
+  it('Shift+F10 or the menu key on the focused event asks for it too; other keys still step', async () => {
+    const { event, api } = setup({ rowMenu: true });
+    event('apollo.md').focus();
+    await fireEvent.keyDown(event('apollo.md'), { key: 'F10', shiftKey: true });
+    await fireEvent.keyDown(event('apollo.md'), { key: 'ContextMenu' });
+    expect(menus(api).map((m) => (m as { paths: string[] }).paths)).toEqual([['apollo.md'], ['apollo.md']]);
+    await fireEvent.keyDown(event('apollo.md'), { key: 'ArrowRight' });
+    await waitFor(() => expect(document.activeElement).toBe(event('moon.md')));
+  });
+
+  it('closes the preview first, and writes a range still waiting to settle', async () => {
+    vi.useFakeTimers();
+    const { event, api, onStateChange } = setup({ rowMenu: true });
+    await fireEvent.click(screen.getByRole('button', { name: 'Zoom in' }));
+    await fireEvent.pointerEnter(event('moon.md'));
+    expect(onStateChange).not.toHaveBeenCalled(); // on its debounce
+    await fireEvent.contextMenu(event('moon.md'));
+    expect(onStateChange).toHaveBeenCalledOnce();
+    expect(api.of('ui.hidePreview')).toContainEqual({ path: 'moon.md', via: 'pointer' });
+  });
+
+  it('an Undated row asks for it, by pointer or the menu key', async () => {
+    const { container, api } = setup({ rowMenu: true });
+    const undated = container.querySelector<HTMLElement>('.tl-undated-row[data-note-path="someday.md"]')!;
+    await fireEvent.contextMenu(undated);
+    undated.focus();
+    await fireEvent.keyDown(undated, { key: 'ContextMenu' });
+    expect(menus(api).map((m) => (m as { paths: string[] }).paths)).toEqual([['someday.md'], ['someday.md']]);
+  });
+
+  it('no menu where the view has none, or in an export: the right-click is left alone', async () => {
+    const { event, api } = setup();
+    expect(event('moon.md').hasAttribute('aria-haspopup')).toBe(false);
+    const ev = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
+    event('moon.md').dispatchEvent(ev);
+    expect(ev.defaultPrevented).toBe(false);
+    await fireEvent.keyDown(event('moon.md'), { key: 'ContextMenu' });
+    cleanup();
+    const exported = setup({ rowMenu: true, exportMode: true });
+    await fireEvent.contextMenu(exported.container.querySelector<HTMLElement>('[data-note-path="moon.md"]')!);
+    expect(menus(api)).toEqual([]);
+    expect(menus(exported.api)).toEqual([]);
   });
 });
