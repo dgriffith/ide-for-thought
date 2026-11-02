@@ -119,6 +119,8 @@ export interface TypeViewState {
   columnOrder: string[];
   /** Kanban shows columns with no cards (#2614); default true. */
   showEmptyColumns: boolean;
+  /** Kanban's card order, as note paths (#2922); empty = the view's sort. */
+  cardOrder: string[];
   /** Timeline's visible range as date values (#2607, `timeline.ts`); null on
    *  both = fit all events. */
   from: string | null;

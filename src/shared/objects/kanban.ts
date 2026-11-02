@@ -27,6 +27,15 @@
  *   view, never the type — reordering doesn't touch the enum definition.
  * - **`showEmptyColumns`** (#2614), default on: off hides columns with no
  *   cards. On by default because an empty column is still a drop target.
+ * - **`cardOrder`** (#2922) is a per-view card order: note paths, ONE list
+ *   for the whole board rather than one per column, so a card moved to
+ *   another column keeps its rank. Within a column the listed cards come
+ *   first, in list order, then the rest in the view's order — the same rule
+ *   as `columnOrder`. It is partial on purpose: a note a filter hides keeps
+ *   its entry and comes back where it was, and a note the list doesn't name
+ *   (new, or never dragged) simply follows the ranked ones. It is the view's,
+ *   never the notes' — a reorder writes no frontmatter. The host applies it
+ *   only while the view has no sort (`reorderCard` clears one).
  */
 import type { PropertyDef, TypeInstanceRow } from './type-def';
 import { effectivePropertyDefs, type TypeLike } from './inheritance';
@@ -48,6 +57,18 @@ export function columnKey(col: { value: string | null }): string {
 export function parseColumnOrder(raw: unknown): string[] {
   if (!Array.isArray(raw)) return [];
   return [...new Set(raw.filter((v): v is string => typeof v === 'string'))];
+}
+
+/** The most entries `cardOrder` keeps (#2922): it travels in an embed's
+ *  fence, so it can't grow without bound. */
+export const CARD_ORDER_MAX = 500;
+
+/** `cardOrder` from untrusted JSON: the non-empty string entries of an array,
+ *  first occurrence kept, at most `CARD_ORDER_MAX`; anything else is absent
+ *  (`[]`). Never throws. */
+export function parseCardOrder(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  return [...new Set(raw.filter((v): v is string => typeof v === 'string' && v !== ''))].slice(0, CARD_ORDER_MAX);
 }
 
 /** `showEmptyColumns` from untrusted JSON: only an explicit `false` turns it off. */
@@ -129,10 +150,13 @@ export interface GroupInstancesOptions {
   columnOrder?: readonly string[] | undefined;
   /** Show columns with no cards (#2614); default true. */
   showEmptyColumns?: boolean | undefined;
+  /** The view's card order (#2922), as note paths; absent or empty = the
+   *  order `instances` arrived in. */
+  cardOrder?: readonly string[] | undefined;
 }
 
 /** The board-shaping view-spec fields `boardColumns` passes through. */
-export type BoardOptions = Pick<GroupInstancesOptions, 'columnOrder' | 'showEmptyColumns'>;
+export type BoardOptions = Pick<GroupInstancesOptions, 'columnOrder' | 'showEmptyColumns' | 'cardOrder'>;
 
 /**
  * `columns` in `columnOrder` (#2614): listed columns first, in the listed
@@ -149,11 +173,25 @@ export function orderColumns<C extends { value: string | null }>(columns: readon
 }
 
 /**
+ * `cards` in `cardOrder` (#2922): listed cards first, in the listed order,
+ * then the unlisted ones in the order they came. Stable, and a no-op for an
+ * empty order.
+ */
+export function orderCards<I extends { path: string }>(cards: readonly I[], cardOrder: readonly string[] | undefined): I[] {
+  if (!cardOrder || cardOrder.length === 0) return [...cards];
+  const rank = new Map<string, number>();
+  cardOrder.forEach((p, i) => { if (!rank.has(p)) rank.set(p, i); });
+  const listed = cards.filter((c) => rank.has(c.path)).sort((a, b) => rank.get(a.path)! - rank.get(b.path)!);
+  return [...listed, ...cards.filter((c) => !rank.has(c.path))];
+}
+
+/**
  * Group a view's instances into board columns by the `groupBy` property's
  * value: one column per declared option, in declared order, whether or not
  * any card has it (an empty column is still somewhere to put a card); then a
  * column per off-list value, in first-seen order; then **No value**, last,
- * for notes that leave the property empty. Cards keep their input order.
+ * for notes that leave the property empty. Cards keep their input order,
+ * then the view's `cardOrder` ranks them within each column (`orderCards`).
  *
  * Then the view's `columnOrder` reorders them (`orderColumns`), and
  * `showEmptyColumns: false` drops every column with no cards (#2614).
@@ -180,6 +218,9 @@ export function groupInstances(
       columns.set(value, col); // Map keeps insertion order: off-list values follow the options
     }
     col.instances.push(inst);
+  }
+  if (options.cardOrder && options.cardOrder.length > 0) {
+    for (const col of [...columns.values(), noValue]) col.instances = orderCards(col.instances, options.cardOrder);
   }
   const ordered = orderColumns([...columns.values(), noValue], options.columnOrder);
   return options.showEmptyColumns === false ? ordered.filter((c) => c.instances.length > 0) : ordered;
@@ -212,6 +253,52 @@ export function moveColumn(
   next.splice(next.indexOf(target) + (side === 'after' ? 1 : 0), 0, key);
   if (next.every((k, i) => k === natural[i])) return [];
   return next.at(-1) === NO_VALUE_KEY ? next.slice(0, -1) : next;
+}
+
+/**
+ * The `cardOrder` after putting card `path` just `side` of card `target`
+ * (#2922) — a card dropped between two others, or Alt+↑/↓. `board` is the
+ * board as drawn now; `known` is every instance path of the type.
+ *
+ * Anchor-relative, so it works on a list that names few cards: the cards of
+ * `target`'s column up to and including `target` are written into the list
+ * first (in the order drawn), so nothing in that column moves but `path`.
+ * With `seedAll` — the view is sorted, and the reorder turns the sort off —
+ * every drawn card is written in, in the order drawn, so no card on the
+ * board moves but `path`. Entries `known` doesn't have (deleted, retyped or
+ * renamed notes) are dropped, and the list is capped at `CARD_ORDER_MAX`.
+ *
+ * `path` needn't be in `target`'s column: a card dropped into another column
+ * at a spot is a move (the frontmatter) plus this, and they commute.
+ */
+export function reorderCard(
+  board: readonly KanbanColumn[],
+  cardOrder: readonly string[] | undefined,
+  known: ReadonlySet<string>,
+  path: string,
+  target: string,
+  side: 'before' | 'after',
+  opts: { seedAll?: boolean } = {},
+): string[] {
+  const current = [...(cardOrder ?? [])];
+  const col = board.find((c) => c.instances.some((i) => i.path === target));
+  if (path === target || !col || !known.has(path)) return current;
+  const drawn = (c: KanbanColumn) => c.instances.map((i) => i.path).filter((p) => p !== path);
+  let next: string[];
+  if (opts.seedAll) {
+    const all = board.flatMap(drawn);
+    const shown = new Set(all);
+    // The drawn board first; entries for notes not on it (filtered out) keep
+    // their relative order behind it.
+    next = [...all, ...current.filter((p) => !shown.has(p) && p !== path && known.has(p))];
+  } else {
+    next = current.filter((p) => p !== path && known.has(p));
+    const listed = new Set(next);
+    const upTo = drawn(col);
+    for (const p of upTo.slice(0, upTo.indexOf(target) + 1)) if (!listed.has(p)) next.push(p);
+  }
+  next.splice(next.indexOf(target) + (side === 'after' ? 1 : 0), 0, path);
+  return next.slice(0, CARD_ORDER_MAX);
 }
 
 /**

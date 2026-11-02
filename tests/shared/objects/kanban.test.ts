@@ -5,8 +5,8 @@
  */
 import { describe, it, expect } from 'vitest';
 import {
-  boardColumns, canShowKanban, columnKey, groupByForSpec, groupByForType, groupInstances, moveColumn, NO_VALUE_KEY, NO_VALUE_LABEL,
-  orderColumns, parseColumnOrder, parseGroupBy, parseShowEmptyColumns, resolveGroupBy,
+  boardColumns, canShowKanban, CARD_ORDER_MAX, columnKey, groupByForSpec, groupByForType, groupInstances, moveColumn, NO_VALUE_KEY, NO_VALUE_LABEL,
+  orderCards, orderColumns, parseCardOrder, parseColumnOrder, parseGroupBy, parseShowEmptyColumns, reorderCard, resolveGroupBy,
 } from '../../../src/shared/objects/kanban';
 import { effectivePropertyDefs } from '../../../src/shared/objects/inheritance';
 import type { PropertyDef, TypeInstanceRow } from '../../../src/shared/objects/type-def';
@@ -310,5 +310,74 @@ describe('parsing columnOrder and showEmptyColumns (#2614)', () => {
   it('parseShowEmptyColumns is on unless explicitly false', () => {
     expect(parseShowEmptyColumns(false)).toBe(false);
     for (const raw of [undefined, null, true, 0, 'false', '']) expect(parseShowEmptyColumns(raw)).toBe(true);
+  });
+});
+
+describe('card order (#2922)', () => {
+  const ROWS = [
+    row('a', { status: 'active' }), row('b', { status: 'active' }), row('c', { status: 'active' }), row('d', { status: 'active' }),
+    row('x', { status: 'done' }), row('y', { status: 'done' }),
+  ];
+  const KNOWN = new Set([...ROWS.map((r) => r.path), 'hidden']);
+  const board = (cardOrder: string[], rows = ROWS) => boardColumns(rows, STATUS, [], { cardOrder });
+  const col = (cols: ReturnType<typeof board>, label: string) => cols.find((c) => c.label === label)!.instances.map((i) => i.path);
+
+  it('ranks the listed cards first within each column, the rest after in the order they came', () => {
+    const cols = board(['y', 'c', 'gone', 'a']);
+    expect(col(cols, 'active')).toEqual(['c', 'a', 'b', 'd']);
+    expect(col(cols, 'done')).toEqual(['y', 'x']);
+    expect(orderCards(ROWS, [])).toEqual(ROWS);
+  });
+
+  it('puts a card beside another, writing in only the cards of that column up to the anchor', () => {
+    // d just before b: a and b are written in, so a keeps first place; c (after the anchor) stays unlisted.
+    const next = reorderCard(board([]), [], KNOWN, 'd', 'b', 'before');
+    expect(next).toEqual(['a', 'd', 'b']);
+    expect(col(board(next), 'active')).toEqual(['a', 'd', 'b', 'c']);
+    expect(col(board(next), 'done')).toEqual(['x', 'y']); // another column doesn't move
+  });
+
+  it('after the last card, and from another column — the two halves of a drop at a spot elsewhere commute', () => {
+    const next = reorderCard(board([]), [], KNOWN, 'x', 'd', 'after');
+    expect(next).toEqual(['a', 'b', 'c', 'd', 'x']);
+    // Once x's status says active, it lands where it was put.
+    const moved = ROWS.map((r) => (r.path === 'x' ? row('x', { status: 'active' }) : r));
+    expect(col(board(next, moved), 'active')).toEqual(['a', 'b', 'c', 'd', 'x']);
+  });
+
+  it("is partial: a filtered-out note keeps its place, and a note the order doesn't name follows", () => {
+    const shown = ROWS.filter((r) => r.path !== 'b');
+    const next = reorderCard(board(['b', 'c'], shown), ['b', 'c'], KNOWN, 'a', 'c', 'after');
+    expect(next).toEqual(['b', 'c', 'a']);
+    expect(col(board(next), 'active')).toEqual(['b', 'c', 'a', 'd']); // b back, where it was
+  });
+
+  it('drops entries for notes the type no longer has, and caps the list', () => {
+    expect(reorderCard(board([]), ['gone', 'a'], KNOWN, 'b', 'a', 'before')).toEqual(['b', 'a']);
+    const many = Array.from({ length: CARD_ORDER_MAX + 20 }, (_, i) => `n${i}`);
+    const big = reorderCard(board([]), many, new Set([...KNOWN, ...many]), 'b', 'a', 'before');
+    expect(big).toHaveLength(CARD_ORDER_MAX);
+    expect(big.slice(0, 2)).toEqual(['n0', 'n1']);
+  });
+
+  it('with seedAll (a sorted view), writes the whole board as drawn, so only the moved card moves', () => {
+    const sorted = [...ROWS].reverse(); // what a sort drew: d c b a / y x
+    const drawn = boardColumns(sorted, STATUS, [], {});
+    const next = reorderCard(drawn, ['hidden'], KNOWN, 'a', 'c', 'before', { seedAll: true });
+    expect(next).toEqual(['d', 'a', 'c', 'b', 'y', 'x', 'hidden']);
+    expect(col(board(next), 'active')).toEqual(['d', 'a', 'c', 'b']);
+    expect(col(board(next), 'done')).toEqual(['y', 'x']);
+  });
+
+  it('does nothing for itself, an unknown note, or an anchor not on the board', () => {
+    expect(reorderCard(board(['a']), ['a'], KNOWN, 'a', 'a', 'after')).toEqual(['a']);
+    expect(reorderCard(board(['a']), ['a'], KNOWN, 'stranger', 'b', 'after')).toEqual(['a']);
+    expect(reorderCard(board(['a']), ['a'], KNOWN, 'b', 'hidden', 'after')).toEqual(['a']);
+  });
+
+  it('reads cardOrder leniently: strings only, no blanks or repeats, at most the cap', () => {
+    expect(parseCardOrder(['a', 1, '', 'b', 'a', null])).toEqual(['a', 'b']);
+    expect(parseCardOrder('a')).toEqual([]);
+    expect(parseCardOrder(Array.from({ length: CARD_ORDER_MAX + 5 }, (_, i) => `n${i}`))).toHaveLength(CARD_ORDER_MAX);
   });
 });

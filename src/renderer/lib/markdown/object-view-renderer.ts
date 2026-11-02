@@ -23,7 +23,8 @@
  * A `"layout": "kanban"` spec may name `"groupBy"`, the enum property its
  * columns come from (#2601, `shared/objects/kanban.ts`); absent, the type's
  * first enum property, and may carry `"columnOrder"` (column values, `""` for
- * No value) and `"showEmptyColumns": false` (#2614).
+ * No value), `"showEmptyColumns": false` (#2614) and `"cardOrder"` (note
+ * paths ranked first within their columns, #2922).
  * A `"layout": "timeline"` spec (#2607, `shared/objects/timeline.ts`; Event
  * and its subtypes) may pin its visible range with `"from"` / `"to"`, date
  * values like `"1960"` or `"1969-07-20"`; absent, it fits all events.
@@ -83,7 +84,7 @@ import { isViewLayout, layoutIdList } from '../../../shared/objects/view-layouts
 import { normalizeFolder, parseViewFilters, type ViewFilter } from '../../../shared/objects/view-spec';
 import { escapeHtml } from '../../../shared/text-escape';
 import { parseMapStyle, type MapStyle } from '../../../shared/objects/map-style';
-import { parseColumnOrder, parseGroupBy, parseShowEmptyColumns } from '../../../shared/objects/kanban';
+import { parseColumnOrder, parseCardOrder, parseGroupBy, parseShowEmptyColumns } from '../../../shared/objects/kanban';
 import { parseTimelineRange } from '../../../shared/objects/timeline';
 import { parseCalendarMonth } from '../../../shared/objects/calendar';
 import { parseDateBy } from '../../../shared/objects/date-by';
@@ -121,6 +122,8 @@ export interface ObjectViewSpec {
   columnOrder: string[];
   /** Kanban's Show empty columns (#2614); only an explicit `false` hides them. */
   showEmptyColumns: boolean;
+  /** Kanban's card order (#2922); absent or malformed → `[]`, the view's sort. */
+  cardOrder: string[];
   /** Timeline's visible range (#2607); an invalid edge is dropped, and a `to`
    *  before `from` reads as fit all (both null). Whether the type can show a
    *  timeline at all is `TypeView`'s call, where the type is known. */
@@ -163,6 +166,7 @@ export function parseObjectViewSpec(raw: string): ObjectViewSpec {
     groupBy: parseGroupBy(spec.groupBy),
     columnOrder: parseColumnOrder(spec.columnOrder),
     showEmptyColumns: parseShowEmptyColumns(spec.showEmptyColumns),
+    cardOrder: parseCardOrder(spec.cardOrder),
     ...parseTimelineRange(spec.from, spec.to),
     month: parseCalendarMonth(spec.month),
     dateBy: parseDateBy(spec.dateBy),
@@ -192,6 +196,7 @@ type ViewProps = {
   groupBy: string | null;
   columnOrder: string[];
   showEmptyColumns: boolean;
+  cardOrder: string[];
   from: string | null;
   to: string | null;
   month: string | null;
@@ -284,6 +289,7 @@ export function hydrateObjectViewBlocks(root: HTMLElement, deps: ObjectViewDeps)
       groupBy: spec.groupBy,
       columnOrder: spec.columnOrder,
       showEmptyColumns: spec.showEmptyColumns,
+      cardOrder: spec.cardOrder,
       from: spec.from,
       to: spec.to,
       month: spec.month,

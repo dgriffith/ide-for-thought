@@ -426,7 +426,7 @@
       filters: tab.filters,
       mapStyle: tab.mapStyle,
       groupBy: groupByForType(tab.groupBy, tab.typeId, objectTypesStore.types),
-      columnOrder: tab.columnOrder, showEmptyColumns: tab.showEmptyColumns,
+      columnOrder: tab.columnOrder, showEmptyColumns: tab.showEmptyColumns, cardOrder: tab.cardOrder,
     });
     return true;
   }
@@ -1437,7 +1437,7 @@
                     filters={active.filters}
                     mapStyle={active.mapStyle}
                     groupBy={active.groupBy}
-                    columnOrder={active.columnOrder} showEmptyColumns={active.showEmptyColumns}
+                    columnOrder={active.columnOrder} showEmptyColumns={active.showEmptyColumns} cardOrder={active.cardOrder}
                     from={active.from} to={active.to} month={active.month} dateBy={active.dateBy}
                     revision={graphRevision}
                     onStateChange={(patch) => editor.setTypeViewState(active.typeId, active.folder, patch)}

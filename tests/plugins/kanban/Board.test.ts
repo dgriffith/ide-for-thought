@@ -316,6 +316,98 @@ describe('moving cards (#2603)', () => {
   });
 });
 
+describe('card order (#2922)', () => {
+  let hit: HTMLElement | null = null;
+  const real = document.elementFromPoint;
+  beforeEach(() => { document.elementFromPoint = vi.fn(() => hit); });
+  afterEach(() => { document.elementFromPoint = real; hit = null; });
+
+  /** Lay each column's cards out top to bottom, 40px tall with an 8px gap, so a pointer's height means something. */
+  function layOut(container: HTMLElement) {
+    for (const col of container.querySelectorAll<HTMLElement>('section.kb-column')) {
+      col.querySelectorAll<HTMLElement>('[data-kanban-card]').forEach((c, i) => {
+        c.getBoundingClientRect = () => ({ top: i * 48, height: 40, bottom: i * 48 + 40, left: 0, right: 200, width: 200, x: 0, y: i * 48, toJSON: () => ({}) });
+      });
+    }
+  }
+  async function drag(from: HTMLElement, to: HTMLElement | null, y: number) {
+    await fireEvent.pointerDown(from, { button: 0, pointerId: 1, clientX: 10, clientY: 10 });
+    hit = to;
+    await fireEvent.pointerMove(window, { pointerId: 1, clientX: 40, clientY: y });
+    return async () => {
+      await fireEvent.pointerUp(window, { pointerId: 1, clientX: 40, clientY: y });
+      await fireEvent.click(from);
+    };
+  }
+  const THREE = [...FILED, row('e.md', 'Echo', { status: 'active' })]; // active: Alpha, Charlie, Echo
+
+  it('a card dropped between two in its own column marks the spot, then asks for the order — and moves no note', async () => {
+    const { container, card, column, api } = mount(viewOf(THREE));
+    layOut(container);
+    const drop = await drag(card('a.md'), column('active'), 90); // between Charlie (24 mid) … Echo (116 mid)
+    expect(card('e.md').hasAttribute('data-drop-before')).toBe(true);
+    expect(column('active').hasAttribute('data-drop-target')).toBe(false); // its own column isn't a move
+    await drop();
+    expect(api.of('view.reorderCard')).toEqual([{ path: 'a.md', target: 'e.md', side: 'before' }]);
+    expect(api.of('view.moveCard')).toEqual([]);
+    expect(card('e.md').hasAttribute('data-drop-before')).toBe(false);
+  });
+
+  it('below the last card is after it', async () => {
+    const { container, card, column, api } = mount(viewOf(THREE));
+    layOut(container);
+    await (await drag(card('a.md'), column('active'), 500))();
+    expect(api.of('view.reorderCard')).toEqual([{ path: 'a.md', target: 'e.md', side: 'after' }]);
+  });
+
+  it('a drop on the spot the card already holds asks for nothing', async () => {
+    const { container, card, column, api } = mount(viewOf(THREE));
+    layOut(container);
+    await (await drag(card('c.md'), column('active'), 30))(); // between Alpha and Echo: where Charlie is
+    expect(api.of('view.reorderCard')).toEqual([]);
+    expect(api.of('view.moveCard')).toEqual([]);
+  });
+
+  it('a card dropped into another column at a spot is a move and an order', async () => {
+    const { container, card, column, api } = mount(viewOf(THREE));
+    layOut(container);
+    await (await drag(card('a.md'), column('done'), 5))(); // above Bravo
+    expect(api.of('view.moveCard')).toEqual([{ path: 'a.md', target: { value: 'done', label: 'done', kind: 'option' } }]);
+    expect(api.of('view.reorderCard')).toEqual([{ path: 'a.md', target: 'b.md', side: 'before' }]);
+  });
+
+  it('a drop into an empty column is a move with no order', async () => {
+    const { container, card, column, api } = mount(viewOf(THREE));
+    layOut(container);
+    await (await drag(card('a.md'), column('abandoned'), 5))();
+    expect(api.of('view.moveCard')).toHaveLength(1);
+    expect(api.of('view.reorderCard')).toEqual([]);
+  });
+
+  it('a read-only board neither drags nor reorders', async () => {
+    const { container, card, column, api } = mount(viewOf(THREE, { readOnly: true, movable: false }));
+    layOut(container);
+    await (await drag(card('a.md'), column('active'), 90))();
+    card('a.md').focus();
+    await fireEvent.keyDown(card('a.md'), { key: 'ArrowDown', altKey: true });
+    expect(api.of('view.reorderCard')).toEqual([]);
+  });
+
+  it('Alt+↓ / Alt+↑ move the focused card down or up its column, said aloud; at an end it says so and asks nothing', async () => {
+    const { card, api, update } = mount(viewOf(THREE));
+    card('a.md').focus();
+    await fireEvent.keyDown(card('a.md'), { key: 'ArrowDown', altKey: true });
+    expect(api.of('view.reorderCard')).toEqual([{ path: 'a.md', target: 'c.md', side: 'after' }]);
+    expect(api.of('ui.announce')).toEqual([{ text: 'Alpha moved below Charlie' }]);
+    // The host sends the new order; focus stays on the card it moved.
+    await update(viewOf([THREE[1]!, THREE[0]!, ...THREE.slice(2)]));
+    await vi.waitFor(() => expect(document.activeElement).toBe(card('a.md')));
+    await fireEvent.keyDown(card('c.md'), { key: 'ArrowUp', altKey: true });
+    expect(api.of('view.reorderCard')).toHaveLength(1);
+    expect(api.of('ui.announce').at(-1)).toEqual({ text: 'Charlie is already first in its column' });
+  });
+});
+
 describe('column order (#2614)', () => {
   const menuFor = (c: HTMLElement, value: string) => c.querySelector<HTMLElement>(`.kb-column[data-column-value="${value}"] .kb-col-menu-btn`)!;
 

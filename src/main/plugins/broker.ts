@@ -400,6 +400,12 @@ export function createPluginSession(opts: PluginSessionOptions): PluginSession {
         deps.intent({ kind: 'moveColumn', key: stringParam(params, 'key'), target: stringParam(params, 'target'), side });
         return {};
       }
+      case 'view.reorderCard': {
+        const side = params.side;
+        if (side !== 'before' && side !== 'after') throw new Refusal('bad-request', '"side" is "before" or "after".');
+        deps.intent({ kind: 'reorderCard', path: scoped(stringParam(params, 'path')), target: scoped(stringParam(params, 'target')), side });
+        return {};
+      }
       case 'view.reschedule': {
         const path = scoped(stringParam(params, 'path'));
         const days = params.days;

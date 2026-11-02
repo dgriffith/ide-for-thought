@@ -339,6 +339,7 @@ function buildEditorStore() {
       groupBy: opts?.groupBy ?? null,
       columnOrder: opts?.columnOrder ?? [],
       showEmptyColumns: opts?.showEmptyColumns ?? true,
+      cardOrder: opts?.cardOrder ?? [],
       from: opts?.from ?? null, to: opts?.to ?? null, month: opts?.month ?? null, dateBy: opts?.dateBy ?? null,
     };
     // A view is its type AND its folder (#2531): two folders' views are two tabs.
@@ -346,7 +347,7 @@ function buildEditorStore() {
     if (found) {
       // Re-apply the incoming projection so opening a saved view re-configures
       // the already-open tab (only when the caller passed explicit state).
-      if (opts && ('layout' in opts || 'sortColumn' in opts || 'columns' in opts || 'filters' in opts || 'mapStyle' in opts || 'groupBy' in opts || 'columnOrder' in opts || 'showEmptyColumns' in opts || 'from' in opts || 'to' in opts || 'month' in opts || 'dateBy' in opts)) {
+      if (opts && ('layout' in opts || 'sortColumn' in opts || 'columns' in opts || 'filters' in opts || 'mapStyle' in opts || 'groupBy' in opts || 'columnOrder' in opts || 'showEmptyColumns' in opts || 'cardOrder' in opts || 'from' in opts || 'to' in opts || 'month' in opts || 'dateBy' in opts)) {
         Object.assign(found.group.tabs[found.index] as TypeViewTab, state);
         schedulePersistTabs();
       }

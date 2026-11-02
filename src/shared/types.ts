@@ -331,6 +331,8 @@ export interface SavedTypeViewTab {
   columnOrder?: string[];
   /** Kanban's Show empty columns (#2614); absent = true. Read leniently. */
   showEmptyColumns?: boolean;
+  /** Kanban's card order (#2922), note paths; absent = the view's sort. Read leniently. */
+  cardOrder?: string[];
   /** Timeline's visible range (#2607), date values; absent = fit all events.
    *  Read leniently on restore (`parseTimelineRange`). */
   from?: string;

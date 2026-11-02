@@ -456,6 +456,15 @@ falls back to the table. Two things it settled for the next two:
   plugin carries a history cause (`NOTEBASE_WRITE_FILE`'s `opts.cause`):
   *Moved by Kanban*. Calendar reschedules should do the same rather than
   reach for `notes.writeProperties` themselves.
+- **Card order is the view's** (#2922, API 1.12.0: `view.reorderCard {path,
+  target, side}`, capability `ui`). One partial list of note paths per view
+  (`cardOrder`, `shared/objects/kanban.ts`): listed cards first within each
+  column, the rest in the view's order. A drop at a spot in another column is
+  `view.moveCard` plus `view.reorderCard`, and the two commute. The host does
+  the normalising (`reorderCard`: write in the anchor's column up to the
+  anchor, prune notes the type no longer has, cap the list, and in a sorted
+  view seed the whole board and turn the sort off), so the plugin only names
+  the anchor.
 - **The host's popups stay the host's.** The note menu (`ui.showNoteMenu`,
   with `target` for a note a card's field names) and the hover preview are
   drawn by the app; the preview's text is mirrored back as a `preview` event

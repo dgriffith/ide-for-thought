@@ -29,7 +29,7 @@
   import { subtypeChoices } from '../../../shared/objects/type-filter';
   import { buildViewEmbed } from '../../../shared/objects/view-note';
   import { comparePropertyValues, viewToCsv } from '../../../shared/objects/view-values';
-  import { boardColumns, groupByForSpec, moveColumn, resolveGroupBy } from '../../../shared/objects/kanban';
+  import { boardColumns, groupByForSpec, moveColumn, reorderCard, resolveGroupBy } from '../../../shared/objects/kanban';
   import { timelineSpecForType } from '../../../shared/objects/timeline';
   import { calendarSpecForType } from '../../../shared/objects/calendar';
   import { DEFAULT_VIEW_LAYOUT, layoutAvailable, layoutDef, layoutPlugin, layoutsFor, type ViewLayout } from '../../../shared/objects/view-layouts';
@@ -97,6 +97,8 @@
     /** Kanban's column order and Show empty columns (#2614, `kanban.ts`). */
     columnOrder?: string[];
     showEmptyColumns?: boolean;
+    /** Kanban's card order (#2922, `kanban.ts`): note paths, applied only while the view has no sort. */
+    cardOrder?: string[];
     /** Draw for an export snapshot: a board wraps its columns (#2604), a
      *  timeline (#2609) and a calendar (#2704) draw statically. */
     exportMode?: boolean;
@@ -109,7 +111,7 @@
      *  multi-select; a click just opens the note. */
     noteActions?: TypeViewNoteActions | undefined;
   }
-  let { typeId, layout, sortColumn, sortDir, columns, revision, onStateChange, onOpenNote, onSaveView, chromeless = false, onLoaded, mapExport, pluginExport, folder = null, filters = [], onClearFolder, mapStyle = 'auto', groupBy = null, columnOrder = [], showEmptyColumns = true, exportMode = false, from = null, to = null, month = null, dateBy = null, noteActions }: Props = $props();
+  let { typeId, layout, sortColumn, sortDir, columns, revision, onStateChange, onOpenNote, onSaveView, chromeless = false, onLoaded, mapExport, pluginExport, folder = null, filters = [], onClearFolder, mapStyle = 'auto', groupBy = null, columnOrder = [], showEmptyColumns = true, cardOrder = [], exportMode = false, from = null, to = null, month = null, dateBy = null, noteActions }: Props = $props();
 
   let type = $state<TypeInfo | null>(null);
   let instances = $state<TypeInstanceRow[]>([]);
@@ -251,7 +253,7 @@
    */
   async function copyAsMarkdown(): Promise<void> {
     // A `groupBy` the type no longer has as an enum is dropped, not copied.
-    const md = buildViewEmbed({ typeId, ...timelineSpec, ...calendarSpec, sortColumn, sortDir, columns, folder, filters: viewFilters, mapStyle, groupBy: groupByForSpec(groupBy, type ? allColumns : null), columnOrder, showEmptyColumns });
+    const md = buildViewEmbed({ typeId, ...timelineSpec, ...calendarSpec, sortColumn, sortDir, columns, folder, filters: viewFilters, mapStyle, groupBy: groupByForSpec(groupBy, type ? allColumns : null), columnOrder, showEmptyColumns, cardOrder });
     try {
       await navigator.clipboard.writeText(md);
       markdownCopied = true;
@@ -338,7 +340,8 @@
   // Kanban (#2602): the grouping enum, then the columns — sorted cards, the
   // values filter on that property narrowing the columns (`boardColumns`).
   const groupProp = $derived(resolveGroupBy(groupBy, allColumns));
-  const board = $derived(groupProp ? boardColumns(sorted, groupProp, viewFilters, { columnOrder, showEmptyColumns }) : []);
+  // The card order (#2922) ranks cards only while the view has no sort: a sort is a stated order.
+  const board = $derived(groupProp ? boardColumns(sorted, groupProp, viewFilters, { columnOrder, showEmptyColumns, cardOrder: sortColumn ? [] : cardOrder }) : []);
   // A board a plugin draws (#2828): its moves are the host's (decision 2), and
   // Local History says which plugin they came from.
   const moveCause = $derived.by(() => {
@@ -360,6 +363,14 @@
   }
   function onMoveColumn(key: string, target: string, side: 'before' | 'after'): void {
     if (groupProp) onStateChange({ columnOrder: moveColumn(instances, groupProp, columnOrder, key, target, side) });
+  }
+  // A card put beside another (#2922). In a sorted view the reorder turns the
+  // sort off, writing the board as drawn into the order so only this card moves.
+  function onReorderCard(path: string, target: string, side: 'before' | 'after'): void {
+    const known = new Set(instances.map((i) => i.path));
+    const seedAll = !!sortColumn;
+    const next = reorderCard(board, cardOrder, known, path, target, side, { seedAll });
+    onStateChange(seedAll ? { cardOrder: next, sortColumn: null } : { cardOrder: next });
   }
 
   // What every layout is drawn from (#2623) — one object of getters, so its
@@ -400,7 +411,7 @@
     get readOnly() { return chromeless; },
     get exportMode() { return exportMode; },
     get spec() {
-      return { groupBy: groupProp?.name ?? null, columnOrder, showEmptyColumns, mapStyle, from: timelineSpec.from, to: timelineSpec.to, month: calendarSpec.month, dateBy: calendarSpec.dateBy };
+      return { groupBy: groupProp?.name ?? null, columnOrder, showEmptyColumns, cardOrder, mapStyle, from: timelineSpec.from, to: timelineSpec.to, month: calendarSpec.month, dateBy: calendarSpec.dateBy };
     },
     get locationProperty() { return locationProperty; },
     get mapStyle() { return mapStyle; },
@@ -415,6 +426,7 @@
     get week() { return { start: calendarSettings.weekStart, numbers: calendarSettings.showWeekNumbers }; },
     get lastMove() { return moves.lastMove; },
     get onMoveColumn() { return chromeless ? undefined : onMoveColumn; },
+    get onReorderCard() { return chromeless ? undefined : onReorderCard; },
     get from() { return timelineSpec.from; },
     get to() { return timelineSpec.to; },
     get month() { return calendarSpec.month; },

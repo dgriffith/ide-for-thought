@@ -41,6 +41,7 @@ export interface ViewStatePatch {
   groupBy?: string | null;
   columnOrder?: string[];
   showEmptyColumns?: boolean;
+  cardOrder?: string[];
   from?: string | null;
   to?: string | null;
   month?: string | null;
@@ -115,6 +116,8 @@ export interface LayoutView {
   canUndoMove: boolean;
   lastMove: { seq: number; paths: string[] } | null;
   onMoveColumn: ((key: string, target: string, side: DropSide) => void) | undefined;
+  /** Put a card just before or after another (#2922): the view's card order; absent in an embed or export. */
+  onReorderCard: ((path: string, target: string, side: DropSide) => void) | undefined;
   /** Calendar (#2829): move a note's dates by whole days, with undo; absent in an embed or export. */
   onReschedule: ((path: string, days: number) => void) | undefined;
   /** The viewer's week, from their settings on this machine: its first day (ISO, 1 = Monday) and whether week numbers show. */

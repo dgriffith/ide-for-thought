@@ -26,6 +26,11 @@
    *   element (`.kb-col-header`, the column-drag handle), every card carries
    *   `data-note-path`, and keyboard focus is tracked by note path, so a card
    *   that changes column keeps focus.
+   * - **Card order** (#2922): a card dropped between two others lands there,
+   *   in its own column or another (`view.reorderCard`, plus `view.moveCard`
+   *   when the column changes); Alt+↑ / Alt+↓ move the focused card up or
+   *   down its column. The order is the view's — no note is written — and a
+   *   reorder in a sorted view turns the sort off (the host's call).
    * - **Column order** (#2614): drag a header (`column-drag.ts`) or use its
    *   menu's *Move column left / right* (`ColumnMenu.svelte`; ↑ from a
    *   column's first card reaches it). Both end in `view.moveColumn`; in an
@@ -40,7 +45,8 @@
   import { tick, untrack } from 'svelte';
   import type { MinervaPlugin, PluginViewInstance, PluginViewState } from '/@minerva/plugin-api.js';
   import ColumnMenu from './ColumnMenu.svelte';
-  import { cardDrag, cardMoveKey, openCardMenu } from './card-drag';
+  import { cardDrag, cardMoveKey, openCardMenu, type DropAnchor } from './card-drag';
+  import type { MoveTarget } from '../../../src/shared/objects/kanban-move';
   import { afterColumnMove, columnDrag, focusColumnHeader, type DropSide } from './column-drag';
   import { isMenuKey, openMenuAt } from './keys';
 
@@ -153,6 +159,36 @@
     if (next) moveColumn(columns[i]!, next.key, dir === 'left' ? 'before' : 'after', true);
   }
 
+  /** A card dropped (#2603, #2922): to another column, beside another card, or both. */
+  function dropCard(path: string, target: MoveTarget | null, anchor: DropAnchor | null): void {
+    if (target) quietly(minerva.view.moveCard({ path, target }));
+    if (anchor) quietly(minerva.view.reorderCard({ path, target: anchor.path, side: anchor.side }));
+  }
+
+  /** Alt+↑ / Alt+↓ (#2922): the focused card up or down its column. Focus
+   *  waits for the redrawn board, as a column move's does. */
+  let pendingReorder: string | null = null;
+  function reorderBy(path: string, dir: 'up' | 'down'): void {
+    const cards = columns.find((c) => c.instances.some((i) => i.path === path))?.instances ?? [];
+    const i = cards.findIndex((c) => c.path === path);
+    const other = cards[dir === 'up' ? i - 1 : i + 1];
+    const title = cards[i]?.title ?? path;
+    if (!other) {
+      announce(`${title} is already ${dir === 'up' ? 'first' : 'last'} in its column`);
+      return;
+    }
+    pendingReorder = path;
+    quietly(minerva.view.reorderCard({ path, target: other.path, side: dir === 'up' ? 'before' : 'after' }));
+    announce(`${title} moved ${dir === 'up' ? 'above' : 'below'} ${other.title}`);
+  }
+  $effect(() => {
+    void columns;
+    const path = pendingReorder;
+    if (!path) return;
+    pendingReorder = null;
+    void focusCard(path);
+  });
+
   async function focusCard(path: string): Promise<void> {
     focusedPath = path;
     await tick();
@@ -238,6 +274,13 @@
       else if (card) openCardMenu(card);
       return;
     }
+    if (e.altKey && !e.metaKey && !e.ctrlKey && !e.shiftKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+      const path = card?.dataset['notePath'];
+      if (!path || view.readOnly) return;
+      e.preventDefault();
+      reorderBy(path, e.key === 'ArrowUp' ? 'up' : 'down');
+      return;
+    }
     if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
     const path = card?.dataset['notePath'];
     if (!path) return;
@@ -267,7 +310,7 @@
     onfocusin={trackHold}
     onpointerdown={() => { heldPath = null; }}
     data-group-by={view.groupProperty}
-    use:cardDrag={{ enabled: view.movable, onDrop: (p, t) => quietly(minerva.view.moveCard({ path: p, target: t })) }}
+    use:cardDrag={{ enabled: view.movable || !view.readOnly, canMove: view.movable, canReorder: !view.readOnly, onDrop: dropCard }}
   >
     {#each columns as col, ci (col.key + col.kind)}
       <section class="kb-column" data-column-value={col.value ?? ''} data-column-kind={col.kind}>
@@ -418,6 +461,9 @@
   /* Moving a card (#2603): the card being dragged, and the column it'd land in. */
   .kb-column:global([data-drop-target]) { border-color: var(--accent); background: color-mix(in oklch, var(--accent) 10%, var(--bg)); outline: 1px solid var(--accent); }
   .kb-card:global([data-dragging]) { opacity: 0.45; border-style: dashed; }
+  /* Where in the column (#2922): an accent line in the gap above or below the card it lands beside. */
+  .kb-card:global([data-drop-before]) { box-shadow: 0 -6px 0 -2px var(--accent); }
+  .kb-card:global([data-drop-after]) { box-shadow: 0 6px 0 -2px var(--accent); }
   .kb-card.selected { background: color-mix(in oklch, var(--accent) 16%, var(--bg-button)); border-color: var(--accent); }
   .kb-card-title { display: flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 500; min-width: 0; overflow-wrap: anywhere; }
   .type-icon { display: inline-flex; align-items: center; justify-content: center; width: 13px; height: 13px; font-size: 12px; line-height: 1; flex: none; }

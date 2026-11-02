@@ -38,7 +38,7 @@ const queryTab: QueryTab = {
 
 describe('type-view map style (#2665)', () => {
   const view = (mapStyle: 'auto' | 'light' | 'dark'): Tab => ({
-    type: 'type-view', typeId: 'place', layout: 'map', sortColumn: null, sortDir: 'asc', columns: null, folder: null, filters: [], mapStyle, groupBy: null, columnOrder: [], showEmptyColumns: true, from: null, to: null, month: null, dateBy: null,
+    type: 'type-view', typeId: 'place', layout: 'map', sortColumn: null, sortDir: 'asc', columns: null, folder: null, filters: [], mapStyle, groupBy: null, columnOrder: [], showEmptyColumns: true, cardOrder: [], from: null, to: null, month: null, dateBy: null,
   });
 
   it('omits auto from the saved tab and keeps an explicit light or dark', () => {
@@ -58,7 +58,7 @@ describe('type-view map style (#2665)', () => {
 describe('type-view Type filter (#2716)', () => {
   it('round-trips a values filter on the reserved `type` key, and drops a ranged one', async () => {
     const view: Tab = {
-      type: 'type-view', typeId: 'place', layout: 'map', sortColumn: null, sortDir: 'asc', columns: null, folder: null, filters: [{ property: 'type', values: ['restaurant'] }, { property: 'city', values: ['Prague'] }], mapStyle: 'auto', groupBy: null, columnOrder: [], showEmptyColumns: true, from: null, to: null, month: null, dateBy: null,
+      type: 'type-view', typeId: 'place', layout: 'map', sortColumn: null, sortDir: 'asc', columns: null, folder: null, filters: [{ property: 'type', values: ['restaurant'] }, { property: 'city', values: ['Prague'] }], mapStyle: 'auto', groupBy: null, columnOrder: [], showEmptyColumns: true, cardOrder: [], from: null, to: null, month: null, dateBy: null,
     };
     expect(await reconstructTab(JSON.parse(JSON.stringify(toSavedTab(view))) as SavedTab, () => 'q')).toEqual(view);
     const ranged = { type: 'type-view', typeId: 'place', filters: [{ property: 'type', min: 'a' }] } as unknown as SavedTab;
@@ -68,7 +68,7 @@ describe('type-view Type filter (#2716)', () => {
 
 describe('type-view kanban groupBy (#2601)', () => {
   const view = (groupBy: string | null): Tab => ({
-    type: 'type-view', typeId: 'project', layout: 'kanban', sortColumn: null, sortDir: 'asc', columns: null, folder: null, filters: [], mapStyle: 'auto', groupBy, columnOrder: [], showEmptyColumns: true, from: null, to: null, month: null, dateBy: null,
+    type: 'type-view', typeId: 'project', layout: 'kanban', sortColumn: null, sortDir: 'asc', columns: null, folder: null, filters: [], mapStyle: 'auto', groupBy, columnOrder: [], showEmptyColumns: true, cardOrder: [], from: null, to: null, month: null, dateBy: null,
   });
 
   it('omits the default (null) from the saved tab and keeps an explicit choice', () => {
@@ -87,7 +87,7 @@ describe('type-view kanban groupBy (#2601)', () => {
 
 describe('type-view kanban column order and empty columns (#2614)', () => {
   const view = (columnOrder: string[], showEmptyColumns: boolean): Tab => ({
-    type: 'type-view', typeId: 'project', layout: 'kanban', sortColumn: null, sortDir: 'asc', columns: null, folder: null, filters: [], mapStyle: 'auto', groupBy: null, columnOrder, showEmptyColumns, from: null, to: null, month: null, dateBy: null,
+    type: 'type-view', typeId: 'project', layout: 'kanban', sortColumn: null, sortDir: 'asc', columns: null, folder: null, filters: [], mapStyle: 'auto', groupBy: null, columnOrder, showEmptyColumns, cardOrder: [], from: null, to: null, month: null, dateBy: null,
   });
 
   it('omits the defaults (no order, empty columns shown) from the saved tab and keeps the rest', () => {
@@ -115,9 +115,29 @@ describe('type-view kanban column order and empty columns (#2614)', () => {
   });
 });
 
+describe('type-view kanban card order (#2922)', () => {
+  const view = (cardOrder: string[]): Tab => ({
+    type: 'type-view', typeId: 'project', layout: 'kanban', sortColumn: null, sortDir: 'asc', columns: null, folder: null, filters: [], mapStyle: 'auto', groupBy: null, columnOrder: [], showEmptyColumns: true, cardOrder, from: null, to: null, month: null, dateBy: null,
+  });
+
+  it('omits an empty order, saves a plain copy of the rest, and restores it', async () => {
+    expect(toSavedTab(view([]))).not.toHaveProperty('cardOrder');
+    const order = ['b.md', 'a.md'];
+    const saved = toSavedTab(view(order)) as { cardOrder: string[] };
+    expect(saved.cardOrder).toEqual(order);
+    expect(saved.cardOrder).not.toBe(order);
+    expect(await reconstructTab(saved as unknown as SavedTab, () => 'q')).toEqual(view(order));
+  });
+
+  it('reads a malformed order as none', async () => {
+    const odd = { type: 'type-view', typeId: 'project', layout: 'kanban', cardOrder: 'a.md' } as unknown as SavedTab;
+    expect(await reconstructTab(odd, () => 'q')).toMatchObject({ cardOrder: [] });
+  });
+});
+
 describe('type-view timeline range (#2607)', () => {
   const view = (from: string | null, to: string | null): Tab => ({
-    type: 'type-view', typeId: 'event', layout: 'timeline', sortColumn: null, sortDir: 'asc', columns: null, folder: null, filters: [], mapStyle: 'auto', groupBy: null, columnOrder: [], showEmptyColumns: true, from, to, month: null, dateBy: null,
+    type: 'type-view', typeId: 'event', layout: 'timeline', sortColumn: null, sortDir: 'asc', columns: null, folder: null, filters: [], mapStyle: 'auto', groupBy: null, columnOrder: [], showEmptyColumns: true, cardOrder: [], from, to, month: null, dateBy: null,
   });
 
   it('omits fit all from the saved tab and keeps each edge that is set', () => {
@@ -142,7 +162,7 @@ describe('type-view timeline range (#2607)', () => {
 
 describe('type-view calendar month and dateBy (#2701)', () => {
   const view = (month: string | null, dateBy: string | null): Tab => ({
-    type: 'type-view', typeId: 'book', layout: 'calendar', sortColumn: null, sortDir: 'asc', columns: null, folder: null, filters: [], mapStyle: 'auto', groupBy: null, columnOrder: [], showEmptyColumns: true, from: null, to: null, month, dateBy,
+    type: 'type-view', typeId: 'book', layout: 'calendar', sortColumn: null, sortDir: 'asc', columns: null, folder: null, filters: [], mapStyle: 'auto', groupBy: null, columnOrder: [], showEmptyColumns: true, cardOrder: [], from: null, to: null, month, dateBy,
   });
 
   it('omits the defaults (the current month, the type\'s default date) from the saved tab and keeps what is set', () => {
@@ -166,7 +186,7 @@ describe('type-view calendar month and dateBy (#2701)', () => {
 
 describe('type-view timeline dateBy (#2715)', () => {
   const view = (dateBy: string | null): Tab => ({
-    type: 'type-view', typeId: 'book', layout: 'timeline', sortColumn: null, sortDir: 'asc', columns: null, folder: null, filters: [], mapStyle: 'auto', groupBy: null, columnOrder: [], showEmptyColumns: true, from: '1960', to: null, month: null, dateBy,
+    type: 'type-view', typeId: 'book', layout: 'timeline', sortColumn: null, sortDir: 'asc', columns: null, folder: null, filters: [], mapStyle: 'auto', groupBy: null, columnOrder: [], showEmptyColumns: true, cardOrder: [], from: '1960', to: null, month: null, dateBy,
   });
 
   it('omits the default, keeps a choice, and restores both — the one dateBy Calendar shares', async () => {

@@ -28,7 +28,7 @@ import type { PluginCapability } from './capabilities';
  * The API's semver version (#2826), its own and not the app's: the host sends
  * it with the port, and a plugin's `code.api` range must accept it.
  */
-export const PLUGIN_API_VERSION = '1.11.0';
+export const PLUGIN_API_VERSION = '1.12.0';
 
 export const PLUGIN_METHODS = {
   'notes.list': { capability: 'notes:read', describes: 'The notes this view or call was given.' },
@@ -56,6 +56,7 @@ export const PLUGIN_METHODS = {
   'view.moveCard': { capability: 'notes:write-properties', describes: "Move a note to one of the view's groups: Minerva sets its grouping property, with undo." },
   'view.undoMove': { capability: 'notes:write-properties', describes: "Undo the view's last move (⌘Z on a board)." },
   'view.moveColumn': { capability: 'ui', describes: "Move one of the view's groups before or after another; the order stays with the view." },
+  'view.reorderCard': { capability: 'ui', describes: "Put a note just before or after another in the view's order; the order stays with the view, and no note is written." },
   'view.reschedule': { capability: 'notes:write-properties', describes: "Move a dated note by whole days: Minerva shifts its start and end, with undo (a calendar's drag)." },
   'view.setHeight': { capability: 'ui', describes: "Say how tall a live block's frame should be, in CSS pixels; Minerva sizes it, within limits." },
   'llm.propose': { capability: 'llm:propose', describes: "Ask the assistant for changes to notes it was given, or new notes: each one is filed as a proposal the user reviews. Uses the user's model, asked first." },
@@ -100,6 +101,8 @@ export interface PluginMethodParams {
   'view.moveCard': { path: string; target: PluginMoveTarget };
   'view.undoMove': Record<string, never>;
   'view.moveColumn': { key: string; target: string; side: 'before' | 'after' };
+  /** `target`: the note `path` lands beside (#2922) — in any group, so a card dropped into another column at a spot is `view.moveCard` and this. */
+  'view.reorderCard': { path: string; target: string; side: 'before' | 'after' };
   /** `days`: a whole number, not 0, at most PLUGIN_RESCHEDULE_MAX_DAYS either way. */
   'view.reschedule': { path: string; days: number };
   /** `height`: CSS pixels, from PLUGIN_BLOCK_MIN_HEIGHT to PLUGIN_BLOCK_MAX_HEIGHT; outside it is clamped. */
@@ -142,6 +145,7 @@ export interface PluginMethodResults {
   'view.moveCard': Record<string, never>;
   'view.undoMove': Record<string, never>;
   'view.moveColumn': Record<string, never>;
+  'view.reorderCard': Record<string, never>;
   'view.reschedule': Record<string, never>;
   'view.setHeight': Record<string, never>;
   /**
@@ -256,7 +260,8 @@ export type PluginViewState = {
   groupProperty: string | null;
   /** …and its groups, in order — Minerva's, with the view's filters and column order applied. */
   groups: PluginViewGroup[];
-  /** The notes can be moved between groups (`view.moveCard`) and the order changed (`view.moveColumn`). */
+  /** The notes can be moved between groups (`view.moveCard`) and the order changed (`view.moveColumn`).
+   *  A group's notes can be reordered (`view.reorderCard`) wherever `readOnly` is false. */
   movable: boolean;
   /** There is a move to undo (`view.undoMove`). */
   canUndoMove: boolean;

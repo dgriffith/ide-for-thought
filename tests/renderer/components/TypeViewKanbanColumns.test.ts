@@ -3,7 +3,8 @@
  *
  * Kanban column order and Show empty columns (#2614), the host's half: the
  * order the view sends the plugin, the new order a plugin's
- * `view.moveColumn` writes, the toggle, Copy as markdown, and an embed.
+ * `view.moveColumn` writes, the toggle, Copy as markdown, and an embed —
+ * and card order (#2922): what `view.reorderCard` writes, and when it applies.
  * The header menu and its keyboard are the board's
  * (tests/plugins/kanban/Board.test.ts).
  */
@@ -167,5 +168,53 @@ describe('a read-only board (an embed)', () => {
     const b = await openBoard(container, plugin);
     expect(labels(b)).toEqual(['paused', 'active', 'done']);
     expect(b.state().readOnly).toBe(true);
+  });
+});
+
+describe('Kanban card order (#2922)', () => {
+  const ACTIVE = [row('a.md', 'Alpha', 'active'), row('c.md', 'Charlie', 'active'), row('e.md', 'Echo', 'active'), row('b.md', 'Bravo', 'done')];
+  beforeEach(() => { instancesMock.mockResolvedValue({ type: PROJECT, instances: ACTIVE }); });
+
+  it("sends each column's cards in the view's cardOrder, unlisted ones after", async () => {
+    const { container } = render(TypeView, props({ cardOrder: ['e.md', 'a.md'] }));
+    const b = await openBoard(container, plugin);
+    expect(b.titles('active')).toEqual(['Echo', 'Alpha', 'Charlie']);
+    expect(b.state().spec).toMatchObject({ cardOrder: ['e.md', 'a.md'] });
+  });
+
+  it("a plugin's view.reorderCard writes the new order, and moves no note", async () => {
+    const onStateChange = vi.fn();
+    const { container } = render(TypeView, props({ onStateChange }));
+    const b = await openBoard(container, plugin);
+    b.host().reorderCard!('e.md', 'c.md', 'before');
+    expect(onStateChange).toHaveBeenLastCalledWith({ cardOrder: ['a.md', 'e.md', 'c.md'] });
+  });
+
+  it('a sort wins over the order; reordering in a sorted view turns the sort off, keeping the board as drawn', async () => {
+    const onStateChange = vi.fn();
+    const { container } = render(TypeView, props({ onStateChange, sortColumn: '__title', sortDir: 'desc', cardOrder: ['a.md'] }));
+    const b = await openBoard(container, plugin);
+    expect(b.titles('active')).toEqual(['Echo', 'Charlie', 'Alpha']); // the sort, not the order
+    b.host().reorderCard!('a.md', 'c.md', 'before');
+    expect(onStateChange).toHaveBeenLastCalledWith({ cardOrder: ['e.md', 'a.md', 'c.md', 'b.md'], sortColumn: null });
+  });
+
+  it('an embed draws the order but does not change it', async () => {
+    const onStateChange = vi.fn();
+    const { container } = render(TypeView, props({ onStateChange, chromeless: true, cardOrder: ['c.md'] }));
+    const b = await openBoard(container, plugin);
+    expect(b.titles('active')).toEqual(['Charlie', 'Alpha', 'Echo']);
+    b.host().reorderCard!('e.md', 'a.md', 'before');
+    expect(onStateChange).not.toHaveBeenCalled();
+  });
+
+  it('Copy as markdown carries the order, and omits it when empty', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    const { container } = render(TypeView, props({ cardOrder: ['e.md'] }));
+    await openBoard(container, plugin);
+    await fireEvent.click(screen.getByRole('button', { name: 'Copy as markdown' }));
+    await vi.waitFor(() => expect(writeText).toHaveBeenCalled());
+    expect(writeText.mock.calls[0]![0]).toContain('"cardOrder": [\n    "e.md"\n  ]');
   });
 });
