@@ -13,6 +13,7 @@
     locationProperty={view.locationProperty}
     onOpenNote={view.onOpenNote}
     mapStyle={view.mapStyle} type={view.type} properties={view.properties} display={view.display}
+    {...(view.rowMenu && !view.exportMode ? { onPinContextMenu: view.onRowContextMenu } : {})}
     {...(view.mapExport ? { exportHooks: view.mapExport } : {})}
     {...(view.readOnly || view.mapExport ? {} : { onMapStyleChange: (next: MapStyle) => view.onStateChange({ mapStyle: next }) })}
   />
