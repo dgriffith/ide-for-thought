@@ -119,6 +119,17 @@
       .catch((e: unknown) => view.pluginExport?.onFailed(e instanceof Error ? e.message : String(e)));
   }
 
+  // *Move to date…* in the row menu (#2929): where the view reschedules, the
+  // plugin chooses the day.
+  $effect(() => {
+    const c = connection;
+    if (!c || !view.onReschedule) return;
+    view.provideMoveToDate((path) => {
+      void c.startMoveToDate(path).catch((e: unknown) => logger('plugins').warn(`plugin ${pluginId}: move to date not sent:`, e));
+    });
+    return () => view.provideMoveToDate(null);
+  });
+
   async function onExportHtml(id: string, html: string): Promise<void> {
     if (!view.exportMode || id !== requestId || exported !== null) return;
     if (!wrapper) return;

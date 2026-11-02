@@ -26,6 +26,8 @@ export interface CalendarProps {
   locale?: string;
   weekStart?: Weekday;
   showWeekNumbers?: boolean;
+  /** The view has a note menu (#2929): the panel, or an embed with note actions. */
+  rowMenu?: boolean;
 }
 
 /** The view Minerva sends for those props (`PluginLayout`). */
@@ -41,7 +43,7 @@ export function calendarView(p: CalendarProps): PluginViewState {
     filters: [],
     week: { start: p.weekStart ?? 1, numbers: p.showWeekNumbers ?? false },
     readOnly: p.readOnly ?? false, exportMode: p.exportMode ?? false,
-    selected: [], selectable: false, rowMenu: false,
+    selected: [], selectable: false, rowMenu: p.rowMenu ?? false,
     groupProperty: null, groups: [], movable: !(p.readOnly || p.exportMode), canUndoMove: false, lastMove: null,
   };
 }

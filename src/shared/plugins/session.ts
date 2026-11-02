@@ -60,7 +60,9 @@ export type PluginHostEvent =
   /** What the app's hover preview of a note says, or null when it goes (#2828). */
   | { kind: 'preview'; path: string; description: string | null }
   /** Run a global view's declared query again and send its results (#2640). */
-  | { kind: 'refreshQuery' };
+  | { kind: 'refreshQuery' }
+  /** *Move to date…* chosen in the app's note menu (#2929): the plugin chooses the day. */
+  | { kind: 'moveToDate'; path: string };
 
 export interface PluginIntentEvent {
   sessionId: string;

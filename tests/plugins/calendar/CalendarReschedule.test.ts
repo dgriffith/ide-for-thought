@@ -3,8 +3,9 @@
  *
  * Rescheduling on the Calendar (#2703), grid side: pointer drag (any segment
  * of a multi-day bar moves the whole event, with a drop preview; Escape
- * cancels; a click still opens the note), the day list's event menu and
- * *Move to date…* (choose a day in the grid, or type one), refusals for a
+ * cancels; a click still opens the note), Minerva's note menu on every
+ * event (#2929) and *Move to date…* from it (choose a day in the grid, or
+ * type one), refusals for a
  * month-only end, ⌘Z, and a read-only embed that moves nothing. The write is
  * the `kanban-moves` store's — mocked here; its own test covers it.
  *
@@ -168,53 +169,84 @@ describe('Calendar: pointer drag (#2703)', () => {
   });
 });
 
-describe('Calendar: Move to date… (#2703)', () => {
+describe("Calendar: Minerva's note menu (#2929)", () => {
   async function press(key: string, opts: Record<string, unknown> = {}) {
     await fireEvent.keyDown(document.activeElement!, { key, ...opts });
     await tick();
     await tick();
   }
-  /** Focus a day, open its list, and open the menu on its first event. */
-  async function openMenu(cell: HTMLElement) {
-    cell.focus();
-    await press('Enter');
-    const dlg = await screen.findByRole('dialog');
-    await waitFor(() => expect(document.activeElement).toBe(dlg.querySelector('[data-day-event]')));
-    await press('F10', { shiftKey: true });
-    const menu = await screen.findByRole('menu');
-    await waitFor(() => expect(document.activeElement).toBe(menu.querySelector('[role="menuitem"]')));
-    return menu;
-  }
+  const menus = (api: { of: (n: string) => unknown[] }) => api.of('ui.showNoteMenu') as Array<{ paths: string[] }>;
 
-  it('Shift+F10 in the day list opens the event\'s menu; Escape closes it back onto the event', async () => {
-    const { cell } = setup();
-    const menu = await openMenu(cell(day(2026, 10, 6)));
-    expect([...menu.querySelectorAll('[role="menuitem"]')].map((i) => i.textContent)).toEqual(['Move to date…', 'Open']);
-    await press('ArrowDown');
-    expect(document.activeElement?.textContent).toBe('Open');
-    await press('Escape');
-    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
-    await waitFor(() => expect((document.activeElement as HTMLElement).dataset['notePath']).toBe('dentist.md'));
-    expect(screen.getByRole('dialog')).toBeTruthy(); // the list stays open
+  it('a right-click on an event in the grid asks for the menu for that note, not its day', async () => {
+    const { segs, api } = setup({ rowMenu: true });
+    const ev = new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 30, clientY: 40 });
+    segs('dentist.md')[0]!.dispatchEvent(ev);
+    expect(ev.defaultPrevented).toBe(true);
+    expect(api.of('ui.showNoteMenu')).toEqual([{ paths: ['dentist.md'], x: 30, y: 40 }]);
   });
 
-  it('the ContextMenu key opens it too, and Open opens the note', async () => {
-    const { cell, onOpenNote } = setup();
+  it("in a day's list, a right-click or Shift+F10 / ContextMenu on an event asks for it; the plugin draws no menu of its own", async () => {
+    const { cell, api } = setup({ rowMenu: true });
     cell(day(2026, 10, 6)).focus();
     await press('Enter');
     const dlg = await screen.findByRole('dialog');
-    await waitFor(() => expect(document.activeElement).toBe(dlg.querySelector('[data-day-event]')));
+    const item = dlg.querySelector<HTMLElement>('[data-day-event]')!;
+    await waitFor(() => expect(document.activeElement).toBe(item));
+    expect(item.getAttribute('aria-haspopup')).toBe('menu');
+    await press('F10', { shiftKey: true });
     await press('ContextMenu');
-    await fireEvent.click(await screen.findByRole('menuitem', { name: 'Open' }));
-    expect(onOpenNote).toHaveBeenCalledWith('dentist.md');
+    await fireEvent.contextMenu(item);
+    expect(menus(api).map((m) => m.paths)).toEqual([['dentist.md'], ['dentist.md'], ['dentist.md']]);
+    expect(screen.queryByRole('menu')).toBeNull();
+    expect(screen.getByRole('dialog')).toBeTruthy(); // the list stays open
   });
 
-  it('choose a day in the grid: focus goes to the event\'s day, arrows move, Enter moves it there', async () => {
-    const { cell, q } = setup();
-    await openMenu(cell(day(2026, 10, 6)));
-    await fireEvent.click(screen.getByRole('menuitem', { name: 'Move to date…' }));
+  it('a band entry and an Undated row ask for it too, by pointer or the menu key', async () => {
+    const { container, api } = setup({
+      rowMenu: true,
+      instances: [...EVENTS, row('month.md', 'Sometime', '2026-10'), row('nodate.md', 'No date', null)],
+    });
+    const chip = container.querySelector<HTMLElement>('.cal-chip[data-note-path="month.md"]')!;
+    const undated = container.querySelector<HTMLElement>('.cal-undated-row[data-note-path="nodate.md"]')!;
+    await fireEvent.contextMenu(chip);
+    chip.focus();
+    await press('ContextMenu');
+    await fireEvent.contextMenu(undated);
+    undated.focus();
+    await press('F10', { shiftKey: true });
+    expect(menus(api).map((m) => m.paths)).toEqual([['month.md'], ['month.md'], ['nodate.md'], ['nodate.md']]);
+  });
+
+  it('no menu where the view has none, or in an export: the right-click is left alone', async () => {
+    const { segs, api } = setup();
+    const ev = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
+    segs('dentist.md')[0]!.dispatchEvent(ev);
+    expect(ev.defaultPrevented).toBe(false);
+    cleanup();
+    const exported = setup({ rowMenu: true, exportMode: true });
+    await fireEvent.contextMenu(exported.container.querySelector<HTMLElement>('[data-note-path="dentist.md"]')!);
+    expect(api.of('ui.showNoteMenu')).toEqual([]);
+    expect(exported.api.of('ui.showNoteMenu')).toEqual([]);
+  });
+});
+
+describe('Calendar: Move to date…, from the note menu (#2703, #2929)', () => {
+  async function press(key: string, opts: Record<string, unknown> = {}) {
+    await fireEvent.keyDown(document.activeElement!, { key, ...opts });
+    await tick();
+    await tick();
+  }
+  /** What Minerva sends when *Move to date…* is chosen in its menu. */
+  async function chooseMoveToDate(api: { emit: (e: string, d: unknown) => void }, path: string) {
+    api.emit('moveToDate', { path });
+    await tick();
+    await tick();
+  }
+
+  it("choose a day in the grid: focus goes to the event's day, arrows move, Enter moves it there", async () => {
+    const { cell, q, api } = setup({ rowMenu: true });
+    await chooseMoveToDate(api, 'dentist.md');
     await waitFor(() => expect(document.activeElement).toBe(cell(day(2026, 10, 6))));
-    expect(screen.queryByRole('dialog')).toBeNull();
     const bar = q('[data-calendar-move-bar]')!;
     expect(bar.textContent).toContain('Moving Dentist');
     expect(cell(day(2026, 10, 6)).getAttribute('aria-describedby')).toBe(bar.querySelector('.cal-movebar-text')!.id);
@@ -228,24 +260,31 @@ describe('Calendar: Move to date… (#2703)', () => {
     expect(document.activeElement).toBe(cell(day(2026, 10, 14)));
   });
 
+  it("chosen from a day's list: the list closes and the grid chooses the day", async () => {
+    const { cell, api } = setup({ rowMenu: true });
+    cell(day(2026, 10, 6)).focus();
+    await press('Enter');
+    await screen.findByRole('dialog');
+    await chooseMoveToDate(api, 'dentist.md');
+    expect(screen.queryByRole('dialog')).toBeNull();
+    await waitFor(() => expect(document.activeElement).toBe(cell(day(2026, 10, 6))));
+  });
+
   it('a click on a day moves it there too; the same day says so and writes nothing', async () => {
-    const { cell } = setup();
-    await openMenu(cell(day(2026, 10, 6)));
-    await fireEvent.click(screen.getByRole('menuitem', { name: 'Move to date…' }));
+    const { cell, api } = setup({ rowMenu: true });
+    await chooseMoveToDate(api, 'dentist.md');
     await fireEvent.click(cell(day(2026, 10, 6)));
     expect(h.reschedule).not.toHaveBeenCalled();
     expect(h.announce).toHaveBeenLastCalledWith(expect.stringMatching(/^Dentist is already on .*6 October 2026\.$/));
 
-    await openMenu(cell(day(2026, 10, 6)));
-    await fireEvent.click(screen.getByRole('menuitem', { name: 'Move to date…' }));
+    await chooseMoveToDate(api, 'dentist.md');
     await fireEvent.click(cell(day(2026, 10, 2)));
     expect(h.reschedule).toHaveBeenCalledWith(expect.objectContaining({ days: -4 }));
   });
 
   it('or type a date: the page turns to it and the event moves there; a bad date is refused', async () => {
-    const { cell, onStateChange } = setup();
-    await openMenu(cell(day(2026, 10, 6)));
-    await fireEvent.click(screen.getByRole('menuitem', { name: 'Move to date…' }));
+    const { onStateChange, api } = setup({ rowMenu: true });
+    await chooseMoveToDate(api, 'dentist.md');
     const input = screen.getByRole<HTMLInputElement>('textbox', { name: 'Date to move Dentist to' });
     // Enter in the field, never a form submit: a plugin frame's sandbox has no allow-forms (#2829).
     await fireEvent.input(input, { target: { value: '2026-11' } });
@@ -263,9 +302,8 @@ describe('Calendar: Move to date… (#2703)', () => {
   });
 
   it('the Move button does what Enter does, without submitting a form', async () => {
-    const { cell } = setup();
-    await openMenu(cell(day(2026, 10, 6)));
-    await fireEvent.click(screen.getByRole('menuitem', { name: 'Move to date…' }));
+    const { api } = setup({ rowMenu: true });
+    await chooseMoveToDate(api, 'dentist.md');
     const input = screen.getByRole<HTMLInputElement>('textbox', { name: 'Date to move Dentist to' });
     await fireEvent.input(input, { target: { value: '2026-10-09' } });
     expect(screen.getByRole('button', { name: 'Move' }).getAttribute('type')).toBe('button');
@@ -273,10 +311,9 @@ describe('Calendar: Move to date… (#2703)', () => {
     expect(h.reschedule).toHaveBeenCalledWith({ path: 'dentist.md', days: 3 });
   });
 
-  it('Escape cancels: nothing moves and focus returns to the event\'s day', async () => {
-    const { cell, q } = setup();
-    await openMenu(cell(day(2026, 10, 6)));
-    await fireEvent.click(screen.getByRole('menuitem', { name: 'Move to date…' }));
+  it("Escape cancels: nothing moves and focus returns to the event's day", async () => {
+    const { cell, q, api } = setup({ rowMenu: true });
+    await chooseMoveToDate(api, 'dentist.md');
     await waitFor(() => expect(document.activeElement).toBe(cell(day(2026, 10, 6))));
     await press('ArrowRight');
     await press('Escape');
@@ -286,27 +323,17 @@ describe('Calendar: Move to date… (#2703)', () => {
     await waitFor(() => expect(document.activeElement).toBe(cell(day(2026, 10, 6))));
   });
 
-  it('a refused event: Move to date… is disabled with the reason, and choosing it says why', async () => {
-    const { cell, q } = setup();
-    const menu = await openMenu(cell(day(2026, 10, 20)));
-    const move = screen.getByRole('menuitem', { name: 'Move to date…' });
-    expect(move.getAttribute('aria-disabled')).toBe('true');
-    const note = menu.querySelector('[data-menu-refusal]')!;
-    expect(note.textContent).toBe('Launch ends 2026-11, which has no day to move; open it to edit.');
-    expect(move.getAttribute('aria-describedby')).toBe(note.id);
-    await fireEvent.click(move);
+  it("a refused event says why and doesn't start choosing", async () => {
+    const { q, api } = setup({ rowMenu: true });
+    await chooseMoveToDate(api, 'launch.md');
     expect(h.announce).toHaveBeenCalledWith('Launch ends 2026-11, which has no day to move; open it to edit.');
     expect(q('[data-calendar-move-bar]')).toBeNull();
   });
 
-  it('read-only: no menu', async () => {
-    const { cell } = setup({ readOnly: true });
-    cell(day(2026, 10, 6)).focus();
-    await press('Enter');
-    const dlg = await screen.findByRole('dialog');
-    await waitFor(() => expect(document.activeElement).toBe(dlg.querySelector('[data-day-event]')));
-    await press('F10', { shiftKey: true });
-    expect(screen.queryByRole('menu')).toBeNull();
+  it('read-only (an embed): a stray request moves nothing', async () => {
+    const { q, api } = setup({ rowMenu: true, readOnly: true });
+    await chooseMoveToDate(api, 'dentist.md');
+    expect(q('[data-calendar-move-bar]')).toBeNull();
   });
 });
 

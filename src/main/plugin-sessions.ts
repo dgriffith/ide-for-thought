@@ -162,6 +162,13 @@ export async function sendPluginSessionEvent(win: BrowserWindow, sessionId: stri
     entry.session.emit('preview', { path, description });
     return;
   }
+  if (event.kind === 'moveToDate') {
+    // Only a note the session may reach.
+    const path = String(event.path);
+    if (!entry.session.scope().includes(path)) throw new Error('That note isn’t in this view.');
+    entry.session.emit('moveToDate', { path });
+    return;
+  }
   if (event.kind === 'refreshQuery') {
     if (!entry.fed) throw new Error('Only a global view or a live block runs a query of its own.');
     await feed(entry);

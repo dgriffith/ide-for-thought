@@ -28,7 +28,7 @@ import type { PluginCapability } from './capabilities';
  * The API's semver version (#2826), its own and not the app's: the host sends
  * it with the port, and a plugin's `code.api` range must accept it.
  */
-export const PLUGIN_API_VERSION = '1.12.0';
+export const PLUGIN_API_VERSION = '1.13.0';
 
 export const PLUGIN_METHODS = {
   'notes.list': { capability: 'notes:read', describes: 'The notes this view or call was given.' },
@@ -185,6 +185,10 @@ export interface PluginMethodResults {
  *   declared query's results, and whether it's drawing for an export. Sent
  *   on connect and whenever the graph changes; an export's `export` request
  *   follows it.
+ * - `moveToDate` (#2929): the user chose *Move to date…* in Minerva's note
+ *   menu for one of the view's notes — let them choose the day (a calendar's
+ *   own picker), then ask with `view.reschedule`. Only sent where the view
+ *   can move notes, and only for a note in its scope.
  */
 export interface PluginEvents {
   theme: { mode: string; vars: Record<string, string> };
@@ -194,6 +198,7 @@ export interface PluginEvents {
   preview: { path: string; description: string | null };
   query: PluginQueryResults;
   block: PluginBlockState;
+  moveToDate: { path: string };
 }
 
 /**

@@ -160,4 +160,67 @@ describe('calendar layout (#2701, #2702)', () => {
       expect(h.undo).not.toHaveBeenCalled();
     });
   });
+
+  describe("Minerva's note menu on an event (#2929)", () => {
+    const actions = () => ({ editProperties: vi.fn(), addTag: vi.fn(), removeTag: vi.fn(), clearProperty: vi.fn() });
+    const event = (root: HTMLElement, path: string) => root.querySelector<HTMLElement>(`[data-plugin-loopback] [data-note-path="${path}"]`)!;
+    const items = () => screen.getAllByRole('menuitem').map((i) => i.textContent!.trim());
+
+    it("in the panel: the note actions, and Move to date… starts the calendar's day picker", async () => {
+      h.instances.mockResolvedValue({ type: JOURNAL, instances: ENTRIES });
+      const noteActions = actions();
+      const { container } = render(TypeView, props({ typeId: 'journal', layout: 'calendar', month: '2026-10', noteActions }));
+      await waitFor(() => expect(drawn(container)).toEqual(['j2.md']));
+      await fireEvent.contextMenu(event(container, 'j2.md'), { clientX: 40, clientY: 50 });
+      await screen.findByRole('menu');
+      expect(items()).toEqual(['Move to date…', 'Add Tag…', 'Remove Tag▸', 'Set Property▸', 'Clear Property▸', 'Edit Properties…']);
+      await fireEvent.click(screen.getByRole('menuitem', { name: 'Add Tag…' }));
+      expect(noteActions.addTag).toHaveBeenCalledWith(['j2.md']);
+
+      await fireEvent.contextMenu(event(container, 'j2.md'));
+      await fireEvent.click(await screen.findByRole('menuitem', { name: 'Move to date…' }));
+      await waitFor(() => expect(container.querySelector('[data-calendar-move-bar]')).toBeTruthy());
+      expect(screen.queryByRole('menu')).toBeNull();
+      const oct1 = container.querySelector<HTMLElement>('[role="gridcell"][aria-describedby]')!;
+      await fireEvent.keyDown(oct1, { key: 'ArrowRight' });
+      await waitFor(() => expect(document.activeElement).not.toBe(oct1));
+      await fireEvent.keyDown(document.activeElement!, { key: 'Enter' });
+      expect(h.reschedule).toHaveBeenCalledWith(
+        { path: 'j2.md', title: 'Autumn issue' }, { start: 'published', end: null }, 1,
+        { to: expect.any(String), back: expect.any(String) }, { cause: 'Moved by Calendar' },
+      );
+    });
+
+    it("an event that can't move keeps Move to date…, disabled, with the reason", async () => {
+      const MONTH_ONLY = { path: 'j3.md', title: 'Some issue', values: { published: '2026-10', revised: null, editor: null }, cover: null };
+      h.instances.mockResolvedValue({ type: JOURNAL, instances: [...ENTRIES, MONTH_ONLY] });
+      const { container } = render(TypeView, props({ typeId: 'journal', layout: 'calendar', month: '2026-10', noteActions: actions() }));
+      await waitFor(() => expect(event(container, 'j3.md')).toBeTruthy()); // in the month band
+      await fireEvent.contextMenu(event(container, 'j3.md'));
+      const move = await screen.findByRole('menuitem', { name: 'Move to date…' });
+      expect(move.getAttribute('aria-disabled')).toBe('true');
+      const reason = document.getElementById(move.getAttribute('aria-describedby')!)!;
+      expect(reason.textContent).toBe('2026-10 has no day to move; open it to edit.');
+      await fireEvent.click(move);
+      expect(screen.getByRole('menu')).toBeTruthy(); // stays open, having said why
+      expect(container.querySelector('[data-calendar-move-bar]')).toBeNull();
+    });
+
+    it('an embed gets the note actions but no Move to date…', async () => {
+      h.instances.mockResolvedValue({ type: JOURNAL, instances: ENTRIES });
+      const { container } = render(TypeView, props({ typeId: 'journal', layout: 'calendar', month: '2026-10', chromeless: true, noteActions: actions() }));
+      await waitFor(() => expect(drawn(container)).toEqual(['j2.md']));
+      await fireEvent.contextMenu(event(container, 'j2.md'));
+      await screen.findByRole('menu');
+      expect(items()).toEqual(['Add Tag…', 'Remove Tag▸', 'Set Property▸', 'Clear Property▸', 'Edit Properties…']);
+    });
+
+    it('without note actions (an export, or a host that offers none) a right-click opens nothing', async () => {
+      h.instances.mockResolvedValue({ type: JOURNAL, instances: ENTRIES });
+      const { container } = render(TypeView, props({ typeId: 'journal', layout: 'calendar', month: '2026-10' }));
+      await waitFor(() => expect(drawn(container)).toEqual(['j2.md']));
+      await fireEvent.contextMenu(event(container, 'j2.md'));
+      expect(screen.queryByRole('menu')).toBeNull();
+    });
+  });
 });

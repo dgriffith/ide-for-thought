@@ -9,7 +9,8 @@
  *
  * - **A drop** moves the event by the days the drag gave (drop day − grab
  *   day).
- * - ***Move to date…*** puts the grid in "choose a day" mode (`moving`):
+ * - ***Move to date…*** (chosen in Minerva's note menu, which sends the
+ *   `moveToDate` event, #2929) puts the grid in "choose a day" mode (`moving`):
  *   focus goes to the event's start day, the grid's keys move as always,
  *   and `confirm(day)` (Enter, a click on a day, or a typed date) moves it by
  *   `day − startDayOf(start)`. `cancel` (Escape, or focus leaving the
@@ -56,6 +57,7 @@ export function createReschedule(host: RescheduleHost) {
   }
 
   function start(key: string): void {
+    if (!host.interactive()) return;
     const ev = host.model().byKey.get(key);
     const refusal = refusalOf(key);
     if (refusal !== null) { announce(refusal); return; }
