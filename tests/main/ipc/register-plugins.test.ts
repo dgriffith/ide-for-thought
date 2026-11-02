@@ -485,14 +485,16 @@ describe('plugin session events (#2827)', () => {
     const drop = { kind: 'drop', paths: ['a.md'], x: 1, y: 2 };
     await call(Channels.PLUGINS_SESSION_EVENT, 's1', drop);
     expect(h.sessionEvent).toHaveBeenCalledWith({ id: 1 }, 's1', drop);
-    await expect(call(Channels.PLUGINS_SESSION_EVENT, 's1', { kind: 'approve' })).rejects.toThrow('a theme, a drop, a view, an export request, a preview or a query refresh');
-    await expect(call(Channels.PLUGINS_SESSION_EVENT, 's1', null)).rejects.toThrow('a theme, a drop, a view, an export request, a preview or a query refresh');
+    await expect(call(Channels.PLUGINS_SESSION_EVENT, 's1', { kind: 'approve' })).rejects.toThrow('a theme, a drop, a view, an export request, a preview, a query refresh or a move to a date');
+    await expect(call(Channels.PLUGINS_SESSION_EVENT, 's1', null)).rejects.toThrow('a theme, a drop, a view, an export request, a preview, a query refresh or a move to a date');
     await call(Channels.PLUGINS_SESSION_EVENT, 's1', { kind: 'exportRequest', requestId: 'r' });
     expect(h.sessionEvent).toHaveBeenLastCalledWith({ id: 1 }, 's1', { kind: 'exportRequest', requestId: 'r' });
     await call(Channels.PLUGINS_SESSION_EVENT, 's1', { kind: 'view', state: {} });
     expect(h.sessionEvent).toHaveBeenLastCalledWith({ id: 1 }, 's1', { kind: 'view', state: {} });
     await call(Channels.PLUGINS_SESSION_EVENT, 's1', { kind: 'refreshQuery' });
     expect(h.sessionEvent).toHaveBeenLastCalledWith({ id: 1 }, 's1', { kind: 'refreshQuery' });
+    await call(Channels.PLUGINS_SESSION_EVENT, 's1', { kind: 'moveToDate', path: 'a.md' });
+    expect(h.sessionEvent).toHaveBeenLastCalledWith({ id: 1 }, 's1', { kind: 'moveToDate', path: 'a.md' });
   });
 });
 

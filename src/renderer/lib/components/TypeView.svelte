@@ -44,7 +44,8 @@
   import TypeViewRowMenu from './TypeViewRowMenu.svelte';
   import { getKanbanMoveStore } from '../stores/kanban-moves.svelte';
   import { getCalendarSettings } from '../stores/settings-calendar.svelte';
-  import { rescheduleInView } from './type-view/calendar-reschedule';
+  import { moveToDateRefusal, rescheduleInView } from './type-view/calendar-reschedule';
+  import { announce } from '../stores/announcer.svelte';
   import { moveTargets, sharedColumnValue, type MoveTarget } from '../../../shared/objects/kanban-move';
   import type { PropertyDef, TypeInfo, TypeInstanceRow } from '../../../shared/objects/type-def';
 
@@ -361,6 +362,16 @@
     const inst = instances.find((i) => i.path === path);
     if (inst) rescheduleInView(moves, inst, { properties: allColumns, dateBy: calendarSpec.dateBy, cause: moveCause }, days);
   }
+  // *Move to date…* (#2929): one event, where the calendar moves notes; the
+  // plugin chooses the day. A refused event's item stays, disabled, and says why.
+  let startMoveToDate = $state<((path: string) => void) | null>(null);
+  function moveToDateItem(paths: string[]) {
+    const start = startMoveToDate;
+    const inst = paths.length === 1 && !sel.menu?.target ? instances.find((i) => i.path === paths[0]) : undefined;
+    if (!onCalendar || !movesHere || !start || !inst) return {};
+    const refusal = moveToDateRefusal(inst, { properties: allColumns, dateBy: calendarSpec.dateBy });
+    return { moveToDate: { refusal, onPick: () => (refusal ? announce(refusal) : (sel.closeMenu(), start(inst.path))) } };
+  }
   function onMoveColumn(key: string, target: string, side: 'before' | 'after'): void {
     if (groupProp) onStateChange({ columnOrder: moveColumn(instances, groupProp, columnOrder, key, target, side) });
   }
@@ -423,6 +434,7 @@
     get onUndoMove() { return movesHere ? () => void moves.undoLastMove(onCalendar ? 'calendar' : 'board', moveCause ? { cause: moveCause } : {}) : undefined; },
     get canUndoMove() { return onCalendar ? moves.canUndoReschedule : moves.canUndo; },
     get onReschedule() { return onCalendar && movesHere ? reschedule : undefined; },
+    provideMoveToDate: (start) => { startMoveToDate = start; },
     get week() { return { start: calendarSettings.weekStart, numbers: calendarSettings.showWeekNumbers }; },
     get lastMove() { return moves.lastMove; },
     get onMoveColumn() { return chromeless ? undefined : onMoveColumn; },
@@ -503,6 +515,7 @@
     <TypeViewRowMenu
       x={sel.menu.x} y={sel.menu.y} count={sel.menu.target ? 1 : sel.selectedPaths.length} onEdit={sel.editSelected} onClose={sel.closeMenu}
       {...(noteActions ? noteMenu(noteActions, sel.selectedPaths) : {})}
+      {...moveToDateItem(sel.selectedPaths)}
       {...(renderer.rowMenuMove && groupProp && selectable && !sel.menu.target ? { moveTargets: moveTargets(groupProp, board), moveFrom: sharedColumnValue(board, sel.selectedPaths), onMove: (t: MoveTarget) => moveTo(sel.selectedPaths, t) } : {})}
     />
   {/if}
