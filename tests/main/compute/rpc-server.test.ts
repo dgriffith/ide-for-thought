@@ -160,7 +160,8 @@ describe('sweepStaleRpcSockets (#1933)', () => {
     vi.restoreAllMocks();
   });
 
-  it('removes a socket file whose PID no longer belongs to any process', () => {
+  // POSIX only: on Windows the endpoint is a named pipe, which leaves no file to sweep (#2979).
+  it.skipIf(process.platform === 'win32')('removes a socket file whose PID no longer belongs to any process', () => {
     const deadPid = spawnSync(process.execPath, ['-e', 'process.exit(0)']).pid;
     const stale = sockPath(`minerva-rpc-${deadPid}-deadbeef.sock`);
     fs.writeFileSync(stale, '');
