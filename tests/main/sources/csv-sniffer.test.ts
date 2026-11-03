@@ -85,7 +85,7 @@ beforeAll(async () => {
   // temp file — the new path must not need one.
   fs.mkdirSync(path.join(base, 'empty'));
   await target.conn.run(
-    `SET allowed_directories = ['${fs.realpathSync(path.join(base, 'empty'))}/']; ` +
+    `SET allowed_directories = ['${fs.realpathSync.native(path.join(base, 'empty'))}/']; ` +
     'SET enable_external_access = false; SET lock_configuration = true;',
   );
   sniffer = await createCsvSniffer();

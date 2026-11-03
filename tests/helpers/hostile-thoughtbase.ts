@@ -40,6 +40,7 @@ import { beforeEach, afterEach } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import { useTempDir } from './temp-project';
+import { posix } from './posix-path';
 
 export const SYMLINK_FEATURES = [
   'symlink-file-outside',
@@ -224,7 +225,10 @@ function probeFs(root: string): FsFacts {
       caseSensitive: !namesCollide(dir, 'Probe.txt', 'probe.txt'),
       normalizationSensitive: !namesCollide(dir, 'café.txt', 'café.txt'),
       pathMax: pathMaxFor(process.platform),
-      permissionsEnforced: process.getuid?.() !== 0,
+      // Not as root (chmod doesn't stop root), and not on Windows, which has
+      // no POSIX permission bits — there `getuid` is undefined, and
+      // `undefined !== 0` used to say "enforced" (#2180).
+      permissionsEnforced: process.platform !== 'win32' && process.getuid?.() !== 0,
     };
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
@@ -246,14 +250,16 @@ export function buildHostileThoughtbase(root: string, opts: BuildOptions): Hosti
     fs: probeFs(root),
   };
 
+  // The manifest names paths as Minerva reports them: `/`-separated on every
+  // OS (#2989). `path.join(root, rel)` still reads them on Windows.
   const record = (feature: HostileFeature, rel: string) => {
-    (manifest.paths[feature] ??= []).push(rel);
+    (manifest.paths[feature] ??= []).push(posix(rel));
   };
   const write = (rel: string, content: string | Buffer, marker?: string) => {
     const abs = path.join(root, rel);
     fs.mkdirSync(path.dirname(abs), { recursive: true });
     fs.writeFileSync(abs, content);
-    if (marker) manifest.markers[rel] = marker;
+    if (marker) manifest.markers[posix(rel)] = marker;
   };
 
   // ── Controls (always) ────────────────────────────────────────────────────
@@ -284,7 +290,7 @@ export function buildHostileThoughtbase(root: string, opts: BuildOptions): Hosti
     const rel = path.join('links', 'in-root-alias.md');
     // Relative target: the common shape `ln -s` leaves behind.
     fs.symlinkSync('target.md', path.join(root, rel));
-    manifest.markers[rel] = 'inrootmarker';
+    manifest.markers[posix(rel)] = 'inrootmarker';
     record('symlink-in-root', rel);
   }
   if (features.has('symlink-dangling')) {
@@ -362,7 +368,7 @@ export function buildHostileThoughtbase(root: string, opts: BuildOptions): Hosti
     // tmpdir is /var → /private/var), so a path at the limit under the
     // spelling it was handed would already be over it once canonicalised.
     // A 64-byte margin leaves room for the app's own sibling paths.
-    const realRoot = fs.realpathSync(root);
+    const realRoot = fs.realpathSync.native(root);
     const leaf = 'deep-note.md';
     const budget = manifest.fs.pathMax - 1 - 64 - realRoot.length - 1 - leaf.length;
     const segs: string[] = [];
@@ -619,7 +625,7 @@ export interface NoteSqlExfilFixture {
  */
 export function writeNoteSqlExfilThoughtbase(rootIn: string): NoteSqlExfilFixture {
   fs.mkdirSync(path.join(rootIn, '.minerva', 'conversations'), { recursive: true });
-  const root = fs.realpathSync(rootIn);
+  const root = fs.realpathSync.native(rootIn);
   const conversationPath = path.join(root, '.minerva', 'conversations', 'c1.json');
   const secretsPath = path.join(root, '.minerva', 'secrets.json');
   fs.writeFileSync(
@@ -735,7 +741,7 @@ export interface PythonShadowFixture {
 
 export function writePythonShadowThoughtbase(rootIn: string): PythonShadowFixture {
   fs.mkdirSync(rootIn, { recursive: true });
-  const root = fs.realpathSync(rootIn);
+  const root = fs.realpathSync.native(rootIn);
   const canaries = {} as PythonShadowFixture['canaries'];
   for (const name of PYTHON_SHADOW_MODULES) {
     const canary = path.join(root, `SHADOW_RAN_${name}`);
@@ -775,7 +781,7 @@ export interface LocalHtmlLureFixture {
 
 export function writeLocalHtmlLureThoughtbase(rootIn: string): LocalHtmlLureFixture {
   fs.mkdirSync(rootIn, { recursive: true });
-  const root = fs.realpathSync(rootIn);
+  const root = fs.realpathSync.native(rootIn);
   const lureRel = 'attachments/lure.html';
   fs.mkdirSync(path.join(root, 'attachments'), { recursive: true });
   fs.writeFileSync(
@@ -814,7 +820,7 @@ export const CLIPPED_SCRIPT_EXCERPT = 'a perfectly ordinary passage';
 
 export function writeClippedScriptSourceThoughtbase(rootIn: string): { root: string; sourceId: string } {
   fs.mkdirSync(rootIn, { recursive: true });
-  const root = fs.realpathSync(rootIn);
+  const root = fs.realpathSync.native(rootIn);
   const dir = path.join(root, '.minerva', 'sources', CLIPPED_SCRIPT_SOURCE_ID);
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(
@@ -864,7 +870,7 @@ export interface HostileOntologyFixture {
 
 export function writeHostileOntologyThoughtbase(rootIn: string): HostileOntologyFixture {
   fs.mkdirSync(rootIn, { recursive: true });
-  const root = fs.realpathSync(rootIn);
+  const root = fs.realpathSync.native(rootIn);
   const dir = path.join(root, '.minerva', 'ontology');
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, 'lab.ttl'), [
@@ -913,7 +919,7 @@ export interface PluginRecommendingFixture {
 
 export function writePluginRecommendingThoughtbase(rootIn: string): PluginRecommendingFixture {
   fs.mkdirSync(rootIn, { recursive: true });
-  const root = fs.realpathSync(rootIn);
+  const root = fs.realpathSync.native(rootIn);
   const honest = { id: 'reading-list', source: 'https://github.com/ada/reading-list#v1.0.0' };
   const recommendedPlugins: unknown[] = [
     { ...honest, name: 'Reading List', reason: 'Book notes use its type.', types: ['book-note'], autoInstall: true, enabled: true },
@@ -948,7 +954,7 @@ export interface HostileShapesFixture {
 
 export function writeHostileShapesThoughtbase(rootIn: string, opts: { exfilUrl: string }): HostileShapesFixture {
   fs.mkdirSync(rootIn, { recursive: true });
-  const root = fs.realpathSync(rootIn);
+  const root = fs.realpathSync.native(rootIn);
   const dir = path.join(root, '.minerva', 'shapes');
   fs.mkdirSync(dir, { recursive: true });
   for (let i = 0; i < 40; i++) fs.writeFileSync(path.join(root, `note-${i}.md`), `# Note ${i}\n`);

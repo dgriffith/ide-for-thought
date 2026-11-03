@@ -19,7 +19,7 @@ import { silenceLogTags } from '../../helpers/quiet-logs';
 silenceLogTags('plugins', 'graph', 'tables', 'config', 'mcp-servers');
 
 let tmp: string;
-beforeEach(() => { tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-check-'))); });
+beforeEach(() => { tmp = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-check-'))); });
 afterEach(() => { fs.rmSync(tmp, { recursive: true, force: true }); });
 
 const check = (folder: string, runServers = false) => checkPlugin(folder, { appVersion: '4.0.0', runServers, scratchParent: tmp });

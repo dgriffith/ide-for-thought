@@ -53,7 +53,7 @@ const stats = { accepted: 0, acceptedErrored: 0, refused: 0 };
 
 beforeAll(async () => {
   project = await makeGraphProject('minerva-sqlprop-');
-  root = fs.realpathSync(project.root);
+  root = fs.realpathSync.native(project.root);
   const m = path.join(root, '.minerva');
   fs.mkdirSync(path.join(m, 'conversations'), { recursive: true });
   fs.writeFileSync(path.join(m, 'leak.csv'), `secret,value\n${CANARY_CSV},1\n`);
