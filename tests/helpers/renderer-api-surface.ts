@@ -27,6 +27,7 @@
  */
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { posix } from './posix-path';
 
 const ESLINT_CONFIG = 'eslint.config.mjs';
 const PRELOAD = 'src/preload/preload.ts';
@@ -35,7 +36,8 @@ const PRELOAD = 'src/preload/preload.ts';
 export function filesUnder(dir: string, ext: string): string[] {
   const out: string[] = [];
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    const full = join(dir, entry.name);
+    // `/`-separated on every OS, as the baselines spell them (#2180).
+    const full = posix(join(dir, entry.name));
     if (entry.isDirectory()) out.push(...filesUnder(full, ext));
     else if (full.endsWith(ext)) out.push(full);
   }

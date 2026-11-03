@@ -12,12 +12,15 @@ import os from 'node:os';
 import path from 'node:path';
 
 const ROOT = path.join(__dirname, '..', '..');
+// Vite's JS entry under this Node, not the `.bin` shim (`vite.cmd` on Windows,
+// which Node won't spawn without a shell) (#2180).
+const VITE = path.join(ROOT, 'node_modules', 'vite', 'bin', 'vite.js');
 const out = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-core-plugin-build-'));
 afterAll(() => fs.rmSync(out, { recursive: true, force: true }));
 
 describe('the built-in plugin view build (#2828)', () => {
   it('builds kanban to relative, external-API, script-src-self-safe files', () => {
-    execFileSync(path.join(ROOT, 'node_modules', '.bin', 'vite'), ['build', '--config', 'vite.core-plugins.config.mts', '--logLevel', 'error'], {
+    execFileSync(process.execPath, [VITE, 'build', '--config', 'vite.core-plugins.config.mts', '--logLevel', 'error'], {
       cwd: ROOT, env: { ...process.env, CORE_PLUGIN: 'kanban', CORE_PLUGIN_OUT: out }, stdio: 'pipe',
     });
     const html = fs.readFileSync(path.join(out, 'index.html'), 'utf8');
@@ -32,7 +35,7 @@ describe('the built-in plugin view build (#2828)', () => {
   }, 120_000);
 
   it('refuses to build without a plugin id', () => {
-    expect(() => execFileSync(path.join(ROOT, 'node_modules', '.bin', 'vite'), ['build', '--config', 'vite.core-plugins.config.mts'], {
+    expect(() => execFileSync(process.execPath, [VITE, 'build', '--config', 'vite.core-plugins.config.mts'], {
       cwd: ROOT, env: { ...process.env, CORE_PLUGIN: '' }, stdio: 'pipe',
     })).toThrow();
   }, 60_000);

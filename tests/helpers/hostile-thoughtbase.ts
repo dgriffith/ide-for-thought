@@ -387,7 +387,11 @@ export function buildHostileThoughtbase(root: string, opts: BuildOptions): Hosti
     }
   }
   if (features.has('special-chars')) {
-    const names = ['with space.md', 'hash#tag.md', 'percent%20enc.md', 'question?.md'];
+    // `?` (like `<>:"|*`) can't be in a Windows file name at all, so no
+    // Windows thoughtbase holds one; build what the fs can hold, as the NFD
+    // and case pairs do (#2180).
+    const names = ['with space.md', 'hash#tag.md', 'percent%20enc.md', 'question?.md']
+      .filter((n) => process.platform !== 'win32' || !/[<>:"|?*]/.test(n));
     names.forEach((n, i) => {
       const rel = path.join('names', n);
       write(rel, `# Special ${i}\n\nspecialmarker${i}\n`, `specialmarker${i}`);

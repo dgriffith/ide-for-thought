@@ -114,7 +114,10 @@ describe('.githooks/pre-push is POSIX sh', () => {
   });
 });
 
-describe.each(SHELLS)('pre-push under %s (#2380)', (shell) => {
+// The harness is POSIX: stub scripts with shebangs on a `:`-separated PATH of
+// /usr/bin and /bin. The hook under Git for Windows is #2195's to cover; on a
+// Windows runner this would only prove the stubs can't be found (#2180).
+describe.skipIf(process.platform === 'win32').each(SHELLS)('pre-push under %s (#2380)', (shell) => {
   it('SKIP_HOOKS=1 short-circuits before anything runs — even with PREPUSH_TESTS=1', () => {
     const r = runHook(shell, { SKIP_HOOKS: '1', PREPUSH_TESTS: '1' });
     expect(r.status).toBe(0);

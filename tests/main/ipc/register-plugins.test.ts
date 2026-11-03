@@ -119,6 +119,7 @@ import type { ReplacePolicy } from '../../../src/main/plugins/lifecycle';
 import { pluginProposalApplier } from '../../../src/main/llm/plugin-proposal-slot';
 import { pendingExtensionDrafts } from '../../../src/main/ipc/extension-draft-offers';
 import type { ExtensionDraftOutcome } from '../../../src/shared/extensions/drafts';
+import path from 'node:path';
 
 registerPlugins();
 const call = async <T>(channel: string, ...args: unknown[]): Promise<T> => await (h.handlers.get(channel)!({}, ...args) as Promise<T>);
@@ -285,7 +286,7 @@ describe('register-plugins (#2634)', () => {
   it('reveal shows the plugins folder or one plugin\'s — shown, never opened — by id only', async () => {
     await call(Channels.PLUGINS_REVEAL);
     await call(Channels.PLUGINS_REVEAL, 'lab');
-    expect(h.showItemInFolder.mock.calls).toEqual([['/home/u/.minerva/plugins'], ['/home/u/.minerva/plugins/lab']]);
+    expect(h.showItemInFolder.mock.calls).toEqual([['/home/u/.minerva/plugins'], [path.join('/home/u/.minerva/plugins', 'lab')]]);
     await expect(call(Channels.PLUGINS_REVEAL, '../../etc')).rejects.toThrow(/isn't a plugin id/);
   });
 

@@ -12,6 +12,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { compare, findArtifacts, formatMb } from '../../scripts/check-artifact-size.mjs';
+import { posix } from '../helpers/posix-path';
 
 const MB = 1024 * 1024;
 const zip = (mb: number) => ({ zip: { file: 'a.zip', bytes: mb * MB } });
@@ -87,10 +88,13 @@ describe('findArtifacts', () => {
     '/make/zip/darwin': ['arm64'],
     '/make/zip/darwin/arm64': ['Minerva-darwin-arm64-2.0.2.zip'],
   };
+  // The script joins with the host's `path` (right for real paths); the fake
+  // tree is keyed `/`-separated, so a Windows `\make\zip` is looked up the
+  // same way (#2180).
   const readdirSync = (dir: string) =>
-    (tree[dir] ?? []).map((name) => ({
+    (tree[posix(dir)] ?? []).map((name) => ({
       name,
-      isDirectory: () => Boolean(tree[`${dir}/${name}`]),
+      isDirectory: () => Boolean(tree[`${posix(dir)}/${name}`]),
     }));
   const statSync = () => ({ size: 5 * MB });
 

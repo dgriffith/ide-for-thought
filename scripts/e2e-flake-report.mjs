@@ -26,6 +26,8 @@
  *   node scripts/e2e-flake-report.mjs <playwright-report.json> [--max-flaky <n>]
  */
 import { readFileSync, appendFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { FLAKE_BUDGET, formatReport } from './lib/e2e-flake-budget.mjs';
 
 function parseArgs(argv) {
@@ -42,7 +44,9 @@ function parseArgs(argv) {
 }
 
 // ── CLI entry point ──
-if (process.argv[1] && import.meta.url === `file://${process.argv[1]}`) {
+// `file://${argv[1]}` isn't the module URL on Windows (`file:///D:/…` vs
+// `file://D:\…`), so the script did nothing there (#2180); compare paths.
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const args = parseArgs(process.argv.slice(2));
   if (!args.report) {
     console.error('e2e-flake-report: a Playwright JSON report path is required');
