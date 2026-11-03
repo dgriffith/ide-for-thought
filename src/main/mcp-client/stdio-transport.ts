@@ -12,7 +12,13 @@
  * spec's auth model for stdio is "credentials come from the server's own
  * environment," not from this client.
  */
-import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
+import type { ChildProcessWithoutNullStreams } from 'node:child_process';
+// cross-spawn, not child_process.spawn (#2980): on Windows the usual server
+// commands — `npx`, `uvx` — are `.cmd` shims, which spawn can't run without a
+// shell, and a shell needs every argument escaped for cmd.exe. cross-spawn
+// resolves the command through PATH/PATHEXT and does that escaping; off
+// Windows it is plain spawn.
+import spawn from 'cross-spawn';
 import readline from 'node:readline';
 import { logger } from '../../shared/logger';
 import { McpConnectionError, McpProtocolError } from './errors';
@@ -78,7 +84,8 @@ export class StdioTransport implements McpTransport {
       // whole parent env, which carries the user's API keys and tokens (#2560).
       env: { ...allowlistedEnv(process.env), ...this.descriptor.env },
       cwd: this.descriptor.cwd,
-    });
+      // Three pipes, so none of the streams is null (cross-spawn's types don't narrow).
+    }) as ChildProcessWithoutNullStreams;
     this.proc = proc;
 
     const rl = readline.createInterface({ input: proc.stdout });
