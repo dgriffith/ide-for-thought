@@ -215,10 +215,7 @@ export async function dispatchMethod(rootPath: string, method: string, params: R
  * calls when the kernel exits.
  */
 export async function startRpcServer(rootPath: string): Promise<RpcServer> {
-  const socketPath = path.join(
-    os.tmpdir(),
-    `minerva-rpc-${process.pid}-${randomBytes(4).toString('hex')}.sock`,
-  );
+  const socketPath = rpcEndpointPath(`minerva-rpc-${process.pid}-${randomBytes(4).toString('hex')}`);
 
   const server = net.createServer((conn) => {
     const rl = readline.createInterface({ input: conn });
@@ -260,11 +257,27 @@ export async function startRpcServer(rootPath: string): Promise<RpcServer> {
         // best-effort unlink so /tmp doesn't accumulate stragglers.
         // (Errors ignored: the socket may have already been removed.)
       }).then(async () => {
+        if (IS_PIPE) return; // a named pipe goes with its server; there's no file
         try {
           await fs.promises.unlink(socketPath);
         } catch { /* nothing to do */ }
       }),
   };
+}
+
+/**
+ * Where a kernel's RPC endpoint lives (#2979). POSIX: a socket file in the
+ * temp dir. Windows: a **named pipe** — Node's `net` listens on one given a
+ * `\\.\pipe\…` path, and Windows has no filesystem sockets that both Node
+ * and CPython (no `AF_UNIX` there) can reach. The name is per kernel and
+ * unguessable (pid + random), as the socket's is; the pipe takes libuv's
+ * default security and disappears with its server, so there's nothing to
+ * unlink or sweep.
+ */
+const IS_PIPE = process.platform === 'win32';
+
+export function rpcEndpointPath(name: string, platform: NodeJS.Platform = process.platform): string {
+  return platform === 'win32' ? `\\\\.\\pipe\\${name}` : path.join(os.tmpdir(), `${name}.sock`);
 }
 
 const SOCKET_NAME_RE = /^minerva-rpc-(\d+)-[0-9a-f]+\.sock$/;
@@ -296,6 +309,7 @@ function isProcessAlive(pid: number): boolean {
  * socket removed by a concurrent sweep) is swallowed rather than surfaced.
  */
 export function sweepStaleRpcSockets(): void {
+  if (IS_PIPE) return; // named pipes leave nothing behind (#2979)
   let entries: string[];
   try {
     entries = fs.readdirSync(os.tmpdir());

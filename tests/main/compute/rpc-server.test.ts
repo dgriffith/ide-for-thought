@@ -203,3 +203,18 @@ describe('sweepStaleRpcSockets (#1933)', () => {
     expect(() => sweepStaleRpcSockets()).not.toThrow();
   });
 });
+
+describe('rpcEndpointPath (#2979)', () => {
+  it('is a named pipe on Windows — CPython there has no AF_UNIX', async () => {
+    const { rpcEndpointPath } = await import('../../../src/main/compute/rpc-server');
+    expect(rpcEndpointPath('minerva-rpc-1-ab', 'win32')).toBe('\\\\.\\pipe\\minerva-rpc-1-ab');
+  });
+
+  it('is a socket file in the temp dir elsewhere', async () => {
+    const { rpcEndpointPath } = await import('../../../src/main/compute/rpc-server');
+    const os = await import('node:os');
+    const path = await import('node:path');
+    expect(rpcEndpointPath('minerva-rpc-1-ab', 'darwin')).toBe(path.join(os.tmpdir(), 'minerva-rpc-1-ab.sock'));
+    expect(rpcEndpointPath('minerva-rpc-1-ab', 'linux')).toBe(path.join(os.tmpdir(), 'minerva-rpc-1-ab.sock'));
+  });
+});
