@@ -25,5 +25,7 @@ skipIfNoMcpFixture('stdio transport vs. a real legacy MCP server (#2029)', () =>
     } finally {
       await transport.close();
     }
-  }, 30_000);
+    // As long as the modern test allows: a cold `npx` fetch on a Windows
+    // runner took ~30s on its own (#2980).
+  }, 60_000);
 });
