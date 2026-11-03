@@ -77,7 +77,8 @@ describe('startWatching on a hostile thoughtbase (#2372)', () => {
 
   it('reports a note created beside the hostile entries', async () => {
     await startWatching(tb.manifest.root, recorder(events), id, noop);
-    const rel = path.join('links', 'fresh.md');
+    // As the watcher reports it: `/`-separated on every OS (#2989).
+    const rel = 'links/fresh.md';
 
     await fsp.writeFile(path.join(tb.manifest.root, rel), '# fresh\n');
 

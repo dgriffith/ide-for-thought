@@ -42,7 +42,7 @@ function openedDir(rel?: string): string {
 }
 
 beforeEach(() => {
-  h.root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-terminal-')));
+  h.root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-terminal-')));
   fs.mkdirSync(path.join(h.root, 'trip/prague'), { recursive: true });
   fs.writeFileSync(path.join(h.root, 'trip/prague/Kampa.md'), '# Kampa');
   h.spawned.length = 0;

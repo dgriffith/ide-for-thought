@@ -86,7 +86,7 @@ describe('validatePluginMcpServers (#2646)', () => {
 
 describe('a plugin server\'s program must be inside the plugin (#2646)', () => {
   let tmp: string;
-  beforeEach(() => { tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-plugin-mcp-pkg-'))); });
+  beforeEach(() => { tmp = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-plugin-mcp-pkg-'))); });
   afterEach(() => { fs.rmSync(tmp, { recursive: true, force: true }); });
 
   const server = (spec: unknown) => ({ mcpServers: { s: spec } });
@@ -121,7 +121,7 @@ describe('the Word Tools plugin\'s server, end to end (#2646)', () => {
   let dir: string;
 
   beforeEach(async () => {
-    tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-plugin-mcp-')));
+    tmp = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-plugin-mcp-')));
     dir = path.join(tmp, 'plugins');
     fs.cpSync(FIXTURE, path.join(dir, 'word-tools'), { recursive: true });
     configureMcpToolPermissionsPath(path.join(tmp, 'mcp-tool-permissions.json'));

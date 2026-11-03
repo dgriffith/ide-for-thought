@@ -44,7 +44,7 @@ interface Vault {
   secrets: string;
 }
 
-const base = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-mcp-guard-')));
+const base = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-mcp-guard-')));
 
 function makeVault(name: string): Vault {
   const root = path.join(base, name);

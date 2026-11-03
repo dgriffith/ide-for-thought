@@ -55,7 +55,7 @@ function landing(abs: string): string {
   let cur = abs;
   for (;;) {
     try {
-      return path.join(fs.realpathSync(cur), ...tail);
+      return path.join(fs.realpathSync.native(cur), ...tail);
     } catch {
       const parent = path.dirname(cur);
       if (parent === cur) return abs;
@@ -94,7 +94,7 @@ describe('path containment: lexical properties (#2388)', () => {
   let root = '';
 
   beforeAll(() => {
-    base = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-pathprop-')));
+    base = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-pathprop-')));
     root = path.join(base, 'tb');
     for (const d of ['notes/sub', '.minerva/conversations', '.git', 'node_modules/pkg', 'minerva']) {
       fs.mkdirSync(path.join(root, d), { recursive: true });
@@ -203,11 +203,11 @@ function touch(abs: string): string | null {
   try {
     if (fs.existsSync(abs)) {
       if (fs.statSync(abs).isFile()) fs.readFileSync(abs);
-      return fs.realpathSync(abs);
+      return fs.realpathSync.native(abs);
     }
     fs.mkdirSync(path.dirname(abs), { recursive: true });
     fs.writeFileSync(abs, 'written by the property');
-    return fs.realpathSync(abs);
+    return fs.realpathSync.native(abs);
   } catch {
     // The IO itself failed (ENOTDIR, ELOOP, EEXIST through a dangling link…):
     // nothing was read or written, so nothing leaked.
@@ -234,7 +234,7 @@ describe('path containment: filesystem-backed agent-path property (#2388)', () =
   it('an accepted path, once read or written, really lives in-root and outside hidden folders', () => {
     fc.assert(
       fc.property(fc.array(linkSpec, { minLength: 1, maxLength: 6 }), fc.array(probe, { minLength: 1, maxLength: 8 }), (links, probes) => {
-        const base = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-pathprop-fs-')));
+        const base = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-pathprop-fs-')));
         try {
           const root = buildTree(base, links);
           for (const spec of probes) {

@@ -35,7 +35,7 @@ describe('assertSafePath: symlinked root (#352)', () => {
   it('treats both ends of a symlinked root as the same project', async () => {
     const root = await fsp.mkdtemp(path.join(os.tmpdir(), 'minerva-fs-symlink-test-'));
     try {
-      const realRoot = fs.realpathSync(root);
+      const realRoot = fs.realpathSync.native(root);
       // The fix only matters when realpath actually changes the
       // string. On Linux, tmpdir is usually already canonical; in
       // that case this assertion is just "both forms equal", which

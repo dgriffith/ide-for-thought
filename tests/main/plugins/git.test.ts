@@ -14,7 +14,7 @@ import { ZIP_LIMITS } from '../../../src/main/plugins/zip';
 import { buildRepo } from '../../helpers/git-repo';
 
 let tmp: string;
-beforeEach(() => { tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-plugin-git-'))); });
+beforeEach(() => { tmp = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-plugin-git-'))); });
 afterEach(() => { fs.rmSync(tmp, { recursive: true, force: true }); });
 
 describe('parseGitPluginSpec (#2634)', () => {

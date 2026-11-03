@@ -36,7 +36,7 @@ const PLUGIN_FILES = [
 const pluginDraft: CheckedExtensionDraft = { kind: 'plugin', id: 'lab', name: 'Lab', summary: 's', files: PLUGIN_FILES };
 
 let tmp: string;
-beforeEach(() => { tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-draft-apply-'))); });
+beforeEach(() => { tmp = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-draft-apply-'))); });
 afterEach(() => { fs.rmSync(tmp, { recursive: true, force: true }); });
 
 describe('saveSkillDraft (#2652)', () => {

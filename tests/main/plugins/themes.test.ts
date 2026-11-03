@@ -88,7 +88,7 @@ describe('pluginThemes (#2787)', () => {
   let tmp: string;
   let dir: string;
   beforeEach(() => {
-    tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-plugin-themes-')));
+    tmp = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-plugin-themes-')));
     dir = path.join(tmp, 'plugins');
     fs.mkdirSync(dir);
   });

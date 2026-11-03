@@ -16,7 +16,7 @@ import { buildZip, type ZipEntry } from '../../helpers/zip';
 let tmp: string;
 let dest: string;
 beforeEach(() => {
-  tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-plugin-zip-')));
+  tmp = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-plugin-zip-')));
   dest = path.join(tmp, 'out', 'unpacked');
 });
 afterEach(() => { fs.rmSync(tmp, { recursive: true, force: true }); });
