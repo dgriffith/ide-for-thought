@@ -42,6 +42,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { pasteStub } from '../helpers/paste-stub';
+import { posixRelative } from '../helpers/posix-path';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const MAIN_DIR = 'src/main';
@@ -69,7 +70,7 @@ function candidates(): string[] {
   const out: string[] = [];
   for (const file of tsFilesUnder(MAIN_DIR)) {
     const src = fs.readFileSync(file, 'utf-8');
-    if (HAS_JSON_PARSE.test(src) && HAS_DISK_READ.test(src)) out.push(path.relative(ROOT, file));
+    if (HAS_JSON_PARSE.test(src) && HAS_DISK_READ.test(src)) out.push(posixRelative(ROOT, file));
   }
   return out.sort();
 }

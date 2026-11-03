@@ -39,6 +39,7 @@ vi.mock('../../../src/main/mcp-servers/tool-permissions', () => permissionsMock)
 
 import { registerLocalMcpServers, registerMcpServers } from '../../../src/main/ipc/register-mcp-servers';
 import { Channels } from '../../../src/shared/channels';
+import path from 'node:path';
 
 registerMcpServers();
 // Off means not wired up (#2891): the channels that run a program aren't
@@ -108,7 +109,7 @@ describe('registerMcpServers', () => {
   });
 
   it('points the "Don\'t ask again" store at userData, never at a thoughtbase (#2439)', () => {
-    expect(configuredPermissionsPath).toBe('/fake-user-data/mcp-tool-permissions.json');
+    expect(configuredPermissionsPath).toBe(path.join('/fake-user-data', 'mcp-tool-permissions.json'));
   });
 });
 

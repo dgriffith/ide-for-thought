@@ -19,6 +19,9 @@ import path from 'node:path';
 import { resolveResourcesRoot, bundledResourcesRoot } from '../../src/main/bundled-resources';
 
 const REPO = path.resolve(__dirname, '..', '..');
+// The macOS layout, judged with POSIX paths on every host (#2180): the
+// runner's own `path` would read `/Applications/…` as relative to a drive.
+const P = path.posix;
 const APP = '/Applications/Minerva.app/Contents';
 const RESOURCES = `${APP}/Resources`;
 const BUNDLE_DIR = `${RESOURCES}/app.asar/.vite/build`;
@@ -52,7 +55,7 @@ describe('resolveResourcesRoot (#2410)', () => {
   });
 
   it('packaged app (main process): <Resources>/resources, with the extraResource nesting (#808)', () => {
-    const root = resolveResourcesRoot({ resourcesPath: RESOURCES, moduleDir: BUNDLE_DIR });
+    const root = resolveResourcesRoot({ resourcesPath: RESOURCES, moduleDir: BUNDLE_DIR, pathImpl: P });
     expect(root).toBe(`${RESOURCES}/resources`);
     // Neither of the two historical wrong answers:
     expect(root).not.toBe(RESOURCES); // #808 — dropped the `resources/` segment
@@ -64,20 +67,20 @@ describe('resolveResourcesRoot (#2410)', () => {
     // with ELECTRON_RUN_AS_NODE=1. Electron still sets process.resourcesPath
     // (verified on the packaged binary), and nothing here consults `app`.
     expect(
-      resolveResourcesRoot({ resourcesPath: RESOURCES, moduleDir: BUNDLE_DIR }),
+      resolveResourcesRoot({ resourcesPath: RESOURCES, moduleDir: BUNDLE_DIR, pathImpl: P }),
     ).toBe(`${RESOURCES}/resources`);
   });
 
   it('packaged, resourcesPath absent: falls back to the dir holding app.asar', () => {
     expect(
-      resolveResourcesRoot({ resourcesPath: undefined, moduleDir: BUNDLE_DIR }),
+      resolveResourcesRoot({ resourcesPath: undefined, moduleDir: BUNDLE_DIR, pathImpl: P }),
     ).toBe(`${RESOURCES}/resources`);
   });
 
   it('packaged, the app moved after install (resourcesPath follows the binary)', () => {
     const moved = '/Users/me/Desktop/Minerva.app/Contents/Resources';
     expect(
-      resolveResourcesRoot({ resourcesPath: moved, moduleDir: `${moved}/app.asar/.vite/build` }),
+      resolveResourcesRoot({ resourcesPath: moved, moduleDir: `${moved}/app.asar/.vite/build`, pathImpl: P }),
     ).toBe(`${moved}/resources`);
   });
 
@@ -87,6 +90,7 @@ describe('resolveResourcesRoot (#2410)', () => {
       resolveResourcesRoot({
         resourcesPath: RESOURCES,
         moduleDir: `${RESOURCES}-old/checkout/.vite/build`,
+        pathImpl: P,
       }),
     ).toBe(`${RESOURCES}-old/checkout/resources`);
   });

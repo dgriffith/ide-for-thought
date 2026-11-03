@@ -33,6 +33,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { dataflowMutationMethods, dataflowOwnerPaths } from '../helpers/renderer-api-surface';
+import { posix } from '../helpers/posix-path';
 
 /**
  * The scan's scope, kept identical to the eslint rule's (#2232). Both used to
@@ -143,7 +144,7 @@ const READ_ALLOWLIST = new Set<string>([
 function walk(dir: string): string[] {
   const out: string[] = [];
   for (const e of readdirSync(dir, { withFileTypes: true })) {
-    const p = join(dir, e.name);
+    const p = posix(join(dir, e.name));
     if (OWNER_PATHS.includes(p)) continue;
     if (e.isDirectory()) out.push(...walk(p));
     else if (p.endsWith('.svelte') || p.endsWith('.ts')) out.push(p);

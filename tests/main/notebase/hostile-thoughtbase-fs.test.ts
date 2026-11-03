@@ -19,6 +19,7 @@ import {
   CONTROL_NOTES,
   OUTSIDE_SECRET,
 } from '../../helpers/hostile-thoughtbase';
+import { HAS_POSIX_MODES } from '../../helpers/posix-modes';
 
 function flatten(files: NoteFile[]): NoteFile[] {
   return files.flatMap((f) => [f, ...(f.children ? flatten(f.children) : [])]);
@@ -58,7 +59,8 @@ describe('notebase listFiles on a hostile thoughtbase (#2372)', () => {
     expect(all.filter((p) => p.startsWith(path.join('links', 'escape-dir') + path.sep))).toEqual([]);
   });
 
-  it('still throws when the thoughtbase root itself cannot be listed', async () => {
+  // chmod can't make the root unlistable on Windows (#2180).
+  it.skipIf(!HAS_POSIX_MODES)('still throws when the thoughtbase root itself cannot be listed', async () => {
     if (!tb.manifest.fs.permissionsEnforced) return;
     fs.chmodSync(tb.manifest.root, 0o000);
     try {

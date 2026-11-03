@@ -81,7 +81,8 @@ describe('every installing job verifies the lockfile first (#2244)', () => {
     // `bench.yml` joined them in #2247 when it gained a cache, and `ci.yml`'s
     // `coverage` job arrived with a verify step when the floors moved back onto
     // PRs (#2432), `pr-bench.yml` with one from the start (#2386), and
-    // `lint-and-test-linux` with one from the start (#2178). Listed so
+    // `lint-and-test-linux` / `-windows` with one from the start (#2178,
+    // #2180). Listed so
     // a future reader doesn't re-derive this.
     expect(installing.map((j) => `${j.file}:${j.job}`).sort()).toEqual([
       'bench.yml:bench',
@@ -89,6 +90,7 @@ describe('every installing job verifies the lockfile first (#2244)', () => {
       'ci.yml:e2e',
       'ci.yml:lint-and-test',
       'ci.yml:lint-and-test-linux',
+      'ci.yml:lint-and-test-windows',
       'ci.yml:x64-smoke',
       'pr-bench.yml:pr-bench',
       'release.yml:build-macos',

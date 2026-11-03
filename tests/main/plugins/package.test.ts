@@ -15,7 +15,7 @@ import type { PluginLoadError } from '../../../src/shared/plugins/format';
 const APP = '4.1.0';
 let dir: string;
 
-beforeEach(() => { dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-plugins-'))); });
+beforeEach(() => { dir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-plugins-'))); });
 afterEach(() => { fs.rmSync(dir, { recursive: true, force: true }); });
 
 /** Write a plugin: its manifest (with `contributes`) and the given files. */

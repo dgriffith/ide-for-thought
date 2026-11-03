@@ -12,6 +12,7 @@
 import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
+import { posixRelative } from '../helpers/posix-path';
 
 const ROOT = path.join(__dirname, '..', '..');
 const PLUGINS = path.join(ROOT, 'plugins');
@@ -36,7 +37,7 @@ function refusal(file: string, id: string, spec: string): string | null {
   const target = path.resolve(path.dirname(file), spec);
   if (target.startsWith(path.join(PLUGINS, id) + path.sep)) return null;
   if (target.startsWith(SHARED + path.sep)) return null;
-  return `reaches ${path.relative(ROOT, target)} — only its own folder, the plugin API and src/shared/`;
+  return `reaches ${posixRelative(ROOT, target)} — only its own folder, the plugin API and src/shared/`;
 }
 
 const files = fs.existsSync(PLUGINS) ? walk(PLUGINS) : [];
@@ -53,7 +54,7 @@ describe('built-in plugin source reaches only what an installed plugin could (#2
       for (const m of fs.readFileSync(file, 'utf8').matchAll(IMPORT)) {
         const spec = (m[1] ?? m[2])!;
         const why = refusal(file, id, spec);
-        if (why) offenders.push(`${path.relative(ROOT, file)}: '${spec}' — ${why}`);
+        if (why) offenders.push(`${posixRelative(ROOT, file)}: '${spec}' — ${why}`);
       }
     }
     expect(offenders, 'A built-in plugin may import only its own folder, /@minerva/plugin-api.js, src/shared/ and npm packages.').toEqual([]);

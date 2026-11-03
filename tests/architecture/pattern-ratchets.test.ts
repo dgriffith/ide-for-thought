@@ -37,6 +37,7 @@ import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { posixRelative } from '../helpers/posix-path';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -62,7 +63,7 @@ function countPerFile(dirs: string | string[], pattern: RegExp): Record<string, 
   for (const dir of Array.isArray(dirs) ? dirs : [dirs]) {
     for (const file of tsFilesUnder(dir)) {
       const matches = fs.readFileSync(file, 'utf-8').match(pattern);
-      if (matches?.length) counts[path.relative(ROOT, file)] = matches.length;
+      if (matches?.length) counts[posixRelative(ROOT, file)] = matches.length;
     }
   }
   return counts;
@@ -390,7 +391,7 @@ const ATOMIC_WRITER = 'src/main/config/json-file.ts';
 function nonAtomicJsonWritesPerFile(): Record<string, number> {
   const counts: Record<string, number> = {};
   for (const file of [...tsFilesUnder('src/main'), ...tsFilesUnder('src/cli')]) {
-    const rel = path.relative(ROOT, file);
+    const rel = posixRelative(ROOT, file);
     if (rel === ATOMIC_WRITER) continue;
     const n = countNonAtomicJsonWrites(fs.readFileSync(file, 'utf-8'));
     if (n > 0) counts[rel] = n;

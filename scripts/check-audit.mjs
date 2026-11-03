@@ -90,6 +90,9 @@ function runAudit() {
   try {
     return execFileSync('pnpm', ['audit', '--audit-level=high', '--json'], {
       cwd: ROOT,
+      // On Windows `pnpm` is a `.cmd` shim, which Node only spawns through a
+      // shell (CVE-2024-27980). The arguments are fixed literals (#2180).
+      shell: process.platform === 'win32',
       encoding: 'utf-8',
       maxBuffer: 32 * 1024 * 1024,
     });

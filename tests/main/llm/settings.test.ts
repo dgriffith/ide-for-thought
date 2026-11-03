@@ -54,6 +54,7 @@ import { safeStorage } from 'electron';
 import { reportConfigError } from '../../../src/main/config/config-store';
 import { getSettings, getSettingsForDisplay, saveSettings, getApiKeyStorage } from '../../../src/main/llm/settings';
 import type { LLMSettingsUpdate } from '../../../src/shared/tools/types';
+import { HAS_POSIX_MODES } from '../../helpers/posix-modes';
 
 const settingsFile = () => path.join(tempDir, 'llm-settings.json');
 const base: LLMSettingsUpdate = {
@@ -314,7 +315,8 @@ describe('llm settings — a corrupt file is never clobbered (#2356)', () => {
     expect(reportConfigError).toHaveBeenCalledWith(settingsFile(), 'validate', expect.anything());
   });
 
-  it.skipIf(process.getuid?.() === 0)('saveSettings rejects on an unreadable file (EACCES) without writing', async () => {
+  // chmod can't make a file unreadable as root, or on Windows (#2180).
+  it.skipIf(process.getuid?.() === 0 || !HAS_POSIX_MODES)('saveSettings rejects on an unreadable file (EACCES) without writing', async () => {
     fs.writeFileSync(settingsFile(), JSON.stringify({ providers: { anthropic: { apiKey: 'sk-ant-kept' } } }));
     fs.chmodSync(settingsFile(), 0o000);
     try {

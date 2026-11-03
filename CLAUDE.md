@@ -1019,9 +1019,13 @@ could combine into a red main (#2348).
 The `ci.yml` jobs deliberately **not** required are `x64-smoke` (#2387: an
 unsigned x64 build smoke-booted on `macos-15-intel`, on main pushes and PRs
 labelled `x64-smoke` only, an early warning for #962, see `docs/packaging.md`),
-the security scan (#2570), and `lint-and-test-linux` (#2178: the same lint and
-suite on `ubuntu-latest`, the first signal for epic #2200, until it has a
-record of passing). Each is `continue-on-error`, so it can't turn a run red —
+the security scan (#2570), and `lint-and-test-linux` / `lint-and-test-windows`
+(#2178, #2180: the same lint and suite on `ubuntu-latest` / `windows-latest`,
+the signal for epic #2200, until each has a record of passing). The repo's
+`.gitattributes` keeps every checkout LF, Windows included; a script that runs
+`pnpm` or a `node_modules/.bin` tool on Windows needs `shell: true` (they're
+`.cmd` shims) — or, when its arguments aren't fixed literals, the tool's own
+JS entry under `process.execPath`, so nothing is re-split by a shell. Each is `continue-on-error`, so it can't turn a run red —
 which matters beyond the merge: the release gate reads the whole run's
 conclusion. `branch-ruleset.test.ts` requires any such exemption to be
 `continue-on-error`.

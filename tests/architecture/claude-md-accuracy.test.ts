@@ -37,6 +37,7 @@ import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { pasteStub } from '../helpers/paste-stub';
+import { posix } from '../helpers/posix-path';
 
 const CLAUDE_MD = 'CLAUDE.md';
 const DEV_MD = 'docs/development.md';
@@ -253,7 +254,7 @@ describe('the Dialogs section points at the real dialogs (#2257)', () => {
     const out: string[] = [];
     const walk = (dir: string): void => {
       for (const entry of readdirSync(dir, { withFileTypes: true })) {
-        const full = join(dir, entry.name);
+        const full = posix(join(dir, entry.name));
         if (entry.isDirectory()) walk(full);
         else if (/\.(ts|svelte)$/.test(full)) {
           if (new RegExp(`function\\s+${name}\\s*\\(`).test(readFileSync(full, 'utf8'))) out.push(full);
@@ -486,7 +487,7 @@ describe('the IPC-channel recipe is complete (#2258)', () => {
     const offenders: string[] = [];
     const walk = (dir: string): void => {
       for (const entry of readdirSync(dir, { withFileTypes: true })) {
-        const full = join(dir, entry.name);
+        const full = posix(join(dir, entry.name));
         if (entry.isDirectory()) walk(full);
         else if (full.endsWith('.ts')) {
           const src = readFileSync(full, 'utf8')

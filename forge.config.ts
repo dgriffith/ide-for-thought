@@ -124,15 +124,19 @@ function copyExternalDeps(buildPath: string): void {
 // Vite plugin deletes), copied in here to `.vite/core-plugins/` so they land
 // inside the signed app.asar and are served from it at `minerva-plugin://<id>/`
 // (src/main/plugins/frame-files.ts).
+// `pnpm` is a `.cmd` shim on Windows, which Node only spawns through a shell
+// (CVE-2024-27980); the arguments below are fixed literals (#2180).
+const SHELL_FOR_PNPM = process.platform === 'win32';
+
 function copyCorePluginViews(buildPath: string): void {
-  execFileSync('pnpm', ['core-plugins:build'], { stdio: 'inherit' });
+  execFileSync('pnpm', ['core-plugins:build'], { stdio: 'inherit', shell: SHELL_FOR_PNPM });
   const src = path.join(process.cwd(), 'node_modules', '.cache', 'minerva', 'core-plugins');
   if (!fs.existsSync(src)) throw new Error(`[forge] core-plugins:build did not produce ${src}`);
   fs.cpSync(src, path.join(buildPath, '.vite', 'core-plugins'), { recursive: true });
 }
 
 function copyCliBundle(buildPath: string): void {
-  execFileSync('pnpm', ['cli:build'], { stdio: 'inherit' });
+  execFileSync('pnpm', ['cli:build'], { stdio: 'inherit', shell: SHELL_FOR_PNPM });
   const src = path.join(process.cwd(), '.vite', 'build', 'cli.js');
   if (!fs.existsSync(src)) {
     throw new Error('[forge] cli:build did not produce .vite/build/cli.js');

@@ -39,6 +39,7 @@ import {
   posix,
   type HostileFeature,
 } from '../../helpers/hostile-thoughtbase';
+import { HAS_POSIX_MODES } from '../../helpers/posix-modes';
 
 async function indexedPaths(ctx: ProjectContext): Promise<Set<string>> {
   const { results } = await queryGraph(ctx, `SELECT ?p WHERE { ?n a minerva:Note ; minerva:relativePath ?p . }`);
@@ -99,7 +100,8 @@ describe('graph indexAllNotes on a hostile note tree (#2372)', () => {
     expect(await graphMentions(ctx, 'lockedmarker')).toBe(false);
   });
 
-  it.skipIf(process.getuid?.() === 0)('still rejects when the thoughtbase ROOT cannot be listed', async () => {
+  // chmod can't make the root unlistable as root, or on Windows (#2180).
+  it.skipIf(process.getuid?.() === 0 || !HAS_POSIX_MODES)('still rejects when the thoughtbase ROOT cannot be listed', async () => {
     fs.chmodSync(tb.manifest.root, 0o000);
     try {
       await expect(indexAllNotes(ctx)).rejects.toMatchObject({ code: 'EACCES' });

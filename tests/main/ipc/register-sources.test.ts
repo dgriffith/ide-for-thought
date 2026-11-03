@@ -225,6 +225,7 @@ vi.mock('../../../src/main/project-config', () => ({
 
 import { registerSources } from '../../../src/main/ipc/register-sources';
 import { Channels } from '../../../src/shared/channels';
+import path from 'node:path';
 
 registerSources();
 
@@ -662,7 +663,7 @@ describe('register-sources — ingest', () => {
   it('SOURCES_HAS_PDF reports true when the original was kept', async () => {
     h.stat.mockResolvedValue({});
     await expect(callAsync(Channels.SOURCES_HAS_PDF, 's1')).resolves.toBe(true);
-    expect(h.stat).toHaveBeenCalledWith('/vault/.minerva/sources/s1/original.pdf');
+    expect(h.stat).toHaveBeenCalledWith(path.join('/vault', '.minerva', 'sources', 's1', 'original.pdf'));
   });
 
   it('SOURCES_HAS_PDF surfaces an unreadable file instead of calling it absent (#1881)', async () => {
