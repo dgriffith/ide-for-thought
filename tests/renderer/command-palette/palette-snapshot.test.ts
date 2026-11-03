@@ -6,7 +6,13 @@
  * the action table's business (`app/command-keymap.ts`), shared with the menu
  * bar; here it's enough that an entry runs its own id.
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+
+// The snapshot is the list as macOS shows it (⌘, ⇧, ⌥). The renderer reads
+// the platform from the UA, which is the host's under test — so on a Linux or
+// Windows runner the same list reads "Ctrl Shift …" (#2178). Pinned here; the
+// off-mac labels are format-accelerator's own tests' business.
+vi.mock('../../../src/renderer/lib/utils/platform', () => ({ IS_MAC: true }));
 import { buildCommandRegistry, type PaletteState } from '../../../src/renderer/lib/command-palette/registry';
 import type { ThinkingToolInfo } from '../../../src/shared/tools/types';
 

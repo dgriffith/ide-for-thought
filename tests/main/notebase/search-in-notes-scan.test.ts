@@ -32,6 +32,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { searchInNotes, matchesForContent, isSearchSuperseded } from '../../../src/main/notebase/search-in-notes';
 import { _clearNoteContentCacheForTests } from '../../../src/main/notebase/note-content-cache';
+import { settleFiles } from '../../helpers/settle-files';
 
 let root: string;
 
@@ -67,6 +68,7 @@ function countReads(): { calls: () => string[] } {
 describe('searchInNotes — body cache', () => {
   it('reads each file exactly once for a scan, and not at all on an unchanged re-scan', async () => {
     for (let i = 0; i < 12; i++) write(`folder-${i % 3}/note-${i}.md`, `line one\nneedle in ${i}\ntail`);
+    settleFiles(root); // the steady state: notes that haven't changed lately
     const reads = countReads();
 
     const first = await searchInNotes(root, { pattern: 'needle', caseSensitive: false, regex: false });
@@ -85,6 +87,21 @@ describe('searchInNotes — body cache', () => {
     // changed between keystrokes is the regex, not the corpus.
     await searchInNotes(root, { pattern: 'tail', caseSensitive: false, regex: false });
     expect(reads.calls()).toHaveLength(12);
+  });
+
+  it('reads a note modified a moment ago on every scan, and caches it once its stamp can be trusted (#2178)', async () => {
+    write('a.md', 'needle');
+    const reads = countReads();
+    await searchInNotes(root, { pattern: 'needle', caseSensitive: false, regex: false });
+    await searchInNotes(root, { pattern: 'needle', caseSensitive: false, regex: false });
+    // Too fresh to trust its stamp (a same-size rewrite in the same coarse
+    // tick wouldn't move it), so not cached: both scans read it.
+    expect(reads.calls()).toHaveLength(2);
+
+    settleFiles(root);
+    await searchInNotes(root, { pattern: 'needle', caseSensitive: false, regex: false });
+    await searchInNotes(root, { pattern: 'needle', caseSensitive: false, regex: false });
+    expect(reads.calls()).toHaveLength(3); // read once more, then served from memory
   });
 
   it('sees a note created between two scans', async () => {

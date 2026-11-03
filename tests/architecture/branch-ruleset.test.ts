@@ -41,6 +41,10 @@ const NOT_REQUIRED: Record<string, string> = {
     'An early warning for #962 (x64 builds), which Minerva does not ship: runs on main pushes ' +
     'and only on PRs labelled x64-smoke, and is continue-on-error by design (#2387). ' +
     'Requiring it would block every PR on a check that usually never reports.',
+  'lint-and-test on Linux (non-blocking)':
+    'The first Windows/Linux test signal (#2178, epic #2200): the same lint and suite on ubuntu-latest. ' +
+    'Advisory, and continue-on-error, until it has a record of passing; then it joins the required checks. ' +
+    'Minerva does not ship on Linux yet, so a red Linux run must not block a macOS merge or release.',
   'security scan (advisory)':
     'Electronegativity + Semgrep against a baseline (#2570). Advisory while the baseline settles: a new ' +
     'finding is a ::warning and a summary row, and continue-on-error keeps it out of the merge gate. ' +

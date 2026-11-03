@@ -79,6 +79,7 @@ import path from 'node:path';
 import { INLINE_ASSET_DIR, type OrphanedAsset } from '../../shared/asset-paths';
 import { createProjectStore } from '../project-store';
 import { projectContext } from '../project-context-types';
+import { stampSettled } from '../../shared/file-stamp';
 
 export type { OrphanedAsset };
 
@@ -204,7 +205,9 @@ interface ScannedFile {
    * a note that just GAINED a reference would be judged by its previous
    * tokens, and the image it now displays would be reported as an orphan with
    * a Delete button beside it. Rare, but the cost of being wrong here is data
-   * loss, and nanoseconds cost nothing.
+   * loss, and nanoseconds cost nothing. They aren't enough on their own:
+   * Linux and Windows stamp from a coarse clock, so a file modified in the
+   * last couple of seconds isn't memoized at all (`stampSettled`, #2178).
    */
   stamp: string;
   /** Distinct filename-shaped tokens in the file's text. Asset-set
@@ -304,7 +307,10 @@ export async function findOrphanedInlineAssets(rootPath: string): Promise<Orphan
       return; // unreadable — treat conservatively as "can't tell", not "orphaned"
     }
     const tokens = tokenise(content);
-    current.set(rel, { stamp, tokens });
+    // Memoized only once its stamp can be trusted (#2178): a file modified in
+    // the last moment is read again next scan, so a same-size rewrite in the
+    // same timestamp tick can't leave its old tokens standing.
+    if (stampSettled(Number(stat.mtimeMs))) current.set(rel, { stamp, tokens });
     for (const t of tokens) seen.add(t);
   });
 

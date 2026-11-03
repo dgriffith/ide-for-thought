@@ -10,15 +10,16 @@
 # pull requests AND on main — so the PR critical path is the slowest of them,
 # not their sum.
 #
-# A fifth, `x64-smoke`, is NOT required and cannot fail the run: an x64 build
-# smoke-booted on an Intel runner, on main pushes (and PRs labelled
-# `x64-smoke`) only — an early warning for #962. See the job for why.
+# Two more are NOT required and cannot fail the run:
+#   - x64-smoke: an x64 build smoke-booted on an Intel runner, on main pushes
+#     (and PRs labelled `x64-smoke`) only — an early warning for #962.
+#   - lint-and-test-linux: the same lint and suite on ubuntu-latest (#2178),
+#     the first Windows/Linux signal (epic #2200).
 #
-# Both on macos-latest: matches the dev machine, and the chokidar
-# watcher tests (#345) exercise macOS fsevents semantics — a Linux
-# runner would need different timing tolerances. The e2e job
-# additionally needs a darwin Electron app bundle, so cross-platform
-# would mean separate package targets per platform.
+# The required jobs run on macos-latest: it matches the dev machine and the
+# shipped platform. The e2e job additionally needs a darwin Electron app
+# bundle, so cross-platform e2e means separate package targets per platform
+# (#2179).
 
 name: CI
 
@@ -144,6 +145,65 @@ jobs:
       # the parallel `coverage` job below; this one stays so a plain test
       # failure (and lint) reports in the time it takes to run, without
       # waiting on the instrumentation slowdown.
+      - name: Test
+        run: pnpm test
+
+  # The same lint and suite on Linux (#2178, epic #2200), so Windows/Linux work
+  # has a test signal to trust. NOT a required check yet, and `continue-on-error`
+  # so it can't turn a run red: release.yml's gate reads the whole run's
+  # conclusion (scripts/lib/release-ci-gate.mjs), and an advisory job must not
+  # block a release. Once it has a record of passing it can join the required
+  # checks in .github/rulesets/main.json (branch-ruleset.test.ts).
+  #
+  # What Linux found, both fixed in the PR that added this: the palette
+  # snapshot read the host's platform (⌘ vs Ctrl), and two caches trusted a
+  # file's stat stamp within one coarse timestamp tick (shared/file-stamp.ts).
+  # Lint fonts and the generated-docs check stay on lint-and-test: they test
+  # files, not the platform.
+  lint-and-test-linux:
+    name: lint-and-test on Linux (non-blocking)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up pnpm
+        # Version comes from the `packageManager` field in package.json.
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      # Unconditional lockfile/manifest check (#2244) — see lint-and-test.
+      - name: Verify lockfile matches package.json
+        run: pnpm install --frozen-lockfile --lockfile-only
+
+      # Same key as the other jobs (lockfile-gate.test.ts holds them
+      # byte-identical); `runner.os` in it gives Linux its own entry.
+      - name: Cache node_modules
+        id: node-modules-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: node_modules
+          key: node-modules-v1-${{ runner.os }}-${{ runner.arch }}-node-${{ hashFiles('.nvmrc') }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Install dependencies
+        if: steps.node-modules-cache.outputs.cache-hit != 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint (tsc + svelte-check + eslint)
+        run: pnpm lint
+
+      # As on lint-and-test (#2056). Ubuntu's system Python is PEP 668
+      # "externally managed" too; this VM is discarded after the job.
+      - name: Install Python packages for compute rich-output tests
+        run: pip3 install --quiet --break-system-packages pandas matplotlib pillow
+
       - name: Test
         run: pnpm test
 

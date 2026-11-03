@@ -28,7 +28,10 @@
  * the float-millisecond `mtimeMs`: a millisecond-granularity stamp can collide
  * with a same-size rewrite inside the same tick, which is exactly the "search
  * silently shows the note's previous contents" failure this cache must not
- * introduce. Nanoseconds make that collision unreachable in practice.
+ * introduce. Nanoseconds alone don't make that collision unreachable: Linux
+ * and Windows stamp from a coarse clock, so a file modified in the last
+ * couple of seconds isn't cached at all (`stampSettled`, #2178) — it's read
+ * every time until its stamp can be trusted.
  *
  * Deliberately NOT cached: the directory walk. The set of files is re-read
  * from disk on every scan, so a note created, renamed, or deleted a moment ago
@@ -56,6 +59,7 @@
 import fs from 'node:fs/promises';
 import { createProjectStore } from '../project-store';
 import { projectContext, type ProjectContext } from '../project-context-types';
+import { stampSettled } from '../../shared/file-stamp';
 
 /**
  * Resident note bytes per open thoughtbase. 64 MB is ~16,000 four-kilobyte
@@ -126,9 +130,11 @@ export async function readNoteCached(rootPath: string, absPath: string): Promise
   const state = stateFor(projectContext(rootPath));
 
   let stamp: string;
+  let settled: boolean;
   try {
     const st = await fs.stat(absPath, { bigint: true });
     stamp = `${st.mtimeNs}:${st.size}`;
+    settled = stampSettled(Number(st.mtimeMs));
   } catch {
     // Gone, unreadable, or a race with a delete. Dropping the entry is a BUDGET
     // property, not a freshness one — a file recreated at this path gets a new
@@ -150,10 +156,11 @@ export async function readNoteCached(rootPath: string, absPath: string): Promise
   }
 
   // Replace in place. A file that grew past the budget loses its slot rather
-  // than pushing the total over it.
+  // than pushing the total over it, and one modified too recently for its
+  // stamp to be trusted isn't cached yet.
   drop(state, absPath);
   const cost = content.length;
-  if (state.residentBytes + cost <= MAX_CACHED_BYTES) {
+  if (settled && state.residentBytes + cost <= MAX_CACHED_BYTES) {
     state.entries.set(absPath, { stamp, content, cost });
     state.residentBytes += cost;
   }
