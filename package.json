@@ -1,6 +1,6 @@
 {
   "name": "minerva",
-  "version": "3.0.1",
+  "version": "4.0.0",
   "private": true,
   "license": "MIT",
   "packageManager": "pnpm@12.3.4",
