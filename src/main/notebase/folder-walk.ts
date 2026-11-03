@@ -16,6 +16,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { isIgnoredEntry } from '../../shared/ignored-dirs';
+import { projectRelative } from '../path-containment';
 
 /** Upper bound on how many files a single bulk ingest (zip or folder) will
  *  process. Protects against a maliciously crafted archive (or an
@@ -112,7 +113,7 @@ async function walk(dirPath: string, rootDir: string, out: DropImportEntry[]): P
       continue;
     }
 
-    const relativePath = path.relative(rootDir, fullPath).split(path.sep).join('/');
+    const relativePath = projectRelative(rootDir, fullPath);
     out.push({ localPath: fullPath, relativePath });
     if (out.length >= maxBulkIngestEntries) return true;
   }

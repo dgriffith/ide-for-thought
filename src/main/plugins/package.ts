@@ -22,7 +22,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { pluginCodeHash, PluginTooBigError } from './code-hash';
 import { runsInMinerva } from './manifest';
-import { isContainedPath } from '../path-containment';
+import { isContainedPath, projectRelative } from '../path-containment';
 import {
   PLUGIN_CONTRIBUTION_POINTS,
   PLUGIN_MANIFEST,
@@ -231,7 +231,7 @@ async function checkContribution(root: string, point: PluginContributionPoint, w
     const entrySize = (await fs.stat(path.join(abs, entry))).size;
     if (entrySize > MAX_CONTRIBUTION_BYTES) return tooBig(`${where}'s ${entry}`, entrySize);
     const escape = await findEscapingLink(root, abs);
-    if (escape) return `${where} holds a link that leaves the plugin folder: ${path.relative(root, escape)}.`;
+    if (escape) return `${where} holds a link that leaves the plugin folder: ${projectRelative(root, escape)}.`;
     return { point, path: rel, absolutePath: abs, kind: 'folder' };
   }
 

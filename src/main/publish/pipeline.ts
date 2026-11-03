@@ -33,6 +33,7 @@ import type {
   LinkPolicy,
   AssetPolicy,
 } from './types';
+import { projectRelative } from '../path-containment';
 
 export interface ResolvePlanOptions {
   linkPolicy?: LinkPolicy | undefined;
@@ -285,7 +286,7 @@ async function walkMarkdown(dir: string, rootPath: string, out: string[]): Promi
     if (entry.isDirectory()) {
       await walkMarkdown(full, rootPath, out);
     } else if (entry.isFile() && entry.name.toLowerCase().endsWith('.md')) {
-      out.push(path.relative(rootPath, full));
+      out.push(projectRelative(rootPath, full));
     }
   }
 }

@@ -28,6 +28,7 @@ import { listTemplates } from './notebase/templates';
 import { getMergedStyles } from './publish/csl/user-assets';
 import { getStoredServers } from './mcp-servers/config-store';
 import { logger } from '../shared/logger';
+import { projectRelative } from './path-containment';
 
 type Reader = (rootPath: string) => Promise<Contribution[]>;
 
@@ -79,9 +80,9 @@ const READERS: Record<string, Reader> = {
 
 /** A path as the user would recognise it: thoughtbase-relative, or ~-prefixed. */
 function displayPath(rootPath: string, abs: string): string {
-  if (abs.startsWith(rootPath + path.sep)) return path.relative(rootPath, abs);
+  if (abs.startsWith(rootPath + path.sep)) return projectRelative(rootPath, abs);
   const home = os.homedir();
-  return abs.startsWith(home + path.sep) ? `~/${path.relative(home, abs)}` : abs;
+  return abs.startsWith(home + path.sep) ? `~/${projectRelative(home, abs)}` : abs;
 }
 
 export async function gatherContributions(rootPath: string): Promise<Contribution[]> {

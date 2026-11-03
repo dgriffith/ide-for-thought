@@ -8,7 +8,7 @@ import { createProjectStore } from '../project-store';
 import { isIgnoredEntry } from '../../shared/ignored-dirs';
 import { logger } from '../../shared/logger';
 import { noteTitle } from '../../shared/note-title';
-import { isEscapingSymlink } from '../path-containment';
+import { isEscapingSymlink, projectRelative } from '../path-containment';
 
 interface SearchState {
   rootPath: string;
@@ -89,7 +89,7 @@ export async function indexAllNotes(ctx: ProjectContext): Promise<number> {
       // (#2372); the root itself failing to list is a real error.
       const code = (err as NodeJS.ErrnoException | null)?.code;
       if (dirPath === root || typeof code !== 'string') throw err;
-      logger('search').warn(`not indexing unreadable folder (${code}):`, path.relative(root, dirPath));
+      logger('search').warn(`not indexing unreadable folder (${code}):`, projectRelative(root, dirPath));
       return;
     }
     for (const entry of entries) {
@@ -102,7 +102,7 @@ export async function indexAllNotes(ctx: ProjectContext): Promise<number> {
         // be read into the index the LLM's search tools query (#2398). In-root
         // links still index; a regular file costs nothing extra.
         if (isEscapingSymlink(root, fullPath, entry)) continue;
-        const relativePath = path.relative(root, fullPath);
+        const relativePath = projectRelative(root, fullPath);
         let content: string;
         try {
           content = await fs.readFile(fullPath, 'utf-8');

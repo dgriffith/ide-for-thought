@@ -47,7 +47,7 @@ import { citedTextFromTtl } from '../sources/create-excerpt';
 import * as store from './vector-store';
 import type { RefKind } from './vector-store';
 import { logger } from '../../shared/logger';
-import { assertSafePath, isEscapingSymlink } from '../path-containment';
+import { assertSafePath, isEscapingSymlink, projectRelative } from '../path-containment';
 
 export interface BackfillProgress {
   done: number;
@@ -252,7 +252,7 @@ async function listMarkdownNotes(rootPath: string): Promise<string[]> {
         // the root is not (#2398). `isFile()` alone used to drop both.
         && (entry.isFile() || (entry.isSymbolicLink() && !isEscapingSymlink(rootPath, full, entry)))
       ) {
-        const rel = path.relative(rootPath, full);
+        const rel = projectRelative(rootPath, full);
         if (isIndexable(rel)) out.push(rel);
       }
     }

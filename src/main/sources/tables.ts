@@ -20,6 +20,7 @@ import { findFrontmatter } from '../../shared/frontmatter-block';
 import { lockToDirectories } from './duckdb-lockdown';
 import { createCsvSniffer, type CsvSniffer } from './csv-sniffer';
 import { guardSql, type SqlGuardAudience, type SqlGuardVerdict } from './llm-sql-guard';
+import { projectRelative } from '../path-containment';
 
 interface TablesState {
   rootPath: string;
@@ -678,7 +679,7 @@ export async function registerAllCsvs(ctx: ProjectContext): Promise<{ count: num
       if (entry.isDirectory()) {
         await walk(fullPath);
       } else if (entry.isFile() && entry.name.toLowerCase().endsWith('.csv')) {
-        const rel = path.relative(rootPath, fullPath);
+        const rel = projectRelative(rootPath, fullPath);
         const result = await registerCsv(ctx, rel);
         if (result.ok) count++;
         else if (result.reason === 'collision') collisions.push(result.collision);
@@ -726,7 +727,7 @@ export async function registerAllNoteTables(ctx: ProjectContext): Promise<{ coun
       if (entry.isDirectory()) {
         await walk(fullPath);
       } else if (entry.isFile() && entry.name.toLowerCase().endsWith('.md')) {
-        const rel = path.relative(rootPath, fullPath);
+        const rel = projectRelative(rootPath, fullPath);
         let content: string;
         try {
           content = await fs.readFile(fullPath, 'utf-8');

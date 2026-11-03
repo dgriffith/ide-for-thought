@@ -54,6 +54,7 @@ import { disposeProject as disposeTables, initTablesDb, runNoteQuery } from '../
 import { connectMcpServer } from '../mcp-client';
 import { projectContext } from '../project-context-types';
 import { buildCheckThoughtbases, type CheckThoughtbase } from './fixtures';
+import { projectRelative } from '../path-containment';
 
 export interface PluginCheckOptions {
   /** The Minerva version the plugin's `minerva` range is checked against. */
@@ -235,7 +236,7 @@ async function checkSkills(r: Report, plugin: PluginPackage, tb: CheckThoughtbas
     try {
       for (const abs of notes) {
         const content = await fs.readFile(abs, 'utf-8');
-        const rel = path.relative(tb.root, abs).split(path.sep).join('/');
+        const rel = projectRelative(tb.root, abs);
         const ctx = { fullNoteContent: content, fullNoteTitle: path.basename(abs, '.md'), fullNotePath: rel, selectedText: content.slice(0, 200) };
         const system = def.buildSystemPrompt ? def.buildSystemPrompt(ctx) : def.buildPrompt(ctx);
         def.buildUserContext?.(ctx);

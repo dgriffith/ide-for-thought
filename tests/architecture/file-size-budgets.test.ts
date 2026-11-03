@@ -128,7 +128,7 @@ const BUDGETS: Record<string, number> = { // +16: each day named from its conten
   // instead of a static import, so the 107MB native module leaves the
   // pre-window boot path. The extra lines are the lazy resolution and the
   // comment saying why the import looks indirect.
-  'src/main/sources/tables.ts': 891, // +9: runPluginQuery, the plugin SQL audience (#2825)
+  'src/main/sources/tables.ts': 892, // +1: projectRelative import, CSV paths /-separated on Windows (#2989)
   // #2220 (601 → 633): the search callback grew a match cap, a generation
   // guard that drops superseded responses, and a truncation-aware status line.
   // Raised rather than extracted on purpose — all 32 lines are the one

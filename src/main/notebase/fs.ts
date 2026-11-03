@@ -7,7 +7,7 @@ import { defaultThoughtbaseDir } from '../recent-projects';
 import { onNoteWriting, onNoteWritten, onNoteDeleting, onNoteDeleted, moveHistory, runWithHistorySource } from '../history';
 import { isIgnoredEntry } from '../../shared/ignored-dirs';
 import { isNotePath } from '../../shared/note-extensions';
-import { assertSafePath, isEscapingSymlink } from '../path-containment';
+import { assertSafePath, isEscapingSymlink, projectRelative } from '../path-containment';
 import { logger } from '../../shared/logger';
 
 // The containment guard moved to a leaf module so the bulk walkers in
@@ -48,7 +48,7 @@ async function readDirectory(dirPath: string, rootPath: string): Promise<NoteFil
     if (isIgnoredEntry(entry.name)) continue;
 
     const fullPath = path.join(dirPath, entry.name);
-    const relativePath = path.relative(rootPath, fullPath);
+    const relativePath = projectRelative(rootPath, fullPath);
 
     if (entry.isDirectory()) {
       const children = await readSubdirectory(fullPath, rootPath);
@@ -110,7 +110,7 @@ async function readSubdirectory(dirPath: string, rootPath: string): Promise<Note
     // Only this folder's own listing failing is "unreadable"; a deeper one
     // was already absorbed by its own readSubdirectory, and a non-fs throw is a bug.
     if (typeof code !== 'string' || (err as NodeJS.ErrnoException).path !== dirPath) throw err;
-    logger('thoughtbase').warn(`cannot list folder (${code}):`, path.relative(rootPath, dirPath));
+    logger('thoughtbase').warn(`cannot list folder (${code}):`, projectRelative(rootPath, dirPath));
     return [];
   }
 }
@@ -231,7 +231,7 @@ async function listNoteFilesUnder(rootPath: string, relDir: string): Promise<str
       if (entry.isDirectory()) {
         await walk(full);
       } else {
-        const rel = path.relative(rootPath, full);
+        const rel = projectRelative(rootPath, full);
         if (isNotePath(rel)) out.push(rel);
       }
     }

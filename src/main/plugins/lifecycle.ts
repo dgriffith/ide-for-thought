@@ -32,6 +32,7 @@ import { pluginCodeHash } from './code-hash';
 import { removePluginSettings } from './settings';
 import { pluginRootIn, unpackPluginZip } from './zip';
 import { checkoutPluginTree, fetchPluginRepo, parseGitPluginSpec } from './git';
+import { projectRelative } from '../path-containment';
 
 /**
  * Installing over a plugin of the same id: `true` replaces it, a function is
@@ -233,7 +234,7 @@ export async function installPluginFromFolder(
   }
   const id = await claimedId(src);
   const link = await findLink(src);
-  if (link) throw new Error(`It holds a link (${path.relative(src, link)}); a plugin is copied without links, so it can't be installed.`);
+  if (link) throw new Error(`It holds a link (${projectRelative(src, link)}); a plugin is copied without links, so it can't be installed.`);
   if (!(await mayInstall(dir, id, opts.replace))) return null;
 
   return withStaging(dir, async (staging) => {
