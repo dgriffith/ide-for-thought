@@ -579,20 +579,20 @@ describeIfPython('against a live Python kernel', () => {
     if (!r.ok) expect(r.error).toMatch(/KeyboardInterrupt/);
   });
 
-  it('interruptCell explains that Windows cannot interrupt, instead of pretending it did', async () => {
-    await runPython(dir.root, 'nb.md', '1');
+  it('an interrupt op between cells is a no-op — the kernel keeps its namespace (#2189)', async () => {
+    await runPython(dir.root, 'nb.md', 'kept = 7');
     const real = Object.getOwnPropertyDescriptor(process, 'platform')!;
+    // The Windows path writes the op to stdin; this kernel reads it in its
+    // plain loop, which is what a Windows one does with an op between cells.
     Object.defineProperty(process, 'platform', { value: 'win32' });
-    const { frames, emit } = collector();
     try {
-      await interruptCell(dir.root, emit);
+      await interruptCell(dir.root, collector().emit);
     } finally {
       Object.defineProperty(process, 'platform', real);
     }
 
-    expect(terminal(frames).outcome).toEqual({
-      ok: true, summary: 'Interrupting a cell isn\'t supported on Windows',
-    });
+    const after = await runPython(dir.root, 'nb.md', 'kept + 1');
+    expect(after.ok && after.output.type === 'json' && after.output.value).toBe(8);
   });
 });
 

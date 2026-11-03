@@ -538,12 +538,10 @@ export type InterruptResult =
  * `KeyboardInterrupt` regardless of where it's blocked, and the
  * exec loop's catch handler surfaces a structured error event.
  *
- * Windows is gated for now — a reliable child-process interrupt
- * requires either a separate process group + CTRL_BREAK_EVENT or a
- * threaded stdin reader inside the kernel that can dispatch
- * `_thread.interrupt_main()` mid-user-code. Both belong to a
- * follow-up; until then Windows callers see `unsupported-platform`
- * and the UI can suggest Restart instead.
+ * On Windows an `interrupt` op on stdin does the same: the kernel reads
+ * stdin on a thread there and calls `_thread.interrupt_main()` (#2189).
+ * `unsupported-platform` stays in the result type for older callers but
+ * is no longer returned.
  *
  * Returns `no-kernel` for a project with no live kernel — there's
  * nothing to interrupt, and a missing-kernel error would be noise
@@ -560,11 +558,12 @@ export function interruptKernel(rootPath: string): InterruptResult {
  *  not whatever `kernels` maps the project to by the time it fires. */
 function sendInterrupt(state: KernelState): InterruptResult {
   if (isDead(state.proc)) return { ok: false, reason: 'no-kernel' };
-  if (process.platform === 'win32') {
-    return { ok: false, reason: 'unsupported-platform' };
-  }
   try {
-    state.proc.kill('SIGINT');
+    // Windows has no signal Node can deliver — `kill` terminates whatever the
+    // signal — so the kernel's stdin reader thread takes an interrupt op and
+    // raises KeyboardInterrupt in the cell itself (#2189).
+    if (process.platform === 'win32') state.proc.stdin.write(JSON.stringify({ op: 'interrupt' }) + '\n');
+    else state.proc.kill('SIGINT');
     return { ok: true };
   } catch {
     return { ok: false, reason: 'signal-failed' };

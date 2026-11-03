@@ -470,11 +470,62 @@ def exec_cell(req):
     emit({'cellId': cell_id, 'type': 'done', 'executionTimeMs': elapsed_ms})
 
 
+# Interrupting a running cell on Windows (#2189). POSIX main sends SIGINT,
+# which Python raises in the main thread as KeyboardInterrupt. Windows has no
+# signal Node can deliver (its process.kill terminates, whatever the signal),
+# so main writes {"op": "interrupt"} to stdin instead — and stdin is only read
+# between cells, so on Windows a reader thread reads it: an interrupt calls
+# _thread.interrupt_main() at once (the same KeyboardInterrupt, which also
+# wakes a blocking time.sleep there), and every other line goes on a queue the
+# main loop reads exactly as it read stdin. POSIX keeps the plain readline.
+_THREADED_STDIN = os.name == 'nt'
+_executing = False
+
+
+def _start_stdin_reader():
+    import _thread
+    import queue
+    import threading
+
+    lines = queue.Queue()
+
+    def pump():
+        for raw in iter(sys.stdin.readline, ''):
+            try:
+                is_interrupt = json.loads(raw).get('op') == 'interrupt'
+            except (ValueError, AttributeError):
+                is_interrupt = False  # the main loop reports it
+            if is_interrupt:
+                if _executing:
+                    _thread.interrupt_main()
+                continue
+            lines.put(raw)
+        lines.put('')  # EOF
+
+    threading.Thread(target=pump, name='minerva-stdin', daemon=True).start()
+    return lines.get
+
+
 def main():
     emit({'type': 'ready'})
+    next_line = _start_stdin_reader() if _THREADED_STDIN else sys.stdin.readline
     while True:
         try:
-            line = sys.stdin.readline()
+            _serve(next_line)
+            return
+        except KeyboardInterrupt:
+            # An interrupt that lands just after a cell finished (racing the
+            # cell's end) arrives here, between cells; exec_cell handles one
+            # that lands during a cell. Keep serving rather than lose every
+            # notebook's namespace (#372, #2189).
+            continue
+
+
+def _serve(next_line):
+    global _executing
+    while True:
+        try:
+            line = next_line()
         except KeyboardInterrupt:
             # SIGINT delivered between cells — i.e. the user mashed
             # Interrupt Cell after the previous cell already finished
@@ -497,7 +548,11 @@ def main():
         op = req.get('op', 'exec')
         if op == 'exec':
             try:
-                exec_cell(req)
+                _executing = True
+                try:
+                    exec_cell(req)
+                finally:
+                    _executing = False
             except Exception as e:
                 # exec_cell catches everything inside the user code path;
                 # this is a kernel-side bug if reached.
@@ -522,6 +577,10 @@ def main():
             mods = req.get('modules') or []
             popped = invalidate_modules(mods)
             emit({'type': 'invalidated', 'popped': popped})
+        elif op == 'interrupt':
+            # Between cells there's nothing to interrupt. On Windows the stdin
+            # reader thread consumes these before they get here (#2189).
+            pass
         else:
             emit({'type': 'protocol-error', 'message': f'Unknown op: {op}'})
 
