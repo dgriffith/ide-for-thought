@@ -14,6 +14,14 @@
  * caller reads it, and doesn't cache what it read. Once the modification is
  * older than the coarsest tick, the stamp is reliable again. Only files
  * touched in the last couple of seconds pay for it, with one extra read.
+ *
+ * Used where a stale read is the only thing standing between the user and a
+ * wrong answer (the note-content cache, the orphaned-asset scan). Not where
+ * something else already invalidates (the project-config memo's writer hook,
+ * the CSV row counts' watcher), where an unchanged stamp is meant to read as
+ * "nothing to do" (plugins-apply's fingerprint), or where the cached object's
+ * identity carries state (the thoughtbase shapes, whose stopped checks are
+ * recorded against the parsed file, #2874).
  */
 
 /** How long after a file's modification its stamp can't yet be trusted: FAT's two seconds, the coarsest tick in use. */
