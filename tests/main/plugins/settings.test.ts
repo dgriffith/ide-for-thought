@@ -24,6 +24,7 @@ import { _disablePluginsForTests, enablePlugins, getPluginScan } from '../../../
 import { loadSkillCatalog } from '../../../src/main/skills/loader';
 import { compileSkill } from '../../../src/main/skills/compile';
 import { silenceLogTags } from '../../helpers/quiet-logs';
+import { HAS_POSIX_MODES } from '../../helpers/posix-modes';
 
 silenceLogTags('plugins', 'secrets', 'config');
 
@@ -126,7 +127,7 @@ describe('the values (#2636)', () => {
     await savePluginSettings(dir, manifest(), { apiToken: 'tok-123' });
     const file = pluginSettingsFile(dir);
     expect(file).toBe(path.join(tmp, 'plugin-settings.json'));
-    expect(fs.statSync(file).mode & 0o777).toBe(0o600);
+    if (HAS_POSIX_MODES) expect(fs.statSync(file).mode & 0o777).toBe(0o600);
   });
 
   it('null puts a value back to its default, and clears a secret; a secret left out is kept', async () => {

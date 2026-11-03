@@ -36,7 +36,7 @@ let root: string;
 const rootFor = async (id: string) => (id === 'hostile' ? root : null);
 
 beforeAll(() => {
-  tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-plugin-frame-')));
+  tmp = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-plugin-frame-')));
   root = path.join(tmp, 'hostile');
   fs.mkdirSync(path.join(root, 'views'), { recursive: true });
   fs.mkdirSync(path.join(root, '.git'));

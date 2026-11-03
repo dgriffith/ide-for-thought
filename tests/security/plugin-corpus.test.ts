@@ -54,6 +54,7 @@ import {
   buildSymlinkOutPlugin,
 } from '../helpers/hostile-plugins';
 import { silenceLogTags } from '../helpers/quiet-logs';
+import { HAS_POSIX_MODES } from '../helpers/posix-modes';
 
 silenceLogTags('plugins', 'graph', 'tables', 'config', 'mcp-servers', 'mcp-confirm', 'secrets', 'types');
 
@@ -183,7 +184,7 @@ describe('contained (#2655)', () => {
     const manifest = loadedPluginScan().plugins[0]!.manifest;
     const view = await savePluginSettings(dir, manifest, { apiToken: PLUGIN_CANARY });
     expect(secretStorageStatus().encrypted).toBe(false);
-    expect(fs.statSync(pluginSettingsFile(dir)).mode & 0o777).toBe(0o600);
+    if (HAS_POSIX_MODES) expect(fs.statSync(pluginSettingsFile(dir)).mode & 0o777).toBe(0o600);
     expect(view.secretsSet).toEqual({ apiToken: true });
     expect(JSON.stringify(await readPluginSettings(dir, manifest))).not.toContain(PLUGIN_CANARY);
     expect(JSON.stringify(pluginSettingsForTemplates(dir, manifest))).not.toContain(PLUGIN_CANARY);

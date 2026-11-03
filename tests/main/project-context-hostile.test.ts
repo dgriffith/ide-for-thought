@@ -29,6 +29,7 @@ import {
   OUTSIDE_SECRET,
   posix,
 } from '../helpers/hostile-thoughtbase';
+import { HAS_POSIX_MODES } from '../helpers/posix-modes';
 
 const WIN = 4242;
 
@@ -72,7 +73,8 @@ describe('acquireProject on a hostile thoughtbase (#2372)', () => {
   });
 });
 
-describe('acquireProject does not cache a failed open (#2372)', () => {
+// The failed open is a root made unlistable with chmod, which Windows ignores (#2180).
+describe.skipIf(!HAS_POSIX_MODES)('acquireProject does not cache a failed open (#2372)', () => {
   const tb = useHostileThoughtbase([], 'minerva-open-retry-');
 
   afterEach(async () => {

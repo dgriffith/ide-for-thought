@@ -244,9 +244,11 @@ describe('root spelling (#2437)', () => {
 
 describe('fileLockdownSql (#2437)', () => {
   it('quotes each directory, adds the trailing separator, and locks last', () => {
-    const sql = fileLockdownSql(["/a/it's", '/b/']);
+    // Real (realpath'd) directories, in the platform's own separator (#2180).
+    const S = path.sep;
+    const sql = fileLockdownSql([`${S}a${S}it's`, `${S}b${S}`]);
     expect(sql).toBe(
-      "SET allowed_directories = ['/a/it''s/', '/b/']; " +
+      `SET allowed_directories = ['${S}a${S}it''s${S}', '${S}b${S}']; ` +
       'SET enable_external_access = false; ' +
       'SET lock_configuration = true;',
     );

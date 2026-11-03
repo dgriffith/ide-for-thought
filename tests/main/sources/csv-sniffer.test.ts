@@ -21,6 +21,7 @@ import {
   initTablesDb, disposeProject, runQuery, reregisterNoteTables, listTables,
 } from '../../../src/main/sources/tables';
 import { projectContext } from '../../../src/main/project-context-types';
+import { HAS_POSIX_MODES } from '../../helpers/posix-modes';
 
 /** Column → its cells. Chosen to cover every type the sniffer emits, plus its quirks. */
 const CORPUS: Record<string, string[]> = {
@@ -159,7 +160,7 @@ describe('csv sniffer parity with the pre-#2437 loader', () => {
     const own = await createCsvSniffer(parent);
     const [dir] = fs.readdirSync(parent);
     expect(dir).toMatch(/^minerva-sniff-/);
-    expect(fs.statSync(path.join(parent, dir!)).mode & 0o777).toBe(0o700);
+    if (HAS_POSIX_MODES) expect(fs.statSync(path.join(parent, dir!)).mode & 0o777).toBe(0o700);
     await own.loadInto(target.conn, 'tidy', serializeCsv(['a'], [['1']]));
     expect(fs.readdirSync(path.join(parent, dir!))).toEqual([]);
     await own.close();
