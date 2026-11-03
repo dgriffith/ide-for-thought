@@ -36,11 +36,12 @@ function tempRoot(): string {
   return dir;
 }
 
-/** Count `realpathSync` calls while `fn` runs. */
+/** Count native `realpathSync` calls while `fn` runs — the one the guard
+ *  canonicalizes with since #2990 (it expands Windows 8.3 names). */
 function countRealpath(fn: () => void): number {
   let n = 0;
-  const real = fsSync.realpathSync;
-  const spy = vi.spyOn(fsSync, 'realpathSync').mockImplementation(((...a: unknown[]) => {
+  const real = fsSync.realpathSync.native;
+  const spy = vi.spyOn(fsSync.realpathSync, 'native').mockImplementation(((...a: unknown[]) => {
     n += 1;
     return (real as unknown as (...x: unknown[]) => unknown)(...a);
   }) as never);
@@ -70,7 +71,7 @@ describe('the syscall happens once per root (#2216)', () => {
     // The count gate above is satisfied by a guard that stops resolving at
     // all. Each call must still produce the same answer an uncached one would.
     const root = tempRoot();
-    const realRoot = fsSync.realpathSync(root);
+    const realRoot = fsSync.realpathSync.native(root);
     for (let i = 0; i < 5; i++) {
       expect(assertSafePath(root, `notes/n${i}.md`))
         .toBe(path.join(realRoot, 'notes', `n${i}.md`));
@@ -96,11 +97,11 @@ describe('the syscall happens once per root (#2216)', () => {
     // owed a teardown. More roots than it holds must still be CORRECT.
     const roots = Array.from({ length: 6 }, () => tempRoot());
     for (const r of roots) {
-      expect(assertSafePath(r, 'a.md')).toBe(path.join(fsSync.realpathSync(r), 'a.md'));
+      expect(assertSafePath(r, 'a.md')).toBe(path.join(fsSync.realpathSync.native(r), 'a.md'));
     }
     // Re-checking the oldest is still right whether or not it was evicted.
     expect(assertSafePath(roots[0]!, 'a.md'))
-      .toBe(path.join(fsSync.realpathSync(roots[0]!), 'a.md'));
+      .toBe(path.join(fsSync.realpathSync.native(roots[0]!), 'a.md'));
   });
 
   it('actually evicts — the cache is bounded, not merely described as bounded', () => {
@@ -156,7 +157,7 @@ describe('the guard still refuses what it refused before', () => {
     made.push(link);
 
     const resolved = assertSafePath(link, 'notes/a.md');
-    expect(resolved).toBe(path.join(fsSync.realpathSync(target), 'notes', 'a.md'));
+    expect(resolved).toBe(path.join(fsSync.realpathSync.native(target), 'notes', 'a.md'));
     // And again, warm.
     expect(assertSafePath(link, 'notes/a.md')).toBe(resolved);
     expect(() => assertSafePath(link, '../outside.md')).toThrow(/traversal/i);
@@ -176,6 +177,6 @@ describe('the guard still refuses what it refused before', () => {
     fsSync.mkdirSync(notYet);
     _clearRealRootCacheForTests();
     expect(assertSafePath(notYet, 'a.md'))
-      .toBe(path.join(fsSync.realpathSync(notYet), 'a.md'));
+      .toBe(path.join(fsSync.realpathSync.native(notYet), 'a.md'));
   });
 });
