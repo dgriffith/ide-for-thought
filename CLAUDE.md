@@ -1010,8 +1010,8 @@ word that grants every scope there is.
 
 ### main is protected by a committed ruleset (#2353)
 
-A PR cannot merge into `main` until `lint-and-test`, `coverage`, `audit` and
-`e2e` are green **on a branch that is up to date with main**; `main` cannot be deleted
+A PR cannot merge into `main` until `lint`, `lint-and-test`, `coverage`, `audit`
+and `e2e` are green **on a branch that is up to date with main**; `main` cannot be deleted
 or force-pushed. Before this every gate in CI was advisory at merge time —
 three PRs merged with a red e2e (#2159-#2161), and two individually-green PRs
 could combine into a red main (#2348).
@@ -1962,7 +1962,8 @@ Two shapes worth knowing:
   single file inside a well-covered tree is its own trust boundary.
 - **Floors are a pre-merge gate.** `pnpm coverage` runs as `ci.yml`'s own
   `coverage` job on every PR *and* every push to main, in parallel with
-  `lint-and-test` (which runs plain `pnpm test`), and `coverage` is a required
+  `lint-and-test` (which runs plain `pnpm test`; lint is its own Linux `lint`
+  job), and `coverage` is a required
   check. It was main-only for a while (#2359, to cut PR latency when coverage
   was a step inside `lint-and-test`); #2432 then merged green, dropped
   `project-context.ts` under its floor and left main red for three commits —
