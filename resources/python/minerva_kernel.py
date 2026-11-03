@@ -438,7 +438,7 @@ def exec_cell(req):
             }
         except KeyboardInterrupt:
             # Cell was interrupted via "Compute: Interrupt Cell" (#372)
-            # — SIGINT on POSIX, _thread.interrupt_main() on Windows.
+            # — SIGINT on POSIX, an interrupt op on stdin on Windows.
             # Surface as a structured error so any partial stdout
             # captured up to the interrupt still rides through to the
             # renderer below.
@@ -473,31 +473,43 @@ def exec_cell(req):
 # Interrupting a running cell on Windows (#2189). POSIX main sends SIGINT,
 # which Python raises in the main thread as KeyboardInterrupt. Windows has no
 # signal Node can deliver (its process.kill terminates, whatever the signal),
-# so main writes {"op": "interrupt"} to stdin instead — and stdin is only read
-# between cells, so on Windows a reader thread reads it: an interrupt calls
-# _thread.interrupt_main() at once (the same KeyboardInterrupt, which also
-# wakes a blocking time.sleep there), and every other line goes on a queue the
-# main loop reads exactly as it read stdin. POSIX keeps the plain readline.
+# so main writes {"op": "interrupt"} to stdin instead, and on Windows a reader
+# thread reads the protocol pipe: an interrupt raises SIGINT in-process
+# (signal.raise_signal runs the C handler, which is what also wakes a
+# blocking time.sleep — _thread.interrupt_main sets the flag but not that
+# event), and every other line goes on a queue the main loop reads exactly as
+# it read stdin. POSIX keeps the plain readline.
+#
+# The thread reads a PRIVATE duplicate of the pipe, and fd 0 / sys.stdin are
+# pointed at NUL: on Windows, a synchronous read pending on a pipe handle
+# blocks other calls on it, and the buffered sys.stdin holds its lock for the
+# whole readline — `import pandas` hung behind it. Cell code calling input()
+# now reads EOF, rather than the protocol stream.
 _THREADED_STDIN = os.name == 'nt'
 _executing = False
 
 
 def _start_stdin_reader():
-    import _thread
     import queue
+    import signal
     import threading
 
+    protocol = open(os.dup(0), 'r', encoding='utf-8', newline='\n')
+    null_fd = os.open(os.devnull, os.O_RDONLY)
+    os.dup2(null_fd, 0)
+    os.close(null_fd)
+    sys.stdin = open(os.devnull, 'r')
     lines = queue.Queue()
 
     def pump():
-        for raw in iter(sys.stdin.readline, ''):
+        for raw in iter(protocol.readline, ''):
             try:
                 is_interrupt = json.loads(raw).get('op') == 'interrupt'
             except (ValueError, AttributeError):
                 is_interrupt = False  # the main loop reports it
             if is_interrupt:
                 if _executing:
-                    _thread.interrupt_main()
+                    signal.raise_signal(signal.SIGINT)
                 continue
             lines.put(raw)
         lines.put('')  # EOF
