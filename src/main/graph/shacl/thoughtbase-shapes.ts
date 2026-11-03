@@ -27,6 +27,7 @@ import type { ShapeInspectionDef, ThoughtbaseInspections } from '../../../shared
 import { parseShapesFile, type ShapesFile } from './shapes';
 import { isStopped } from './run';
 import { getState } from '../state';
+import { stampSettled } from '../../../shared/file-stamp';
 
 /** Where they live, relative to the thoughtbase root. */
 export const THOUGHTBASE_SHAPES_DIR = '.minerva/shapes';
@@ -107,8 +108,11 @@ export async function thoughtbaseShapes(ctx: ProjectContext): Promise<Thoughtbas
   const cached = shapesStore.get(ctx);
   if (cached?.stamp === stamp) return cached.shapes;
   const shapes = await read(entries);
-  // Cached only while its graph is open: a read must not allocate a slot (#2240).
-  if (getState(ctx)) shapesStore.set(ctx, { stamp, shapes });
+  // Cached only while its graph is open: a read must not allocate a slot
+  // (#2240). And only once every file's stamp can be trusted (#2178): a shape
+  // saved in the last moment is read again, so a same-size edit in the same
+  // timestamp tick isn't missed.
+  if (getState(ctx) && entries.every((e) => stampSettled(e.mtimeMs))) shapesStore.set(ctx, { stamp, shapes });
   return shapes;
 }
 

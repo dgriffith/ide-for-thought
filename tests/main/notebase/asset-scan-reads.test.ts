@@ -22,6 +22,7 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { useTempDir } from '../../helpers/temp-project';
 import { findOrphanedInlineAssets } from '../../../src/main/notebase/asset-references';
+import { settleFiles } from '../../helpers/settle-files';
 
 const ASSET_DIR = '.minerva/assets/inline';
 const project = useTempDir('minerva-asset-scan-reads-');
@@ -90,6 +91,7 @@ describe('findOrphanedInlineAssets — reads (#2208 C1c)', () => {
       await writeFile(project.root, `.minerva/history/notes/a.md/${1000 + i}.snap`, `revision ${i}`);
     }
     await writeFile(project.root, 'notes/a.md', 'nothing here');
+    settleFiles(project.root); // the steady state: files that haven't changed lately
 
     const first = await readsDuring(project.root, () => findOrphanedInlineAssets(project.root));
     expect(first.length).toBeGreaterThan(20);
@@ -112,6 +114,19 @@ describe('findOrphanedInlineAssets — reads (#2208 C1c)', () => {
     const reads = await readsDuring(project.root, () => findOrphanedInlineAssets(project.root));
     expect(reads).toContain('notes/a.md');
     expect(await findOrphanedInlineAssets(project.root)).toEqual([]);
+  });
+
+  it('re-reads a file modified a moment ago, until its stamp can be trusted (#2178)', async () => {
+    await writeAsset(project.root, 'abc123-orphan.png');
+    await writeFile(project.root, 'notes/a.md', 'nothing here');
+    await findOrphanedInlineAssets(project.root);
+    // Too fresh to trust: a same-size rewrite in the same coarse timestamp
+    // tick (Linux, Windows, FAT) wouldn't move its stamp.
+    expect(await readsDuring(project.root, () => findOrphanedInlineAssets(project.root))).toContain('notes/a.md');
+
+    settleFiles(project.root);
+    await findOrphanedInlineAssets(project.root);
+    expect(await readsDuring(project.root, () => findOrphanedInlineAssets(project.root))).not.toContain('notes/a.md');
   });
 
   it('notices a file that shrank back to a previously-seen length', async () => {

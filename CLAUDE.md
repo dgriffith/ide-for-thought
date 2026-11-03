@@ -1016,11 +1016,22 @@ or force-pushed. Before this every gate in CI was advisory at merge time —
 three PRs merged with a red e2e (#2159-#2161), and two individually-green PRs
 could combine into a red main (#2348).
 
-The one `ci.yml` job that is deliberately **not** required is `x64-smoke`
-(#2387): an unsigned x64 build smoke-booted on `macos-15-intel`, on main
-pushes and PRs labelled `x64-smoke` only, `continue-on-error` so it can't turn
-a run red — an early warning for #962, see `docs/packaging.md`.
-`branch-ruleset.test.ts` requires any such exemption to be `continue-on-error`.
+The `ci.yml` jobs deliberately **not** required are `x64-smoke` (#2387: an
+unsigned x64 build smoke-booted on `macos-15-intel`, on main pushes and PRs
+labelled `x64-smoke` only, an early warning for #962, see `docs/packaging.md`),
+the security scan (#2570), and `lint-and-test-linux` (#2178: the same lint and
+suite on `ubuntu-latest`, the first signal for epic #2200, until it has a
+record of passing). Each is `continue-on-error`, so it can't turn a run red —
+which matters beyond the merge: the release gate reads the whole run's
+conclusion. `branch-ruleset.test.ts` requires any such exemption to be
+`continue-on-error`.
+
+**A cache that trusts a file's stat stamp** (size + mtime) must not trust one
+modified in the last couple of seconds (`shared/file-stamp.ts`,
+`stampSettled`, #2178): Linux and Windows stamp from a coarse clock and FAT
+in two-second steps, so a same-size rewrite in the same tick doesn't move the
+stamp. macOS's APFS hides this. A test asserting a warm cache backdates its
+files with `tests/helpers/settle-files.ts`.
 
 The ruleset lives in **`.github/rulesets/main.json`**, which is the exact body
 of `POST /repos/{owner}/{repo}/rulesets`. The file is the source of truth, not
