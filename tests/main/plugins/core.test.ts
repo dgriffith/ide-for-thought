@@ -19,6 +19,7 @@ import {
 } from '../../../src/main/plugins/core';
 import { pluginsStateFile } from '../../../src/main/plugins/state';
 import { readPluginPackage } from '../../../src/main/plugins/package';
+import { descriptionSummary } from '../../../src/shared/plugins/description';
 
 const manifest = (id: string, extra: Record<string, unknown> = {}) => ({
   id, name: `${id} name`, version: '1.0.0', minerva: '>=4.0.0', description: `The ${id} plugin.`, contributes: {}, ...extra,
@@ -100,6 +101,18 @@ describe('the built-in plugins as shipped', () => {
     expect(python?.defaultEnabled).toBe(false);
     expect(python?.manifest.code).toEqual({ capabilities: ['process'] });
     expect(readCorePluginStates(pluginsDir).get('python')).toBe(false);
+  });
+
+  it('each describes itself with a summary paragraph, then a Security section', () => {
+    const all = corePlugins();
+    expect(all.length).toBeGreaterThan(0);
+    for (const { manifest: m } of all) {
+      expect(m.description, m.id).toMatch(/\n## Security\n\n\S/);
+      const summary = descriptionSummary(m.description);
+      expect(summary.length, m.id).toBeGreaterThan(20);
+      expect(summary, m.id).not.toContain('Security');
+      expect(summary, m.id).not.toMatch(/[*`#]/); // plain text, for a native dialog
+    }
   });
 
   it('adopting a first state writes only where nothing was ever recorded', () => {

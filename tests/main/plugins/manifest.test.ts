@@ -71,6 +71,9 @@ describe('validatePluginManifest (#2632)', () => {
 
   it('caps lengths and refuses non-objects', () => {
     expect(problemsOf({ ...GOOD, name: 'x'.repeat(81) })).toEqual(['"name" is 81 characters; at most 80.']);
+    // A description is Markdown with room for sections (#2920): 3,000 characters.
+    expect(problemsOf({ ...GOOD, description: `Books.\n\n## Security\n\n${'x'.repeat(2970)}` })).toEqual([]);
+    expect(problemsOf({ ...GOOD, description: 'x'.repeat(3001) })).toEqual(['"description" is 3001 characters; at most 3000.']);
     expect(problemsOf([])).toEqual(['plugin.json must be a JSON object.']);
     expect(problemsOf({ ...GOOD, author: 7 })).toEqual(['"author" must be a non-empty string.']);
   });

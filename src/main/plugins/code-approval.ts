@@ -9,6 +9,7 @@
 import { describeCapabilities, PLUGIN_CAPABILITIES, type PluginCapability } from '../../shared/plugins/capabilities';
 import type { PluginManifest } from '../../shared/plugins/format';
 import type { NativeConfirmRequest } from '../native-confirm';
+import { descriptionSummary } from '../../shared/plugins/description';
 
 const SANDBOX = 'Its code runs sandboxed, inside Minerva: it can\'t reach the network, your files, or anything you haven\'t shown it.';
 
@@ -16,7 +17,7 @@ const SANDBOX = 'Its code runs sandboxed, inside Minerva: it can\'t reach the ne
 export function codeApprovalQuestion(manifest: PluginManifest, before?: { capabilities: readonly PluginCapability[] }): NativeConfirmRequest {
   const caps = manifest.code?.capabilities ?? [];
   const by = manifest.author ? ` by ${manifest.author}` : '';
-  const what = `${manifest.name} ${manifest.version}${by}: ${manifest.description}`;
+  const what = `${manifest.name} ${manifest.version}${by}: ${descriptionSummary(manifest.description)}`;
   const can = describeCapabilities(caps) || 'It asks for no capabilities.';
   if (!before) {
     return { message: `Install ${manifest.name}? It runs code inside Minerva.`, detail: `${what}\n\n${can}\n\n${SANDBOX}`, confirmLabel: 'Install' };

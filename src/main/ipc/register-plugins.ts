@@ -42,6 +42,7 @@ import { confirmNative } from '../native-confirm';
 import { setPluginProposalApplier } from '../llm/plugin-proposals';
 import { pluginProposalApplierForApp } from '../plugin-proposal-applier';
 import { describeCapabilities } from '../../shared/plugins/capabilities';
+import { descriptionSummary } from '../../shared/plugins/description';
 import { loadPluginRecords } from '../plugins/state';
 import path from 'node:path';
 
@@ -130,7 +131,7 @@ async function mayRunPrograms(win: BrowserWindow, manifest: PluginManifest): Pro
   if (!caps.includes('process')) return true;
   const { confirmed } = await confirmNative(win, {
     message: `Turn on ${manifest.name}?`,
-    detail: `${manifest.description}\n\n${describeCapabilities(caps)} It runs programs only when you ask it to, and you can turn it off again in Settings → Plugins.`,
+    detail: `${descriptionSummary(manifest.description)}\n\n${describeCapabilities(caps)} It runs programs only when you ask it to, and you can turn it off again in Settings → Plugins.`,
     confirmLabel: 'Turn On',
   });
   return confirmed;

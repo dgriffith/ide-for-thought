@@ -38,6 +38,9 @@ import { minervaKeys, normalizeAccelerator } from '../../shared/plugins/command-
 /** Lowercase letters and digits in dash-separated words: `reading-list`, `lab2`. */
 export const PLUGIN_ID = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
 export const MAX_PLUGIN_ID = 64;
+/** A description is Markdown and may have sections (a summary paragraph, then
+ *  "Security" and the like); the first paragraph is what native dialogs show. */
+export const MAX_PLUGIN_DESCRIPTION = 3000;
 const isId = (id: string) => PLUGIN_ID.test(id) && id.length <= MAX_PLUGIN_ID;
 
 const KNOWN_KEYS = new Set(['$schema', 'id', 'name', 'version', 'minerva', 'description', 'author', 'license', 'contributes', 'settings', 'mcpServers', 'code']);
@@ -111,7 +114,7 @@ export function validatePluginManifest(raw: unknown, ctx: ManifestContext): Mani
     }
   }
   const name = str('name', { required: true, max: 80 });
-  const description = str('description', { required: true, max: 500 });
+  const description = str('description', { required: true, max: MAX_PLUGIN_DESCRIPTION });
   const author = str('author', { required: false, max: 200 });
   const license = str('license', { required: false, max: 100 });
 

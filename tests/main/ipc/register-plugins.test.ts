@@ -113,7 +113,7 @@ vi.mock('../../../src/main/plugin-sessions', () => ({
 }));
 
 import { registerPlugins } from '../../../src/main/ipc/register-plugins';
-import { _setCorePluginsForTests } from '../../../src/main/plugins/core';
+import { _setCorePluginsForTests, corePlugin } from '../../../src/main/plugins/core';
 import { Channels } from '../../../src/shared/channels';
 import type { ReplacePolicy } from '../../../src/main/plugins/lifecycle';
 import { pluginProposalApplier } from '../../../src/main/llm/plugin-proposal-slot';
@@ -129,6 +129,9 @@ const overInstalled = async (...args: unknown[]) => {
   return typeof replace === 'function' && (await replace('lab')) ? { manifest: { id: 'lab', name: 'Lab' } } : null;
 };
 
+/** A built-in plugin's description as shipped: the list carries it whole, Markdown sections and all. */
+const shipped = (id: string): string => corePlugin(id)!.manifest.description;
+
 const LIST = {
   // The built-in plugins as shipped (#2820): Python, off on a new install
   // (#2822), Kanban (#2828), Timeline and Calendar (#2829), on, and the
@@ -136,48 +139,48 @@ const LIST = {
   // the four after it are samples, which Settings lists apart.
   core: [{
     id: 'python', name: 'Python', version: '1.0.0',
-    description: 'Run Python code cells in notes, in an interpreter you choose: pandas, numpy, matplotlib and anything else you install.',
+    description: shipped('python'),
     enabled: false, source: { kind: 'core' }, contributes: {}, capabilities: ['process'],
   }, {
     id: 'local-mcp-servers', name: 'Local MCP servers', version: '1.0.0',
-    description: 'Run MCP servers as programs on your machine (stdio): ones you add in Settings → MCP Servers, and the servers plugins ship. Remote (HTTP) servers work without it.',
+    description: shipped('local-mcp-servers'),
     enabled: false, source: { kind: 'core' }, contributes: {}, capabilities: ['process'],
   }, {
     id: 'kanban', name: 'Kanban', version: '1.0.0',
-    description: 'Show a type view as a board: a column per option of a choice property, cards you drag between them.',
+    description: shipped('kanban'),
     enabled: true, source: { kind: 'core' }, contributes: {}, capabilities: ['notes:read', 'notes:write-properties', 'ui'],
   }, {
     id: 'timeline', name: 'Timeline', version: '1.0.0',
-    description: 'Show a type view on a time axis: each dated note a point or a bar, zoomed and panned with the pointer or the keyboard.',
+    description: shipped('timeline'),
     enabled: true, source: { kind: 'core' }, contributes: {}, capabilities: ['notes:read', 'ui'],
   }, {
     id: 'calendar', name: 'Calendar', version: '1.0.0',
-    description: 'Show a type view as a month grid: each dated note on its day, dragged to another day to reschedule it.',
+    description: shipped('calendar'),
     enabled: true, source: { kind: 'core' }, contributes: {}, capabilities: ['notes:read', 'notes:write-properties', 'ui'],
   }, {
     id: 'reading-queue', name: 'Reading Queue', version: '1.0.0',
-    description: "A sidebar panel of the books and articles you're reading and those still to read, each marked read with one click — and a reading-queue block to put the same list in a note.",
+    description: shipped('reading-queue'),
     enabled: false, source: { kind: 'core' }, sample: true, contributes: {}, capabilities: ['graph:query', 'notes:write-properties', 'ui'],
     views: [{ id: 'queue', title: 'Reading Queue', place: 'left-sidebar', entry: 'index.html', query: 'queue.rq', icon: 'bookmark' }],
     blocks: [{ id: 'queue', title: 'Reading queue', fence: 'reading-queue', entry: 'index.html', query: 'queue.rq' }],
   }, {
     id: 'list-tools', name: 'List Tools', version: '1.0.0',
-    description: "Sort the Markdown list in your selection, from the command palette, the Edit menu, the editor's right-click menu or ⌘⌥⇧S. Nested items move with their parent.",
+    description: shipped('list-tools'),
     enabled: false, source: { kind: 'core' }, sample: true, contributes: {}, capabilities: ['notes:read'],
     commands: [{ id: 'sort-selection', title: 'Sort List in Selection', when: 'selection', editorMenu: true, menu: 'edit', key: 'CmdOrCtrl+Alt+Shift+S', run: { handler: 'sortSelection' } }],
   }, {
     id: 'transcripts', name: 'Transcripts', version: '1.0.0',
-    description: 'Ingest subtitle and caption files (.srt, .vtt) as sources: the captions joined into timestamped paragraphs, with speakers named.',
+    description: shipped('transcripts'),
     enabled: false, source: { kind: 'core' }, sample: true, contributes: {}, capabilities: ['notes:read'],
     ingestors: [{ id: 'transcript', label: 'Transcript', accepts: { extensions: ['.srt', '.vtt'] }, parse: { handler: 'parseTranscript' } }],
   }, {
     id: 'epub', name: 'EPUB', version: '1.0.0',
-    description: 'Export notes as an EPUB e-book: one chapter per note, with a table of contents, for any e-reader.',
+    description: shipped('epub'),
     enabled: false, source: { kind: 'core' }, sample: true, contributes: {}, capabilities: ['notes:read'],
     exporters: [{ id: 'epub', label: 'EPUB', input: 'html', scopes: ['single-note', 'folder', 'project', 'tree'], write: { handler: 'writeEpub' } }],
   }, {
     id: 'outline-checks', name: 'Outline Checks', version: '1.0.0',
-    description: 'An inspection for notes whose headings skip a level, like an H1 straight to an H3, which leaves a gap in the outline.',
+    description: shipped('outline-checks'),
     enabled: false, source: { kind: 'core' }, sample: true, contributes: {}, capabilities: ['notes:read', 'graph:query'],
     inspections: [{
       id: 'skipped-heading', label: 'Skipped heading levels', severity: 'info',
@@ -186,7 +189,7 @@ const LIST = {
     }],
   }, {
     id: 'steel-theme', name: 'Steel', version: '1.0.0',
-    description: 'A light colour theme: white pages, light grey chrome and steel-blue accents. Turn it on, then pick **Steel** in Settings → Appearance.',
+    description: shipped('steel-theme'),
     enabled: false, source: { kind: 'core' }, sample: true, contributes: { themes: 1 },
   }],
   installed: [{
