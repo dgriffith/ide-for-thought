@@ -40,6 +40,7 @@ import { beforeEach, afterEach } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import { useTempDir } from './temp-project';
+import { posix } from './posix-path';
 
 export const SYMLINK_FEATURES = [
   'symlink-file-outside',
@@ -224,7 +225,10 @@ function probeFs(root: string): FsFacts {
       caseSensitive: !namesCollide(dir, 'Probe.txt', 'probe.txt'),
       normalizationSensitive: !namesCollide(dir, 'café.txt', 'café.txt'),
       pathMax: pathMaxFor(process.platform),
-      permissionsEnforced: process.getuid?.() !== 0,
+      // Not as root (chmod doesn't stop root), and not on Windows, which has
+      // no POSIX permission bits — there `getuid` is undefined, and
+      // `undefined !== 0` used to say "enforced" (#2180).
+      permissionsEnforced: process.platform !== 'win32' && process.getuid?.() !== 0,
     };
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
@@ -246,14 +250,16 @@ export function buildHostileThoughtbase(root: string, opts: BuildOptions): Hosti
     fs: probeFs(root),
   };
 
+  // The manifest names paths as Minerva reports them: `/`-separated on every
+  // OS (#2989). `path.join(root, rel)` still reads them on Windows.
   const record = (feature: HostileFeature, rel: string) => {
-    (manifest.paths[feature] ??= []).push(rel);
+    (manifest.paths[feature] ??= []).push(posix(rel));
   };
   const write = (rel: string, content: string | Buffer, marker?: string) => {
     const abs = path.join(root, rel);
     fs.mkdirSync(path.dirname(abs), { recursive: true });
     fs.writeFileSync(abs, content);
-    if (marker) manifest.markers[rel] = marker;
+    if (marker) manifest.markers[posix(rel)] = marker;
   };
 
   // ── Controls (always) ────────────────────────────────────────────────────
