@@ -156,7 +156,7 @@ jobs:
   # checks in .github/rulesets/main.json (branch-ruleset.test.ts).
   #
   # What Linux found, both fixed in the PR that added this: the palette
-  # snapshot read the host's platform (⌘ vs Ctrl), and three caches trusted a
+  # snapshot read the host's platform (⌘ vs Ctrl), and two caches trusted a
   # file's stat stamp within one coarse timestamp tick (shared/file-stamp.ts).
   # Lint fonts and the generated-docs check stay on lint-and-test: they test
   # files, not the platform.
