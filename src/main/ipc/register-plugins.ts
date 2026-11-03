@@ -18,7 +18,7 @@ import { Channels } from '../../shared/channels';
 import type { PluginList, PluginManifest, PluginPackage, PluginRecommendation, PluginSettingsPatch, PluginSettingsView, PluginSummary } from '../../shared/plugins/format';
 import { readPluginSettings, savePluginSettings } from '../plugins/settings';
 import { pluginThemes } from '../plugins/themes';
-import { reconcilePluginServers } from '../mcp-servers/registry';
+import { reconcilePluginServers, stopPluginServers } from '../mcp-servers/registry';
 import { secretStorageStatus } from '../secret-storage';
 import { activePluginsDir, codeApprovalOf, getPluginInventory, pluginsAppVersion } from '../plugins/registry';
 import { approvePluginCode, installPluginFromFolder, installPluginFromGit, installPluginFromZip, removePlugin, setPluginEnabled, type InstallOptions } from '../plugins/lifecycle';
@@ -104,6 +104,7 @@ async function installAsking(
   install: (opts: InstallOptions) => Promise<PluginPackage | null>,
 ): Promise<{ id: string; name: string } | null> {
   const installed = await changePlugins(() => install({
+    releaseFolder: stopPluginServers,
     replace: async (id) => {
       const { response } = await dialog.showMessageBox(win, {
         type: 'question',
@@ -182,7 +183,7 @@ export function registerPlugins(): void {
 
   handle(Channels.PLUGINS_REMOVE, async (_e, id: string) => {
     if (isCorePluginId(id)) throw new Error(`"${id}" is built into Minerva; it can be turned off, not removed.`);
-    await changePlugins(() => removePlugin(activePluginsDir(), id));
+    await changePlugins(() => removePlugin(activePluginsDir(), id, stopPluginServers));
     return pluginList();
   });
 

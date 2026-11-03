@@ -57,17 +57,13 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  lint-and-test:
-    runs-on: macos-latest
-    # Lint + the plain suite only; the instrumented run is the `coverage` job
-    # below. Longest run of this shape was 731s on 2026-09-27; by 2026-10-07 the
-    # suite had grown past 12,000 tests and main's runs took 8-19 min, one was
-    # cancelled at the 20-minute limit, and a PR run's lint step alone took
-    # 7 min on a slow runner. 30 gives a slow runner headroom again. If runs
-    # keep climbing toward it, split lint and the suite into parallel jobs
-    # rather than raising this again. (It was 30 before, while this job also
-    # ran `pnpm coverage` on main.)
-    timeout-minutes: 30
+  # tsc, svelte-check, eslint and the two file checks — none of them depends on
+  # the platform, so they run on Linux (2026-11-03): eslint's type-aware rules
+  # took 2m45s on ubuntu-latest against 5-16 min on macos-latest, where they
+  # used to share the 30-minute budget with the suite. A required check.
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -128,6 +124,66 @@ jobs:
       - name: Check generated docs are up to date
         run: pnpm check:docs
 
+  lint-and-test:
+    runs-on: macos-latest
+    # The plain suite only — lint is the `lint` job above (2026-11-03), the
+    # instrumented run is the `coverage` job below. The name is kept because
+    # it's a required check (.github/rulesets/main.json). Longest run of this shape was 731s on 2026-09-27; by 2026-10-07 the
+    # suite had grown past 12,000 tests and main's runs took 8-19 min, one was
+    # cancelled at the 20-minute limit, and a PR run's lint step alone took
+    # 7 min on a slow runner. 30 gave a slow runner headroom again. On
+    # 2026-11-03 runs climbed back to it — eslint alone took 14-16 min on
+    # loaded macOS runners and two runs (one on main) were cancelled after
+    # every test had passed — so, as this note said to, lint moved to its own
+    # job rather than this being raised again. (It was 30 before, while this
+    # job also ran `pnpm coverage` on main.)
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up pnpm
+        # Version comes from the `packageManager` field in package.json.
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      # The ONLY assertion that pnpm-lock.yaml still matches package.json, and
+      # it has to run unconditionally (#2244). The `--frozen-lockfile` install
+      # below is conditional on a cache MISS, and the cache key hashes the
+      # lockfile but not the manifest — so editing a version range in
+      # package.json without regenerating the lockfile leaves the key
+      # unchanged, skips the install, and reports green against dependencies
+      # that do not match the manifest. (Verified skipped in run 35524773279.)
+      #
+      # `--lockfile-only` resolves and compares without installing or linking
+      # (~0.4s), and `--frozen-lockfile` makes it fail rather than rewrite the
+      # lockfile. Deliberately NOT fixed by adding package.json to the cache
+      # key: that busts node_modules on every version bump and script edit,
+      # and still only checks on the miss path.
+      - name: Verify lockfile matches package.json
+        run: pnpm install --frozen-lockfile --lockfile-only
+
+      # node-linker=hoisted → node_modules is a self-contained flat tree (no
+      # store symlinks), so caching it directly is safe. Keyed on the lockfile
+      # + Node + OS/arch, so a dep or Node bump busts it. The `cache: pnpm`
+      # store cache above still speeds the miss path. Bump v1 if a runner-image
+      # change ever stales the native binaries baked into the tree (#663).
+      - name: Cache node_modules
+        id: node-modules-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: node_modules
+          key: node-modules-v1-${{ runner.os }}-${{ runner.arch }}-node-${{ hashFiles('.nvmrc') }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Install dependencies
+        if: steps.node-modules-cache.outputs.cache-hit != 'true'
+        run: pnpm install --frozen-lockfile
+
       # pandas/matplotlib/pillow back three real compute-notebook rich-output
       # tests (python-kernel.test.ts: DataFrame → table, matplotlib Figure →
       # image, PIL Image → image). They're optional for a *user's* Python
@@ -144,8 +200,8 @@ jobs:
 
       # Plain, uninstrumented suite on every event. The floors are enforced by
       # the parallel `coverage` job below; this one stays so a plain test
-      # failure (and lint) reports in the time it takes to run, without
-      # waiting on the instrumentation slowdown.
+      # failure reports in the time it takes to run, without waiting on the
+      # instrumentation slowdown.
       - name: Test
         run: pnpm test
 

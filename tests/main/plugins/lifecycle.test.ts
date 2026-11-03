@@ -97,6 +97,35 @@ describe('installPluginFromFolder (#2634)', () => {
   });
 });
 
+describe('the folder is released before it moves (#2180)', () => {
+  // A plugin's MCP server runs with its folder as cwd, and Windows won't
+  // rename or remove that while the process lives — so the hook runs first,
+  // while the folder is still in place, and only when it's about to move.
+  const releaseWhile = () => {
+    const seen: Array<{ id: string; present: boolean }> = [];
+    const release = (id: string) => {
+      seen.push({ id, present: fs.existsSync(path.join(dir, id, 'plugin.json')) });
+      return Promise.resolve();
+    };
+    return { seen, release };
+  };
+
+  it('remove releases it first', async () => {
+    await installPluginFromFolder(dir, source('downloads'), APP);
+    const { seen, release } = releaseWhile();
+    await removePlugin(dir, 'lab', release);
+    expect(seen).toEqual([{ id: 'lab', present: true }]);
+  });
+
+  it('a replacing install releases it first; a fresh one never asks', async () => {
+    const { seen, release } = releaseWhile();
+    await installPluginFromFolder(dir, source('v1', 'lab', 'Old Sample'), APP, { releaseFolder: release });
+    expect(seen).toEqual([]);
+    await installPluginFromFolder(dir, source('v2', 'lab', 'New Sample'), APP, { replace: true, releaseFolder: release });
+    expect(seen).toEqual([{ id: 'lab', present: true }]);
+  });
+});
+
 describe('setPluginEnabled and removePlugin (#2634)', () => {
   it('turning a plugin off records it; on again keeps its source', async () => {
     const from = source('downloads');

@@ -50,9 +50,19 @@ export type ReplacePolicy = boolean | ((id: string) => Promise<boolean>);
  */
 export type CodeApprover = (plugin: PluginPackage) => Promise<boolean>;
 
+/**
+ * Called with a plugin's id before its folder is moved or deleted: the app
+ * stops that plugin's MCP servers there. A server runs with the folder as its
+ * working directory, and Windows refuses to rename or remove a directory a
+ * live process is using (EBUSY) — on macOS and Linux it would just keep
+ * running from an unlinked folder until the next reconcile.
+ */
+export type FolderRelease = (id: string) => Promise<void>;
+
 export interface InstallOptions {
   replace?: ReplacePolicy;
   approveCode?: CodeApprover;
+  releaseFolder?: FolderRelease;
 }
 
 /** Thrown when installing over a plugin that's already there without `replace`. */
@@ -95,8 +105,9 @@ export async function setPluginEnabled(dir: string, id: string, enabled: boolean
 }
 
 /** Remove a plugin: its folder (or only the link, if it is one) and its record. */
-export async function removePlugin(dir: string, id: string): Promise<void> {
+export async function removePlugin(dir: string, id: string, releaseFolder?: FolderRelease): Promise<void> {
   const folder = assertInstalledId(dir, id);
+  await releaseFolder?.(id);
   let st;
   try {
     st = await fs.lstat(folder);
@@ -153,7 +164,7 @@ async function finishInstall(
   id: string,
   source: PluginSource,
   appVersion: string,
-  approveCode?: CodeApprover,
+  { approveCode, releaseFolder }: Pick<InstallOptions, 'approveCode' | 'releaseFolder'>,
 ): Promise<PluginPackage | null> {
   const target = path.join(dir, id);
   const checked = await readPluginPackage(staged, appVersion);
@@ -170,6 +181,7 @@ async function finishInstall(
   const aside = path.join(staging, `.previous-${id}`);
   const replacing = await exists(target);
   if (replacing) {
+    await releaseFolder?.(id);
     const st = await fs.lstat(target);
     if (st.isSymbolicLink()) await fs.unlink(target);
     else await fs.rename(target, aside);
@@ -240,7 +252,7 @@ export async function installPluginFromFolder(
   return withStaging(dir, async (staging) => {
     const staged = path.join(staging, id);
     await fs.cp(src, staged, { recursive: true, errorOnExist: true });
-    return finishInstall(dir, staging, staged, id, { kind: 'folder', path: src }, appVersion, opts.approveCode);
+    return finishInstall(dir, staging, staged, id, { kind: 'folder', path: src }, appVersion, opts);
   });
 }
 
@@ -263,7 +275,7 @@ export async function installPluginFromDraft(
     if (!(await mayInstall(dir, id, opts.replace))) return null;
     const staged = path.join(staging, id);
     await fs.rename(written, staged);
-    return finishInstall(dir, staging, staged, id, { kind: 'draft' }, appVersion, opts.approveCode);
+    return finishInstall(dir, staging, staged, id, { kind: 'draft' }, appVersion, opts);
   });
 }
 
@@ -290,7 +302,7 @@ export async function installPluginFromZip(
     if (!(await mayInstall(dir, id, opts.replace))) return null;
     const staged = path.join(staging, id);
     await fs.rename(root, staged);
-    return finishInstall(dir, staging, staged, id, { kind: 'zip', name: path.basename(zipPath), sha256 }, appVersion, opts.approveCode);
+    return finishInstall(dir, staging, staged, id, { kind: 'zip', name: path.basename(zipPath), sha256 }, appVersion, opts);
   });
 }
 
@@ -318,6 +330,6 @@ export async function installPluginFromGit(
     const staged = path.join(staging, id);
     await fs.rename(root, staged);
     const source: PluginSource = { kind: 'git', url: parsed.url, ...(parsed.ref ? { ref: parsed.ref } : {}), commit };
-    return finishInstall(dir, staging, staged, id, source, appVersion, opts.approveCode);
+    return finishInstall(dir, staging, staged, id, source, appVersion, opts);
   });
 }
