@@ -210,13 +210,22 @@ jobs:
 
   # The same lint and suite on Windows (#2180, epic #2200) — advisory and
   # `continue-on-error` for the same reasons as lint-and-test-linux above. The
-  # repo's .gitattributes keeps the checkout LF, as the fixtures expect; steps
-  # run in PowerShell, the runner's default shell.
+  # repo's .gitattributes keeps the checkout LF, as the fixtures expect.
+  #
+  # Steps run in bash (Git Bash, on every Windows runner), not the default
+  # PowerShell. Under pwsh, the bare `pnpm` the setup action puts on PATH
+  # resolved to a shim that ran nothing and exited 0: the first run "passed"
+  # install, lint and 14,000 tests in four seconds with no output at all. The
+  # pnpm-version step and the test step's summary check exist so an empty run
+  # can't read as green again.
   lint-and-test-windows:
     name: lint-and-test on Windows (non-blocking)
     runs-on: windows-latest
     continue-on-error: true
     timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -230,6 +239,13 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: pnpm
+
+      # A pnpm that runs nothing must fail here, not pass every step after.
+      - name: Check pnpm runs
+        run: |
+          v="$(pnpm --version)"
+          echo "pnpm $v"
+          [ -n "$v" ] || { echo "::error::pnpm printed no version: it isn't running"; exit 1; }
 
       # Unconditional lockfile/manifest check (#2244) — see lint-and-test.
       - name: Verify lockfile matches package.json
@@ -255,8 +271,14 @@ jobs:
       - name: Install Python packages for compute rich-output tests
         run: python -m pip install --quiet pandas matplotlib pillow
 
+      # `set -o pipefail` so tee doesn't hide vitest's exit code (as bench.yml
+      # learned, #2242), and the summary check so a run that tested nothing
+      # fails rather than passing.
       - name: Test
-        run: pnpm test
+        run: |
+          set -o pipefail
+          pnpm test 2>&1 | tee vitest.log
+          grep -Eq "Test Files .*passed" vitest.log || { echo "::error::no test summary: the suite didn't run"; exit 1; }
 
   # The coverage floors, on pull requests AND on main (#2359 → reversed here).
   #
