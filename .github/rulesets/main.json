@@ -15,6 +15,7 @@
         "strict_required_status_checks_policy": true,
         "do_not_enforce_on_create": false,
         "required_status_checks": [
+          { "context": "lint", "integration_id": 15368 },
           { "context": "lint-and-test", "integration_id": 15368 },
           { "context": "coverage", "integration_id": 15368 },
           { "context": "audit", "integration_id": 15368 },
