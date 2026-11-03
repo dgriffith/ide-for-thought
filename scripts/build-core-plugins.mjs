@@ -17,13 +17,16 @@ const ids = fs.readdirSync(path.join(ROOT, 'plugins'), { withFileTypes: true })
   .map((e) => e.name)
   .sort();
 
-const vite = path.join(ROOT, 'node_modules', '.bin', 'vite');
+// On Windows the bin is `vite.cmd`, which Node only spawns through a shell
+// (CVE-2024-27980). The arguments are fixed literals (#2180).
+const win = process.platform === 'win32';
+const vite = path.join(ROOT, 'node_modules', '.bin', win ? 'vite.cmd' : 'vite');
 for (const id of ids) {
   const args = ['build', '--config', 'vite.core-plugins.config.mts', '--logLevel', 'warn', ...(watch ? ['--watch'] : [])];
   const env = { ...process.env, CORE_PLUGIN: id };
-  if (watch) spawn(vite, args, { cwd: ROOT, env, stdio: 'inherit' });
+  if (watch) spawn(vite, args, { cwd: ROOT, env, stdio: 'inherit', shell: win });
   else {
-    execFileSync(vite, args, { cwd: ROOT, env, stdio: 'inherit' });
+    execFileSync(vite, args, { cwd: ROOT, env, stdio: 'inherit', shell: win });
     console.log(`✓ built-in plugin view: ${id}`);
   }
 }

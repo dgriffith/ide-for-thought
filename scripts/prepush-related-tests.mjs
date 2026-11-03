@@ -93,11 +93,22 @@ if (argvBytes > MAX_ARGV_BYTES) {
 // run its git commands against THIS one. Inside the hook, the suite should see
 // the same environment `pnpm test` does.
 const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith('GIT_')));
-const child = spawn('pnpm', args, { cwd: ROOT, stdio: 'inherit', detached: true, env });
+// Windows (#2180): `pnpm` is a `.cmd` shim, which Node spawns only through a
+// shell (CVE-2024-27980) — and a shell would re-split the changed files' paths
+// on spaces and read `&`/`|` in them as operators. So there, vitest's own entry
+// runs under this Node, with no shim and no shell: `args` is `exec vitest …`.
+// No process groups either: `taskkill /T` takes the tree down instead, and
+// `detached` would open a new console.
+const win = process.platform === 'win32';
+const [command, commandArgs] = win
+  ? [process.execPath, [path.join(ROOT, 'node_modules', 'vitest', 'vitest.mjs'), ...args.slice(2)]]
+  : ['pnpm', args];
+const child = spawn(command, commandArgs, { cwd: ROOT, stdio: 'inherit', detached: !win, env });
 for (const sig of ['SIGINT', 'SIGTERM']) {
   process.on(sig, () => {
     try {
-      process.kill(-child.pid, 'SIGTERM');
+      if (win) spawnSync('taskkill', ['/pid', String(child.pid), '/T', '/F'], { stdio: 'ignore' });
+      else process.kill(-child.pid, 'SIGTERM');
     } catch {
       // already gone
     }

@@ -1,0 +1,23 @@
+# Line endings (#2180, epic #2200): text is LF in the repo and LF in every
+# checkout, on every OS. Windows runners (and Git for Windows' default
+# `core.autocrlf=true`) would otherwise check text out as CRLF, and fixtures
+# compared byte-for-byte, snapshots, and tests that write CRLF on purpose (to
+# prove the parsers handle it) would read different bytes on Windows than the
+# repo holds. Minerva itself reads CRLF fine; the repo just doesn't contain any.
+* text=auto eol=lf
+
+# Binary: never converted, never diffed as text. `text=auto` detects most of
+# these anyway; named so a zero-byte or ASCII-looking one can't be mistaken.
+*.png binary
+*.ico binary
+*.icns binary
+*.pdf binary
+*.zip binary
+*.traineddata binary
+*.thumbnail binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.wasm binary
+*.onnx binary

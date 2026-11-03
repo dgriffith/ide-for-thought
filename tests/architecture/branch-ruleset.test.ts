@@ -45,6 +45,9 @@ const NOT_REQUIRED: Record<string, string> = {
     'The first Windows/Linux test signal (#2178, epic #2200): the same lint and suite on ubuntu-latest. ' +
     'Advisory, and continue-on-error, until it has a record of passing; then it joins the required checks. ' +
     'Minerva does not ship on Linux yet, so a red Linux run must not block a macOS merge or release.',
+  'lint-and-test on Windows (non-blocking)':
+    'The Windows half of the same signal (#2180, epic #2200): the lint and suite on windows-latest. ' +
+    'Advisory, and continue-on-error, for the same reasons as the Linux job: Minerva does not ship on Windows yet.',
   'security scan (advisory)':
     'Electronegativity + Semgrep against a baseline (#2570). Advisory while the baseline settles: a new ' +
     'finding is a ::warning and a summary row, and continue-on-error keeps it out of the merge gate. ' +
