@@ -36,7 +36,7 @@ let pluginsDir: string;
 const stops: string[] = [];
 
 beforeEach(() => {
-  root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-core-wiring-')));
+  root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-core-wiring-')));
   pluginsDir = path.join(root, 'plugins');
   enablePlugins({ appVersion: '4.0.0', dir: pluginsDir });
   _setCorePluginsForTests([

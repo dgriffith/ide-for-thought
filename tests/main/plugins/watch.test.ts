@@ -13,7 +13,7 @@ import { PLUGINS_WATCH_WARMUP_MS, watchPluginsDir } from '../../../src/main/plug
 
 let tmp: string;
 let stop: (() => void) | null = null;
-beforeEach(() => { tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-plugin-watch-'))); });
+beforeEach(() => { tmp = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-plugin-watch-'))); });
 afterEach(() => {
   stop?.();
   stop = null;

@@ -54,7 +54,7 @@ const APP_VERSION = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../..
 const HAS_PYTHON = spawnSync('python3', ['--version']).status === 0;
 
 let tmp: string;
-beforeEach(() => { tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-scaffold-'))); });
+beforeEach(() => { tmp = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-scaffold-'))); });
 afterEach(() => { fs.rmSync(tmp, { recursive: true, force: true }); });
 
 describe('scaffoldPluginFiles (#2650)', () => {

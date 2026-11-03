@@ -24,7 +24,7 @@ const EXAMPLES = path.resolve(__dirname, '../../fixtures/plugins');
 let tmp: string;
 let hostile: HostileManifest;
 beforeAll(() => {
-  tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-check-examples-')));
+  tmp = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-check-examples-')));
   fs.mkdirSync(path.join(tmp, 'outside'));
   hostile = buildHostileThoughtbase(path.join(tmp, 'hostile'), { outside: path.join(tmp, 'outside'), features: ALL_HOSTILE_FEATURES });
 });

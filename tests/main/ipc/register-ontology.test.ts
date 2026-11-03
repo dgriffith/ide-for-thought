@@ -65,7 +65,7 @@ let root: string;
 let picked: string;
 
 beforeEach(async () => {
-  root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-register-ontology-')));
+  root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-register-ontology-')));
   picked = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-picked-')), 'Lab.ttl');
   fs.writeFileSync(picked, LAB);
   h.openProject = root;

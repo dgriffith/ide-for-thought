@@ -253,7 +253,7 @@ describe('prompt-injection corpus: the tool surface holds against a compromised 
       fs.cpSync(path.join(CORPUS_DIR, '.minerva', sub), path.join(root, '.minerva', sub), { recursive: true });
     }
 
-    const outsideAbs = fs.realpathSync(outside.root);
+    const outsideAbs = fs.realpathSync.native(outside.root);
     fs.writeFileSync(path.join(outsideAbs, 'id_rsa'), `${SECRET}\n`);
     fs.writeFileSync(path.join(outsideAbs, 'body.md'), `# Outside\n\n${SECRET}\n`);
     fs.symlinkSync(outsideAbs, path.join(root, 'escape'));
@@ -485,7 +485,7 @@ describe('prompt-injection corpus: the tool surface holds against a compromised 
     fs.mkdirSync(path.join(minerva, 'conversations'), { recursive: true });
     fs.writeFileSync(path.join(minerva, 'conversations', 'conv-old.json'), JSON.stringify({ messages: [{ role: 'user', content: convCanary }] }));
     fs.writeFileSync(path.join(minerva, 'secrets.json'), JSON.stringify({ anthropic: secretCanary }));
-    const abs = (p: string) => path.join(fs.realpathSync(project.root), p);
+    const abs = (p: string) => path.join(fs.realpathSync.native(project.root), p);
 
     const { requests, calls } = await runCompromised(resolveDeliver(CARRIERS[0]!), [
       { name: 'query_sql', input: { sql: "SELECT content FROM read_text('.minerva/conversations/*')" } },

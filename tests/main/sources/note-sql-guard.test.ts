@@ -38,7 +38,7 @@ import {
   writeNoteSqlExfilThoughtbase, NOTE_SQL_CANARIES, type NoteSqlExfilFixture,
 } from '../../helpers/hostile-thoughtbase';
 
-const base = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-notesql-')));
+const base = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-notesql-')));
 let fx: NoteSqlExfilFixture;
 let ctx: ReturnType<typeof projectContext>;
 

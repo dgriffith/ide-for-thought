@@ -37,9 +37,14 @@ const PATH_TRAVERSAL = 'Path traversal detected';
  */
 function realPathSafe(p: string): string {
   try {
-    return fsSync.realpathSync(p);
+    // `.native`, as `fs.promises.realpath` is (#2990): on Windows the JS
+    // realpath keeps an 8.3 short name (`C:\Users\RUNNER~1`) that the native
+    // one expands, so mixing the two spells one folder two ways.
+    return fsSync.realpathSync.native(p);
   } catch {
-    return p;
+    // Not there yet: still absolute and in the platform's own separators, so
+    // a root spelled `C:/tb` or `/tb` compares like the paths resolved under it.
+    return path.resolve(p);
   }
 }
 
@@ -141,7 +146,35 @@ export function assertSafePath(rootPath: string, relativePath: string): string {
 }
 
 function isWithin(root: string, p: string): boolean {
-  return p === root || p.startsWith(root + path.sep);
+  return isWithinRoot(root, p);
+}
+
+/**
+ * Whether `p` is `root` or inside it (#2990): the containment comparison
+ * behind `assertSafePath` and the agent path guard, and the one to use when
+ * either side might arrive in someone else's spelling. (A check whose two
+ * sides come from the same `path.resolve` or realpath — the app:// and
+ * plugin-frame servers, zip and git extraction, the history store — is
+ * already consistent, and keeps its own stricter `startsWith`.)
+ *
+ * Both sides are resolved first, so a root spelled `C:/Users/me/tb` (a CLI
+ * argument, a hand-edited session file) or `/tb` compares like the paths
+ * `path.resolve` produces under it. On Windows the comparison ignores case:
+ * NTFS and the drive letter are case-insensitive by default, and different
+ * Windows APIs disagree about `c:` vs `C:`. A sibling that only shares a
+ * prefix (`C:\tb-old`) is still outside: the match is on a whole segment.
+ *
+ * `pathImpl` is injectable so the Windows rules are testable on any host.
+ */
+export function isWithinRoot(root: string, p: string, pathImpl: typeof path = path): boolean {
+  let r = pathImpl.resolve(root);
+  let q = pathImpl.resolve(p);
+  if (pathImpl.sep === '\\') {
+    r = r.toLowerCase();
+    q = q.toLowerCase();
+  }
+  if (q === r) return true;
+  return q.startsWith(r.endsWith(pathImpl.sep) ? r : r + pathImpl.sep);
 }
 
 /**
@@ -205,7 +238,7 @@ function canonicalizeExisting(abs: string, hops = 0): string {
   for (;;) {
     let real: string;
     try {
-      real = fsSync.realpathSync(existing);
+      real = fsSync.realpathSync.native(existing); // as realPathSafe (#2990)
     } catch {
       const parent = path.dirname(existing);
       if (parent === existing) return abs;

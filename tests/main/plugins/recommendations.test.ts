@@ -23,7 +23,7 @@ let tmp: string;
 let pluginsDir: string;
 
 beforeEach(() => {
-  tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-plugin-recs-')));
+  tmp = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-plugin-recs-')));
   pluginsDir = path.join(tmp, 'home', 'plugins');
   fs.mkdirSync(pluginsDir, { recursive: true });
   enablePlugins({ appVersion: '4.0.0', dir: pluginsDir });

@@ -87,7 +87,7 @@ describe('a symlinked DIRECTORY pointing outside the root', () => {
   });
 
   it('refuses it when the root is spelled through its realpath too', async () => {
-    const realRoot = fs.realpathSync(root);
+    const realRoot = fs.realpathSync.native(root);
     await expect(readFile(realRoot, 'notes/link/secret.txt')).rejects.toThrow(/traversal/i);
   });
 });
@@ -181,6 +181,6 @@ describe('symlinks that stay inside the root keep working', () => {
     fs.mkdirSync(path.join(root, 'archive'));
     fs.symlinkSync(path.join(root, 'archive'), path.join(root, 'notes', 'arc'), 'dir');
     expect(assertSafePath(root, 'notes/arc/x.md'))
-      .toBe(path.join(fs.realpathSync(root), 'notes', 'arc', 'x.md'));
+      .toBe(path.join(fs.realpathSync.native(root), 'notes', 'arc', 'x.md'));
   });
 });
