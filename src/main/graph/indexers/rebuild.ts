@@ -18,7 +18,7 @@ import { parseMarkdown } from '../parser';
 import { isIndexable } from '../../../shared/indexable-files';
 import { isIgnoredEntry } from '../../../shared/ignored-dirs';
 import { logger } from '../../../shared/logger';
-import { isEscapingSymlink } from '../../path-containment';
+import { isEscapingSymlink, projectRelative } from '../../path-containment';
 
 import type { ProjectContext } from '../../project-context-types';
 
@@ -263,14 +263,14 @@ export async function indexAllNotes(ctx: ProjectContext, opts?: IndexAllNotesOpt
       if (isIgnoredEntry(entry.name)) continue;
       const fullPath = path.join(dirPath, entry.name);
       if (entry.isDirectory()) {
-        const rel = path.relative(root, fullPath);
+        const rel = projectRelative(root, fullPath);
         ensureFolder(state!, rel);
         await walkAndIndex(fullPath, root);
       } else if (isIndexable(entry.name)) {
         // Same skip as the pre-pass, so the two passes visit the same files
         // (the pre-pass's count is this pass's progress total).
         if (isEscapingSymlink(root, fullPath, entry)) continue;
-        const relativePath = path.relative(root, fullPath);
+        const relativePath = projectRelative(root, fullPath);
         const cached = prepassContent.get(relativePath);
         const content = cached ?? await readWalkedFile(fullPath, relativePath);
         // Unreadable (dangling link, symlink loop, permissions): the pre-pass
@@ -301,10 +301,10 @@ export async function indexAllNotes(ctx: ProjectContext, opts?: IndexAllNotesOpt
         // through `assertSafePath` (#2398). In-root links still index. Free
         // for a regular file: the dirent already says it isn't a link.
         if (isEscapingSymlink(root, fullPath, entry)) {
-          logger('graph').warn('not indexing a symlink that points outside the thoughtbase:', path.relative(root, fullPath));
+          logger('graph').warn('not indexing a symlink that points outside the thoughtbase:', projectRelative(root, fullPath));
           continue;
         }
-        const relativePath = path.relative(root, fullPath);
+        const relativePath = projectRelative(root, fullPath);
         // Read BEFORE registering (#2372): a file that cannot be read — an
         // in-root dangling symlink, a symlink loop, a permission-denied note —
         // is not a note, and registering it would let `[[links]]` resolve to
@@ -356,7 +356,7 @@ async function readWalkedDir(dirPath: string, root: string): Promise<Dirent[] | 
   } catch (err) {
     const code = (err as NodeJS.ErrnoException | null)?.code;
     if (dirPath === root || typeof code !== 'string') throw err;
-    logger('graph').warn(`not indexing unreadable folder (${code}):`, path.relative(root, dirPath));
+    logger('graph').warn(`not indexing unreadable folder (${code}):`, projectRelative(root, dirPath));
     return null;
   }
 }

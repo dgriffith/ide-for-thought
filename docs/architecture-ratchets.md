@@ -28,7 +28,7 @@ what to do about it. `architecture-ratchets-doc.test.ts` keeps the two sides in
 step — a new test in `tests/architecture/` with no entry here fails, and an
 entry here naming a test that no longer exists fails too (#2262).
 
-Written up as of 2026-10-13, 55 tests.
+Written up as of 2026-10-13; 56 tests as of #2989.
 
 ---
 
@@ -528,6 +528,21 @@ moves, and picking between them is the whole value of the check: extract a seam
 if what you added doesn't belong in that file, or raise the number in the same
 PR and say so in the diff. Some files grow by construction — the four IPC-surface
 files gain a line per channel — and raising those is routine.
+
+### `posix-relative-paths.test.ts`
+
+**Project-relative paths are `/`-separated on every OS** (#2989). `path.relative`
+and slicing a root off an absolute path speak the platform separator, so on
+Windows they say `notes\a.md` — and Minerva stores, compares and emits
+relative paths as POSIX (graph IRIs, the search index, history keys, publish
+plans and their `private/**` exclusions). The first Windows run (#2180) found
+private notes in an export plan this way.
+
+**When it fires:** `src/main` gained a bare `path.relative(` or a
+`.slice(root.length + 1)` outside the `ALLOWED` files. Produce the path with
+`projectRelative(root, abs)` (`src/main/path-containment.ts`). Only a native
+relative path that is never stored or emitted — an `isUnder`-style check, or
+one already made `/`-separated — belongs in `ALLOWED`, with its reason.
 
 ### `pattern-ratchets.test.ts`
 

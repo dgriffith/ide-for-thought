@@ -5,7 +5,7 @@ import path from 'node:path';
 import { INDEXABLE_EXTS } from '../../shared/indexable-files';
 import { wasHandled, wasMovedAway, forgetMovedAway } from './path-dedup';
 import { createWatchIgnoreMatcher } from './watcher-ignore';
-import { canonicalRoot } from '../path-containment';
+import { canonicalRoot, projectRelative } from '../path-containment';
 import { logger } from '../../shared/logger';
 
 /**
@@ -226,7 +226,7 @@ export function startWatching(
     if (!target.isAlive()) return;
     const ino = inodeOf(stats);
     if (ino !== undefined) inodeByPath.set(filePath, ino);
-    const relative = filePath.slice(watchRoot.length + 1);
+    const relative = projectRelative(watchRoot, filePath);
     target.fileChanged(relative);
     indexChanged(relative);
   });
@@ -235,7 +235,7 @@ export function startWatching(
     if (!target.isAlive()) return;
     const ino = inodeOf(stats);
     if (ino !== undefined) inodeByPath.set(filePath, ino);
-    const relative = filePath.slice(watchRoot.length + 1);
+    const relative = projectRelative(watchRoot, filePath);
     const basename = path.basename(filePath);
     // The path exists again (rolled back, or a new note at the old name), so a
     // later unlink of it is a real deletion (#2594).
@@ -273,7 +273,7 @@ export function startWatching(
 
   notes.on('unlink', (filePath) => {
     if (!target.isAlive()) return;
-    const relative = filePath.slice(watchRoot.length + 1);
+    const relative = projectRelative(watchRoot, filePath);
     const basename = path.basename(filePath);
     const inode = inodeByPath.get(filePath);
     inodeByPath.delete(filePath);

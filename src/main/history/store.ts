@@ -27,6 +27,7 @@ import { readJsonFileOr, writeJsonFileAtomic } from '../config/json-file';
 import { emitHistoryChanged } from './history-events';
 import { classifyHistoryEvent, type HistorySettings, type UnifiedTimelineEntry } from '../../shared/history';
 import { logger } from '../../shared/logger';
+import { projectRelative } from '../path-containment';
 
 const HISTORY_DIR = '.minerva/history';
 const INDEX_FILE = 'index.json';
@@ -452,7 +453,7 @@ export async function listOrphanedNoteHistoriesUnder(rootPath: string, relDir: s
       return; // no history under this subtree
     }
     if (entries.some((e) => e.isFile() && e.name === INDEX_FILE)) {
-      const relNotePath = path.relative(historyRoot, dir);
+      const relNotePath = projectRelative(historyRoot, dir);
       try {
         await fs.access(path.resolve(rootPath, relNotePath));
       } catch {

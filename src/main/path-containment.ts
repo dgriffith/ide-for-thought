@@ -230,6 +230,23 @@ function canonicalizeExisting(abs: string, hops = 0): string {
 }
 
 /**
+ * The project-relative form of an absolute path, `/`-separated on every OS
+ * (#2989). Minerva's relative paths are POSIX everywhere they're stored,
+ * compared or emitted — graph IRIs and `minerva:relativePath`, wiki-link
+ * resolution, the search index, history keys, publish plans and their
+ * `private/**` exclusions, URLs in exports — but `path.relative` speaks the
+ * platform's separator, so on Windows it says `notes\a.md`. Every path that
+ * leaves a walker or a watcher as "relative to the root" goes through this;
+ * `tests/architecture/posix-relative-paths.test.ts` holds the line.
+ *
+ * `pathImpl` is injectable so the Windows behaviour is testable on any host.
+ */
+export function projectRelative(root: string, abs: string, pathImpl: typeof path = path): string {
+  const rel = pathImpl.relative(root, abs);
+  return pathImpl.sep === '/' ? rel : rel.split(pathImpl.sep).join('/');
+}
+
+/**
  * The canonical (realpath'd, memoized) form of a thoughtbase root — the
  * directory every containment check measures against. The watcher watches
  * this rather than the spelling it was handed, because with

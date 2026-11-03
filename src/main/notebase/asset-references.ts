@@ -80,6 +80,7 @@ import { INLINE_ASSET_DIR, type OrphanedAsset } from '../../shared/asset-paths';
 import { createProjectStore } from '../project-store';
 import { projectContext } from '../project-context-types';
 import { stampSettled } from '../../shared/file-stamp';
+import { projectRelative } from '../path-containment';
 
 export type { OrphanedAsset };
 
@@ -181,7 +182,7 @@ async function walk(absDir: string, rootPath: string, out: string[]): Promise<vo
   }
   for (const entry of entries) {
     const absPath = path.join(absDir, entry.name);
-    const rel = path.relative(rootPath, absPath).split(path.sep).join('/');
+    const rel = projectRelative(rootPath, absPath);
     if (entry.isDirectory()) {
       if (isExcludedDir(rel, entry.name)) continue;
       await walk(absPath, rootPath, out);

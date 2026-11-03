@@ -31,6 +31,7 @@ import { toConnectionResult } from '../llm/connection-error';
 import { runExport } from './run-export';
 import type { PublishOptions, PublishResult } from './publish-to-git';
 import type { PublishChange } from '../git/publish-git';
+import { projectRelative } from '../path-containment';
 
 export interface S3Credentials {
   accessKeyId?: string;
@@ -82,7 +83,7 @@ function walkFiles(dir: string): { relPath: string; absPath: string }[] {
     for (const entry of fs.readdirSync(cur, { withFileTypes: true })) {
       const abs = path.join(cur, entry.name);
       if (entry.isDirectory()) walk(abs);
-      else if (entry.isFile()) out.push({ relPath: path.relative(dir, abs), absPath: abs });
+      else if (entry.isFile()) out.push({ relPath: projectRelative(dir, abs), absPath: abs });
     }
   };
   walk(dir);
