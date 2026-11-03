@@ -117,6 +117,7 @@ import { registerBibliography } from '../../../src/main/ipc/register-bibliograph
 import { Channels } from '../../../src/shared/channels';
 import { DEFAULT_STYLE } from '../../../src/main/publish/csl/assets';
 import { USER_STYLES_DIR, USER_LOCALES_DIR } from '../../../src/main/publish/csl/user-assets';
+import path from 'node:path';
 
 registerBibliography();
 
@@ -290,19 +291,19 @@ describe('register-bibliography — user CSL assets', () => {
   it('CSL_LIST_USER_STYLES reports only what the settings row needs', async () => {
     // Not the XML: the renderer never renders it, and these files are large.
     h.loadUserStyles.mockResolvedValue([
-      { id: 'house', label: 'House Style', filePath: '/vault/.minerva/csl-styles/house.csl', xml: STYLE_XML },
+      { id: 'house', label: 'House Style', filePath: path.join('/vault', '.minerva', 'csl-styles', 'house.csl'), xml: STYLE_XML },
     ]);
     await expect(callAsync(Channels.CSL_LIST_USER_STYLES)).resolves.toEqual([
-      { id: 'house', label: 'House Style', filePath: '/vault/.minerva/csl-styles/house.csl' },
+      { id: 'house', label: 'House Style', filePath: path.join('/vault', '.minerva', 'csl-styles', 'house.csl') },
     ]);
   });
 
   it('CSL_LIST_USER_LOCALES reports only what the settings row needs', async () => {
     h.loadUserLocales.mockResolvedValue([
-      { id: 'en-GB', filePath: '/vault/.minerva/csl-locales/en-GB.xml', xml: LOCALE_XML },
+      { id: 'en-GB', filePath: path.join('/vault', '.minerva', 'csl-locales', 'en-GB.xml'), xml: LOCALE_XML },
     ]);
     await expect(callAsync(Channels.CSL_LIST_USER_LOCALES)).resolves.toEqual([
-      { id: 'en-GB', filePath: '/vault/.minerva/csl-locales/en-GB.xml' },
+      { id: 'en-GB', filePath: path.join('/vault', '.minerva', 'csl-locales', 'en-GB.xml') },
     ]);
   });
 
@@ -313,20 +314,20 @@ describe('register-bibliography — user CSL assets', () => {
     await expect(callAsync(Channels.CSL_IMPORT_STYLE)).resolves.toEqual({
       id: 'house-style',
       label: 'House Style',
-      filePath: `${ROOT}/${USER_STYLES_DIR}/house-style.csl`,
+      filePath: path.join(ROOT, USER_STYLES_DIR, 'house-style.csl'),
     });
 
     // The import is a copy, not a reference: the picked file can be deleted
     // or live on a volume that isn't mounted next time.
-    expect(h.mkdir).toHaveBeenCalledWith(`${ROOT}/${USER_STYLES_DIR}`, { recursive: true });
-    expect(h.writeFile).toHaveBeenCalledWith(`${ROOT}/${USER_STYLES_DIR}/house-style.csl`, STYLE_XML, 'utf-8');
+    expect(h.mkdir).toHaveBeenCalledWith(path.join(ROOT, USER_STYLES_DIR), { recursive: true });
+    expect(h.writeFile).toHaveBeenCalledWith(path.join(ROOT, USER_STYLES_DIR, 'house-style.csl'), STYLE_XML, 'utf-8');
   });
 
   it('CSL_IMPORT_STYLE falls back to the derived id when the style has no title', async () => {
     h.showOpenDialog.mockResolvedValue({ canceled: false, filePaths: ['/downloads/untitled.csl'] });
     h.readFile.mockResolvedValue('<style xmlns="http://purl.org/net/xbiblio/csl"/>');
     await expect(callAsync(Channels.CSL_IMPORT_STYLE))
-      .resolves.toEqual({ id: 'untitled', label: 'untitled', filePath: `${ROOT}/${USER_STYLES_DIR}/untitled.csl` });
+      .resolves.toEqual({ id: 'untitled', label: 'untitled', filePath: path.join(ROOT, USER_STYLES_DIR, 'untitled.csl') });
   });
 
   it('CSL_IMPORT_STYLE rejects a file that is not CSL, whatever its extension says', async () => {
@@ -354,9 +355,9 @@ describe('register-bibliography — user CSL assets', () => {
 
     await expect(callAsync(Channels.CSL_IMPORT_LOCALE)).resolves.toEqual({
       id: 'en-GB',
-      filePath: `${ROOT}/${USER_LOCALES_DIR}/en-GB.xml`,
+      filePath: path.join(ROOT, USER_LOCALES_DIR, 'en-GB.xml'),
     });
-    expect(h.writeFile).toHaveBeenCalledWith(`${ROOT}/${USER_LOCALES_DIR}/en-GB.xml`, LOCALE_XML, 'utf-8');
+    expect(h.writeFile).toHaveBeenCalledWith(path.join(ROOT, USER_LOCALES_DIR, 'en-GB.xml'), LOCALE_XML, 'utf-8');
   });
 
   it('CSL_IMPORT_LOCALE rejects a file that is not a CSL locale', async () => {
@@ -380,12 +381,12 @@ describe('register-bibliography — user CSL assets', () => {
 
   it('CSL_REMOVE_STYLE deletes the imported file from the project', async () => {
     await callAsync(Channels.CSL_REMOVE_STYLE, 'house-style');
-    expect(h.unlink).toHaveBeenCalledWith(`${ROOT}/${USER_STYLES_DIR}/house-style.csl`);
+    expect(h.unlink).toHaveBeenCalledWith(path.join(ROOT, USER_STYLES_DIR, 'house-style.csl'));
   });
 
   it('CSL_REMOVE_LOCALE deletes the imported locale from the project', async () => {
     await callAsync(Channels.CSL_REMOVE_LOCALE, 'en-GB');
-    expect(h.unlink).toHaveBeenCalledWith(`${ROOT}/${USER_LOCALES_DIR}/en-GB.xml`);
+    expect(h.unlink).toHaveBeenCalledWith(path.join(ROOT, USER_LOCALES_DIR, 'en-GB.xml'));
   });
 
   it.each([

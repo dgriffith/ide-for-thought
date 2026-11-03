@@ -25,6 +25,7 @@ import {
   posix,
   type HostileFeature,
 } from '../../helpers/hostile-thoughtbase';
+import { HAS_POSIX_MODES } from '../../helpers/posix-modes';
 
 async function hits(ctx: ProjectContext, q: string): Promise<string[]> {
   return (await search(ctx, q)).map((r) => r.relativePath).sort();
@@ -101,7 +102,8 @@ describe('search indexAllNotes on a hostile thoughtbase (#2372)', () => {
     }
   });
 
-  it.skipIf(process.getuid?.() === 0)('still rejects when the thoughtbase ROOT cannot be listed', async () => {
+  // chmod can't make the root unlistable as root, or on Windows (#2180).
+  it.skipIf(process.getuid?.() === 0 || !HAS_POSIX_MODES)('still rejects when the thoughtbase ROOT cannot be listed', async () => {
     fs.chmodSync(tb.manifest.root, 0o000);
     try {
       await expect(indexAllNotes(ctx)).rejects.toMatchObject({ code: 'EACCES' });

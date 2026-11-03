@@ -102,7 +102,10 @@ describe('a plugin server\'s program must be inside the plugin (#2646)', () => {
     ['a link out of the plugin', { command: 'node', args: ['server/out.js'] }, /leaves the plugin folder/],
   ])('refuses %s', async (_what, spec, msg) => {
     const root = writePlugin(tmp, 'p', {}, { 'server/real.js': '' }, server(spec));
-    fs.symlinkSync('/etc/hosts', path.join(root, 'server', 'out.js'));
+    // A real file outside the plugin, on every OS (`/etc/hosts` isn't one on Windows, #2180).
+    const outside = path.join(tmp, 'outside.js');
+    fs.writeFileSync(outside, '');
+    fs.symlinkSync(outside, path.join(root, 'server', 'out.js'));
     const r = await readPluginPackage(root, '4.0.0');
     expect(r.ok ? '' : r.error.problems.join('\n')).toMatch(msg);
   });
