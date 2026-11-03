@@ -62,7 +62,7 @@ test('the root folder\'s menu has Copy Path, Open In, View Objects and history',
       await menu.getByRole('button', { name: 'Copy Path', exact: true }).click();
       const copied = await win.evaluate(() => (window as unknown as { __copied: string[] }).__copied);
       expect(copied).toHaveLength(1);
-      expect(fs.realpathSync(copied[0]!)).toBe(fs.realpathSync(projectDir));
+      expect(fs.realpathSync.native(copied[0]!)).toBe(fs.realpathSync.native(projectDir));
     });
 
     await test.step('View Objects lists the whole thoughtbase\'s types and opens an unscoped view', async () => {

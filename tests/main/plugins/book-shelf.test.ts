@@ -51,7 +51,7 @@ describe('Book Shelf: a site read through its plugin\'s MCP server (#2880)', () 
   let root: string;
 
   beforeEach(async () => {
-    tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-book-shelf-')));
+    tmp = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-book-shelf-')));
     dir = path.join(tmp, 'plugins');
     root = path.join(tmp, 'tb');
     fs.mkdirSync(root);

@@ -99,6 +99,6 @@ describe('startWatching and symlinks (#2398)', () => {
     await fsp.mkdir(path.join(root, 'sub'));
     await fsp.writeFile(path.join(linkedRoot, 'sub', 'note.md'), '# note\n');
 
-    await waitFor(() => events.includes(`created ${path.join('sub', 'note.md')}`));
+    await waitFor(() => events.includes('created sub/note.md')); // `/`-separated on every OS (#2989)
   });
 });

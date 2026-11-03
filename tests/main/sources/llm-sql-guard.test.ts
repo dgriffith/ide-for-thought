@@ -30,7 +30,7 @@ const CONVO = 'CANARY-2442-conversation-transcript';
 const SECRET = 'CANARY-2442-secrets-json';
 const NOTE = 'CANARY-2442-in-root-note';
 
-const base = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-sqlguard-')));
+const base = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-sqlguard-')));
 const root = path.join(base, 'tb');
 const ctx = projectContext(root);
 const conv = path.join(root, '.minerva', 'conversations', 'c1.json');

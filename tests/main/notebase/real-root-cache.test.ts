@@ -1,7 +1,7 @@
 /**
  * `assertSafePath` canonicalises the project root once, not per call (#2216).
  *
- * The guard resolves `relativePath` against `realpathSync(rootPath)` so a
+ * The guard resolves `relativePath` against `realpathSync.native(rootPath)` so a
  * project rooted on a symlinked path — notably macOS's `/var` → `/private/var`,
  * where `tmpdir()` lives (#352) — doesn't make an ordinary in-project path look
  * like a traversal. That realpath is the entire cost of the guard: measured at

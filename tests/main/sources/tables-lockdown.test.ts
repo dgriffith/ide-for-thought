@@ -22,7 +22,7 @@ const SECRET = 'CANARY-2437-outside-the-root';
 
 // realpath'd base so the assertions below can name canonical paths; the root
 // itself carries a `'` to prove the allowlist literal is escaped.
-const base = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-lockdown-')));
+const base = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-lockdown-')));
 const root = path.join(base, "tb'root");
 const outside = path.join(base, 'outside');
 // A sibling whose name has the root as a string prefix: `/x/tb'root` must not

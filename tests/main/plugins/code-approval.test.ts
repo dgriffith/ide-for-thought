@@ -28,7 +28,7 @@ let tmp: string;
 let dir: string;
 let src: string;
 beforeEach(() => {
-  tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-code-approval-')));
+  tmp = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-code-approval-')));
   dir = path.join(tmp, '.minerva', 'plugins');
   src = path.join(tmp, 'work');
   fs.mkdirSync(dir, { recursive: true });

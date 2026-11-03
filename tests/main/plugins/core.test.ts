@@ -28,7 +28,7 @@ const manifest = (id: string, extra: Record<string, unknown> = {}) => ({
 let root: string;
 let pluginsDir: string;
 beforeEach(() => {
-  root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-core-plugins-')));
+  root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-core-plugins-')));
   pluginsDir = path.join(root, 'plugins');
   _setCorePluginsForTests([
     { manifest: manifest('python'), defaultEnabled: false },

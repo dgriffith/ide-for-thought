@@ -61,7 +61,7 @@ silenceLogTags('plugins', 'graph', 'tables', 'config', 'mcp-servers', 'mcp-confi
 let tmp: string;
 let src: string;
 beforeEach(() => {
-  tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-plugin-corpus-')));
+  tmp = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-plugin-corpus-')));
   src = path.join(tmp, 'src');
   fs.mkdirSync(src);
 });

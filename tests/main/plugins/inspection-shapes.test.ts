@@ -27,7 +27,7 @@ describe('pluginInspections (#2642)', () => {
   let tmp: string;
   let dir: string;
   beforeEach(() => {
-    tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-plugin-inspections-')));
+    tmp = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-plugin-inspections-')));
     dir = path.join(tmp, 'plugins');
     fs.mkdirSync(dir);
   });

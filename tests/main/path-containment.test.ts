@@ -92,7 +92,7 @@ describe('isEscapingSymlink', () => {
     fs.symlinkSync(path.join(outside, 'secret.md'), leak);
     expect(isEscapingSymlink(linkedRoot, inside, direntOf(inside))).toBe(false);
     expect(isEscapingSymlink(linkedRoot, leak, direntOf(leak))).toBe(true);
-    expect(canonicalRoot(linkedRoot)).toBe(fs.realpathSync(root));
+    expect(canonicalRoot(linkedRoot)).toBe(fs.realpathSync.native(root));
   });
 });
 
@@ -210,7 +210,7 @@ describe('assertBareId', () => {
 });
 
 describe('lexicalAgentPathRefusal (#2827)', () => {
-  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-lexical-')));
+  const root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-lexical-')));
   afterAll(() => fs.rmSync(root, { recursive: true, force: true }));
 
   it.each([
