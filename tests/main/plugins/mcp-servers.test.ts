@@ -42,7 +42,7 @@ import {
   setServerEnabled,
   updateServer,
 } from '../../../src/main/mcp-servers/registry';
-import { _setLocalMcpServersOnForTests } from '../../../src/main/mcp-servers/registry';
+import { _setLocalMcpServersOnForTests, stopPluginServers } from '../../../src/main/mcp-servers/registry';
 
 // These run stdio servers, which need Local MCP servers on (#2891).
 _setLocalMcpServersOnForTests(true);
@@ -210,7 +210,11 @@ describe('the Word Tools plugin\'s server, end to end (#2646)', () => {
 
   it('removing the plugin stops its server and forgets the approval', async () => {
     await setServerEnabled(ID, true);
-    await removePlugin(dir, 'word-tools');
+    expect(await status()).toMatchObject({ status: 'connected' });
+    // As the app does (#2180): the server is stopped, and has exited, before
+    // its folder goes — Windows can't remove a running process's cwd.
+    await removePlugin(dir, 'word-tools', stopPluginServers);
+    expect(await status()).toMatchObject({ status: 'disconnected' });
     await reloadPluginScan();
     await reconcilePluginServers();
     expect(await status()).toBeUndefined();

@@ -10,6 +10,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { BrowserWindow } from 'electron';
 import { changePlugins } from './plugins-apply';
+import { stopPluginServers } from './mcp-servers/registry';
 import { installPluginFromDraft, removePlugin } from './plugins/lifecycle';
 import { activePluginsDir, pluginsAppVersion } from './plugins/registry';
 import { readDraftFiles } from './plugins/draft-files';
@@ -42,6 +43,7 @@ export function pluginProposalApplierForApp(
     let declined = false;
     const installed = await changePlugins(() => installPluginFromDraft(activePluginsDir(), files, pluginsAppVersion(), {
       ...(before ? { replace: (claimed: string) => Promise.resolve(claimed === id) } : {}),
+      releaseFolder: stopPluginServers,
       approveCode: async (plugin) => {
         const question = codeApprovalQuestion(plugin.manifest, before ? { capabilities: declaredCapabilities(before) } : undefined);
         const { confirmed } = await confirmNative(windowFor(), question);
@@ -55,7 +57,7 @@ export function pluginProposalApplierForApp(
         : 'It wasn\'t installed.');
     }
     if (installed.manifest.id !== id) {
-      await changePlugins(() => removePlugin(activePluginsDir(), installed.manifest.id));
+      await changePlugins(() => removePlugin(activePluginsDir(), installed.manifest.id, stopPluginServers));
       throw new Error(`Its plugin.json names "${installed.manifest.id}", not "${id}", so it was taken out again.`);
     }
   };
@@ -69,6 +71,6 @@ export function pluginProposalApplierForApp(
       }
       await write(id, files, before);
     },
-    remove: async (id) => { await changePlugins(() => removePlugin(activePluginsDir(), id)); },
+    remove: async (id) => { await changePlugins(() => removePlugin(activePluginsDir(), id, stopPluginServers)); },
   };
 }
