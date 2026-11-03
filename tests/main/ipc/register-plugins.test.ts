@@ -31,6 +31,7 @@ const h = vi.hoisted(() => ({
   savePluginSettings: vi.fn(),
   encrypted: true,
   reconcile: vi.fn(),
+  stopPluginServers: vi.fn(),
   changed: [] as string[],
   openSession: vi.fn(),
   setSessionScope: vi.fn(),
@@ -53,7 +54,7 @@ vi.mock('../../../src/main/ipc/helpers', () => ({
   withRootPath: (fn: (root: string, ...a: unknown[]) => unknown) => (_e: unknown, ...a: unknown[]) => fn('/tb', ...a),
 }));
 vi.mock('../../../src/main/plugin-commands', () => ({ runPluginCommand: h.runCommand }));
-vi.mock('../../../src/main/mcp-servers/registry', () => ({ reconcilePluginServers: h.reconcile }));
+vi.mock('../../../src/main/mcp-servers/registry', () => ({ reconcilePluginServers: h.reconcile, stopPluginServers: h.stopPluginServers }));
 vi.mock('../../../src/main/plugins/settings', () => ({
   readPluginSettings: h.readPluginSettings,
   savePluginSettings: h.savePluginSettings,
@@ -216,7 +217,8 @@ describe('register-plugins (#2634)', () => {
     expect(await call(Channels.PLUGINS_SET_ENABLED, 'lab', true)).toEqual(LIST);
     expect(h.setPluginEnabled).toHaveBeenCalledWith('/home/u/.minerva/plugins', 'lab', true);
     await call(Channels.PLUGINS_REMOVE, 'lab');
-    expect(h.removePlugin).toHaveBeenCalledWith('/home/u/.minerva/plugins', 'lab');
+    // Its servers are stopped before the folder goes (#2180: Windows won't remove a live process's cwd).
+    expect(h.removePlugin).toHaveBeenCalledWith('/home/u/.minerva/plugins', 'lab', h.stopPluginServers);
     expect(h.changed).toEqual(['applied', 'applied']);
   });
 
@@ -231,7 +233,7 @@ describe('register-plugins (#2634)', () => {
     h.showOpenDialog.mockResolvedValue({ canceled: false, filePaths: ['/work/lab'] });
     h.installPluginFromFolder.mockResolvedValue({ manifest: { id: 'lab', name: 'Lab' } });
     expect(await call(Channels.PLUGINS_INSTALL_FOLDER)).toEqual({ id: 'lab', name: 'Lab' });
-    expect(h.installPluginFromFolder).toHaveBeenCalledWith('/home/u/.minerva/plugins', '/work/lab', '4.0.0', { replace: expect.any(Function), approveCode: expect.any(Function) });
+    expect(h.installPluginFromFolder).toHaveBeenCalledWith('/home/u/.minerva/plugins', '/work/lab', '4.0.0', { replace: expect.any(Function), approveCode: expect.any(Function), releaseFolder: h.stopPluginServers });
     expect(h.changed).toEqual(['applied']);
   });
 
@@ -252,7 +254,7 @@ describe('register-plugins (#2634)', () => {
     h.installPluginFromZip.mockResolvedValue({ manifest: { id: 'lab', name: 'Lab' } });
     expect(await call(Channels.PLUGINS_INSTALL_ZIP)).toEqual({ id: 'lab', name: 'Lab' });
     expect(h.showOpenDialog).toHaveBeenCalledWith({ id: 1 }, expect.objectContaining({ properties: ['openFile'], filters: [{ name: 'Zip archive', extensions: ['zip'] }] }));
-    expect(h.installPluginFromZip).toHaveBeenCalledWith('/home/u/.minerva/plugins', '/dl/lab.zip', '4.0.0', { replace: expect.any(Function), approveCode: expect.any(Function) });
+    expect(h.installPluginFromZip).toHaveBeenCalledWith('/home/u/.minerva/plugins', '/dl/lab.zip', '4.0.0', { replace: expect.any(Function), approveCode: expect.any(Function), releaseFolder: h.stopPluginServers });
     expect(h.changed).toEqual(['applied']);
   });
 
@@ -267,7 +269,7 @@ describe('register-plugins (#2634)', () => {
   it('install from a git URL: the typed URL goes to main\'s installer, applied; Replace? asked once', async () => {
     h.installPluginFromGit.mockResolvedValueOnce({ manifest: { id: 'lab', name: 'Lab' } });
     expect(await call(Channels.PLUGINS_INSTALL_GIT, 'https://github.com/ada/lab#v1.0.0')).toEqual({ id: 'lab', name: 'Lab' });
-    expect(h.installPluginFromGit).toHaveBeenCalledWith('/home/u/.minerva/plugins', 'https://github.com/ada/lab#v1.0.0', '4.0.0', { replace: expect.any(Function), approveCode: expect.any(Function) });
+    expect(h.installPluginFromGit).toHaveBeenCalledWith('/home/u/.minerva/plugins', 'https://github.com/ada/lab#v1.0.0', '4.0.0', { replace: expect.any(Function), approveCode: expect.any(Function), releaseFolder: h.stopPluginServers });
     expect(h.changed).toEqual(['applied']);
 
     h.installPluginFromGit.mockImplementation(overInstalled);
