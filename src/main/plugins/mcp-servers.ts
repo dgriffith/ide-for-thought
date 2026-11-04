@@ -19,6 +19,7 @@ import { activePluginsDir, getPluginScan } from './registry';
 import { loadPluginRecords, recordFor, updatePluginRecords } from './state';
 import { pluginSettingsForServer } from './settings';
 import { isInterpreter } from './mcp-schema';
+import { defaultPython } from '../compute/python-discovery';
 
 type Stdio = Extract<McpServerDescriptor, { kind: 'stdio' }>;
 
@@ -65,6 +66,10 @@ export async function pluginServerDecls(): Promise<PluginServerDecl[]> {
       const command = isInterpreter(s.command) ? s.command : file(s.command);
       const args = isInterpreter(s.command) ? [file(s.args[0]!), ...s.args.slice(1)] : s.args;
       const declared: Stdio = { kind: 'stdio', command, args, env: s.env, cwd: plugin.root };
+      // On Windows a manifest's `python3` / `python` runs the Python that
+      // discovery finds (#2188) — a stock install has no `python3`. The
+      // approval identity stays on `declared`, so it's the same everywhere.
+      const runs = process.platform === 'win32' && (s.command === 'python3' || s.command === 'python') ? defaultPython() : command;
       const env = Object.fromEntries(Object.entries(s.env).map(([k, v]) => [k, v.replace(/\$\{settings\.([A-Za-z][A-Za-z0-9_]*)\}/g, (_x, key: string) => settings[key] ?? '')]));
       out.push({
         id: `${PLUGIN_SERVER_PREFIX}${m.id}/${s.key}`,
@@ -74,7 +79,7 @@ export async function pluginServerDecls(): Promise<PluginServerDecl[]> {
         plugin: { id: m.id, name: m.name, version: m.version },
         provenance: plugin.provenance,
         declared,
-        resolved: { ...declared, env },
+        resolved: { ...declared, command: runs, env },
         ...(approvals[s.key] ? { approved: approvals[s.key] } : {}),
       });
     }

@@ -26,6 +26,7 @@ import { loadConfigFile, asString, asFiniteNumber, asRecord } from '../config/co
 import { writeJsonFileAtomic } from '../config/json-file';
 import { DEFAULT_CELL_TIMEOUT_SECONDS, normalizeCellTimeoutSeconds } from '../../shared/compute/types';
 import type { PythonProbeResult, PythonSettings } from '../../shared/compute/types';
+import { defaultPython } from './python-discovery';
 
 // The settings shape itself moved to `shared/compute/types` in #2218, for the
 // same reason the probe result moved in #1878: the contract, the preload
@@ -89,7 +90,8 @@ export async function setPythonSettings(settings: PythonSettings): Promise<void>
 
 /**
  * Resolved interpreter path for the kernel to spawn. Discovery order:
- * stored Settings override → `$MINERVA_PYTHON` → `python3` on PATH.
+ * stored Settings override → `$MINERVA_PYTHON` → the platform default
+ * (`python3`; on Windows `python3` / `python` / the `py` launcher's, #2188).
  *
  * Async because reading `userData` is filesystem I/O; the kernel
  * spawn path awaits this on every fresh kernel.
@@ -98,7 +100,7 @@ export async function resolvePythonInterpreter(): Promise<string> {
   const stored = await getPythonSettings();
   if (stored.pythonPath.trim()) return stored.pythonPath.trim();
   if (process.env.MINERVA_PYTHON) return process.env.MINERVA_PYTHON;
-  return 'python3';
+  return defaultPython();
 }
 
 /**
@@ -110,7 +112,7 @@ export async function resolvePythonInterpreter(): Promise<string> {
  * pyenv shim, network mount) shouldn't hang the Settings dialog.
  */
 export async function probePythonInterpreter(candidate: string): Promise<PythonProbeResult> {
-  const interpreter = (candidate || '').trim() || 'python3';
+  const interpreter = (candidate || '').trim() || defaultPython();
   return new Promise((resolve) => {
     let stdout = '';
     let stderr = '';
