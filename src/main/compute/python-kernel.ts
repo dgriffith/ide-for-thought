@@ -81,7 +81,7 @@ const kernels = new Map<string, KernelState>();
  * Resolve the Python interpreter to invoke (#374). Discovery order:
  *   1. Per-machine Settings override stored under userData.
  *   2. `$MINERVA_PYTHON` env var (legacy / CI / scripting escape hatch).
- *   3. `python3` on PATH.
+ *   3. The platform default: `python3`, or on Windows `py`'s chain (#2188).
  *
  * Async since the Settings file lives on disk; the kernel spawn path
  * awaits this on every fresh spawn (cheap — a single fs.readFile).
