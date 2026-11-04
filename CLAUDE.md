@@ -1011,7 +1011,7 @@ word that grants every scope there is.
 ### main is protected by a committed ruleset (#2353)
 
 A PR cannot merge into `main` until `lint`, `lint-and-test`, `coverage`, `audit`,
-`e2e` and `lint-and-test on Windows` are green **on a branch that is up to date with main**; `main` cannot be deleted
+`e2e`, `lint-and-test on Linux` and `lint-and-test on Windows` are green **on a branch that is up to date with main**; `main` cannot be deleted
 or force-pushed. Before this every gate in CI was advisory at merge time —
 three PRs merged with a red e2e (#2159-#2161), and two individually-green PRs
 could combine into a red main (#2348).
@@ -1019,10 +1019,10 @@ could combine into a red main (#2348).
 The `ci.yml` jobs deliberately **not** required are `x64-smoke` (#2387: an
 unsigned x64 build smoke-booted on `macos-15-intel`, on main pushes and PRs
 labelled `x64-smoke` only, an early warning for #962, see `docs/packaging.md`),
-the security scan (#2570), and `lint-and-test-linux` (#2178: the same lint and
-suite on `ubuntu-latest`, until it has a record of passing).
-`lint-and-test on Windows` (#2180) **is** required, since 2026-11-03: the
-suite passes on `windows-latest`, and a change that breaks it can't merge. The repo's
+and the security scan (#2570). `lint-and-test on Linux` (#2178) and
+`lint-and-test on Windows` (#2180) **are** required, since 2026-11-03: the
+suite passes on `ubuntu-latest` and `windows-latest`, and a change that breaks
+either can't merge. The repo's
 `.gitattributes` keeps every checkout LF, Windows included; a script that runs
 `pnpm` or a `node_modules/.bin` tool on Windows needs `shell: true` (they're
 `.cmd` shims) — or, when its arguments aren't fixed literals, the tool's own
