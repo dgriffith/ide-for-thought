@@ -448,10 +448,8 @@ Tiny()
     expect(result.reason).toBe('no-kernel');
   });
 
-  // POSIX-only — Windows surfaces an unsupported-platform marker.
-  const interruptIfPosix = process.platform === 'win32' ? it.skip : it;
-
-  interruptIfPosix('a long-running cell can be interrupted (#372)', async () => {
+  // SIGINT on POSIX, the stdin interrupt op on Windows (#2189).
+  it('a long-running cell can be interrupted (#372)', async () => {
     // Prime: spawn the kernel for this project.
     await runPython(ROOT, 'interrupt.md', '1');
     expect(activeKernels()).toContain(ROOT);
@@ -487,7 +485,7 @@ Tiny()
   // that #2218 interrupts automatically on a timeout: an interrupt that
   // quietly restarts the kernel would trade a wedged project for a project
   // that silently loses every variable in every notebook.
-  interruptIfPosix('the kernel SURVIVES an interrupt — same process, namespaces intact (#372, fixed #2218)', async () => {
+  it('the kernel SURVIVES an interrupt — same process, namespaces intact (#372, fixed #2218)', async () => {
     const ROOT3 = ROOT + '-survives-interrupt';
     try {
       const before = await runPython(ROOT3, 'survive.md', 'import os\nmarker = 99\nos.getpid()');

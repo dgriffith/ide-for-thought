@@ -151,7 +151,7 @@ const BUDGETS: Record<string, number> = { // +16: each day named from its conten
   // half the growth is comment: the head-of-queue rule and the `proc.killed`
   // trap are both things the next reader will otherwise rediscover the
   // expensive way.
-  'src/main/compute/python-kernel.ts': 628, // #2555 shrank it; +env allowlist (#2560)
+  'src/main/compute/python-kernel.ts': 627, // #2555 shrank it; +env allowlist (#2560)
 };
 
 /** Source files this applies to: authored `.ts` / `.svelte` under `src/`. */

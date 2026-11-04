@@ -160,7 +160,8 @@ describe('sweepStaleRpcSockets (#1933)', () => {
     vi.restoreAllMocks();
   });
 
-  it('removes a socket file whose PID no longer belongs to any process', () => {
+  // POSIX only: on Windows the endpoint is a named pipe, which leaves no file to sweep (#2979).
+  it.skipIf(process.platform === 'win32')('removes a socket file whose PID no longer belongs to any process', () => {
     const deadPid = spawnSync(process.execPath, ['-e', 'process.exit(0)']).pid;
     const stale = sockPath(`minerva-rpc-${deadPid}-deadbeef.sock`);
     fs.writeFileSync(stale, '');
@@ -201,5 +202,20 @@ describe('sweepStaleRpcSockets (#1933)', () => {
     });
 
     expect(() => sweepStaleRpcSockets()).not.toThrow();
+  });
+});
+
+describe('rpcEndpointPath (#2979)', () => {
+  it('is a named pipe on Windows — CPython there has no AF_UNIX', async () => {
+    const { rpcEndpointPath } = await import('../../../src/main/compute/rpc-server');
+    expect(rpcEndpointPath('minerva-rpc-1-ab', 'win32')).toBe('\\\\.\\pipe\\minerva-rpc-1-ab');
+  });
+
+  it('is a socket file in the temp dir elsewhere', async () => {
+    const { rpcEndpointPath } = await import('../../../src/main/compute/rpc-server');
+    const os = await import('node:os');
+    const path = await import('node:path');
+    expect(rpcEndpointPath('minerva-rpc-1-ab', 'darwin')).toBe(path.join(os.tmpdir(), 'minerva-rpc-1-ab.sock'));
+    expect(rpcEndpointPath('minerva-rpc-1-ab', 'linux')).toBe(path.join(os.tmpdir(), 'minerva-rpc-1-ab.sock'));
   });
 });

@@ -66,7 +66,16 @@ skipIfNoPython('python kernel ignores thoughtbase stdlib shadows (#2555)', () =>
 
   it('a user module at the root is still importable, after the stdlib on sys.path', async () => {
     expect(await value(`import ${fixture.userModule}; ${fixture.userModule}.VALUE`)).toBe(42);
-    expect(await value('import sys; sys.path.index(' + JSON.stringify(fixture.root) + ') > sys.path.index(next(p for p in sys.path if p.endswith("lib-dynload")))')).toBe(true);
+    // The stdlib's own directory, as sysconfig names it — `lib-dynload` is a
+    // POSIX layout; Windows has `Lib` and `DLLs` (#2180). Compared normalized
+    // and realpath'd, so case and 8.3 short names don't decide it.
+    const rootIsAfterStdlib = [
+      'import os, sys, sysconfig',
+      'n = lambda p: os.path.normcase(os.path.realpath(p))',
+      'ps = [n(p) for p in sys.path]',
+      `ps.index(n(${JSON.stringify(fixture.root)})) > ps.index(n(sysconfig.get_paths()["stdlib"]))`,
+    ].join('\n');
+    expect(await value(rootIsAfterStdlib)).toBe(true);
   });
 
   it('the bundled minerva package still wins sys.path[0]', async () => {

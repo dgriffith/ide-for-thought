@@ -52,8 +52,8 @@
  *
  * But SIGINT is not guaranteed to land. `while True:\n  try: pass\n  except
  * KeyboardInterrupt: pass` swallows it, a C extension that never returns to
- * the interpreter never checks for signals, and Windows has no supported child
- * interrupt at all (`interruptKernel` returns `unsupported-platform`). So the
+ * the interpreter never checks for signals (and on Windows, where the
+ * interrupt is an op on stdin, the same holds for `interrupt_main`). So the
  * escalation is mandatory, not decorative: if the cell is still pending after
  * the grace window, the kernel is torn down. That's the expensive answer — it
  * wipes every notebook's namespace — which is exactly why it is second, and
@@ -87,7 +87,7 @@ export interface DeadlineHost {
   /** This cell's budget in milliseconds; `0` means no limit. */
   budgetMs(cellId: string): number;
   /** Deliver an interrupt. Returns false when no signal could be sent at all
-   *  (Windows, dead process) — which escalates immediately rather than
+   *  (a dead process) — which escalates immediately rather than
    *  burning the grace window waiting for a signal nobody delivered. */
   interrupt(): boolean;
   /** Mark the cell so its eventual result reads as a timeout rather than as
@@ -147,7 +147,7 @@ export function createCellDeadlines(
     host.markTimedOut(cellId);
     logger('python-kernel').warn('cell exceeded its execution budget — interrupting');
     const signalled = host.interrupt();
-    // No signal went out (Windows / dead process): don't wait out a grace
+    // No interrupt went out (a dead process): don't wait out a grace
     // period for a response that cannot come.
     timers.set(cellId, setTimeout(() => { escalate(cellId); }, signalled ? graceMs : 0));
   }

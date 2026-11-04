@@ -254,7 +254,7 @@ describe('createCellDeadlines — escalation when the interrupt is ignored (#221
   });
 
   it('escalates immediately when no signal could be sent at all', () => {
-    // Windows (`unsupported-platform`) or an already-dead process. Waiting out
+    // an already-dead process. Waiting out
     // a grace period for a reply to a signal nobody delivered just extends the
     // time the project stays wedged.
     const h = harness();
