@@ -23,5 +23,5 @@ describe('MCP fixture gate (#2365)', () => {
       mcpFixtureAvailable(),
       'the MCP integration suites would skip silently — check npm registry access on the runner',
     ).toBe(true);
-  }, 60_000);
+  }, 120_000); // above mcpFixtureAvailable's own 90s probe
 });
