@@ -2,6 +2,7 @@ import { defineConfig } from 'vite';
 import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { readFileSync } from 'node:fs';
+import { onwarn } from './scripts/lib/build-warnings.mjs';
 
 /**
  * Standalone Node build of the headless CLI (#1149, epic #1145 — Substrate).
@@ -57,6 +58,8 @@ export default defineConfig({
     emptyOutDir: false,
     rollupOptions: {
       input: 'src/cli/main.ts',
+      // Known-harmless warnings dropped one by one (#2977).
+      onwarn,
       // `noExternal` above only stops deps from being externalized — it doesn't
       // stop Rolldown from giving a dynamically-imported module (e.g. the AWS
       // SDK pieces pulled in for S3 publish) its own chunk under `assets/`.
