@@ -175,7 +175,7 @@ export interface MinervaPlugin {
   readonly view: {
     /** Clear the view's selection (Escape). Needs `ui`. */
     clearSelection(params?: PluginMethodParams["view.clearSelection"]): Promise<PluginMethodResults["view.clearSelection"]>;
-    /** Click a note in the view, as the view's own rows are: a plain click opens it, ⌘/⇧ select. Needs `ui`. */
+    /** Click a note in the view, as the view's own rows are: a plain click opens it, Cmd/Ctrl or Shift selects. Needs `ui`. */
     click(params: PluginMethodParams["view.click"]): Promise<PluginMethodResults["view.click"]>;
     /** Move a note to one of the view's groups: Minerva sets its grouping property, with undo. Needs `notes:write-properties`. */
     moveCard(params: PluginMethodParams["view.moveCard"]): Promise<PluginMethodResults["view.moveCard"]>;
@@ -187,13 +187,13 @@ export interface MinervaPlugin {
     reorderCard(params: PluginMethodParams["view.reorderCard"]): Promise<PluginMethodResults["view.reorderCard"]>;
     /** Move a dated note by whole days: Minerva shifts its start and end, with undo (a calendar's drag). Needs `notes:write-properties`. */
     reschedule(params: PluginMethodParams["view.reschedule"]): Promise<PluginMethodResults["view.reschedule"]>;
-    /** Select every note in the view (⌘A). Needs `ui`. */
+    /** Select every note in the view (Cmd/Ctrl+A). Needs `ui`. */
     selectAll(params?: PluginMethodParams["view.selectAll"]): Promise<PluginMethodResults["view.selectAll"]>;
     /** Say how tall a live block's frame should be, in CSS pixels; Minerva sizes it, within limits. Needs `ui`. */
     setHeight(params: PluginMethodParams["view.setHeight"]): Promise<PluginMethodResults["view.setHeight"]>;
     /** Change the view's own settings (a board's column order); only the layout's own fields. Needs `ui`. */
     setState(params: PluginMethodParams["view.setState"]): Promise<PluginMethodResults["view.setState"]>;
-    /** Undo the view's last move (⌘Z on a board). Needs `notes:write-properties`. */
+    /** Undo the view's last move (Cmd/Ctrl+Z on a board). Needs `notes:write-properties`. */
     undoMove(params?: PluginMethodParams["view.undoMove"]): Promise<PluginMethodResults["view.undoMove"]>;
   };
 }

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { formatAccelerator } from '../command-palette/format-accelerator';
   /**
    * Create / edit a smart collection backed by a tag predicate (#470 phase 2).
    *
@@ -206,7 +207,7 @@
     </section>
 
     <footer class="card-footer">
-      <span class="kbd-hint">esc · cancel · ⌘↵ save</span>
+      <span class="kbd-hint">esc · cancel · {formatAccelerator('CmdOrCtrl+Return')} save</span>
       <span class="footer-actions">
         <button class="btn secondary" onclick={onCancel}>Cancel</button>
         <button class="btn primary" disabled={!canSave} onclick={handleSave}>

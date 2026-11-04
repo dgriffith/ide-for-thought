@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { formatAccelerator } from '../command-palette/format-accelerator';
   /**
    * Disambiguation picker for stub resolution (#107). The CrossRef
    * search returned >1 plausible candidate (or the top one's
@@ -107,7 +108,7 @@
         </div>
       {/if}
     {/snippet}
-    {#snippet footerLeft()}<span class="kbd-hint">esc · cancel · ⌘↵ apply</span>{/snippet}
+    {#snippet footerLeft()}<span class="kbd-hint">esc · cancel · {formatAccelerator('CmdOrCtrl+Return')} apply</span>{/snippet}
     {#snippet footerRight()}
       <button class="btn ghost" onclick={onCancel}>Cancel</button>
       <button class="btn primary" disabled={!selectedDoi || applying} onclick={apply}>

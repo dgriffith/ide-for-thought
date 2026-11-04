@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { formatAccelerator } from '../../command-palette/format-accelerator';
   import { tick, untrack } from 'svelte';
   import Icon from '../Icon.svelte';
   import { getConversationsStore, type TabRuntime } from '../../stores/conversations.svelte';
@@ -205,7 +206,7 @@
           title={costBadge.title}
         >{costBadge.text}</span>
       {/if}
-      <span class="composer-hint">{tab.streaming ? 'Reply in progress — send when it finishes' : '⏎ send · ⇧⏎ newline'}</span>
+      <span class="composer-hint">{tab.streaming ? 'Reply in progress — send when it finishes' : `⏎ send · ${formatAccelerator('Shift+Return')} newline`}</span>
       {#if tab.streaming}
         <button type="button" class="send-btn" onclick={() => store.cancel()}>Cancel</button>
       {:else}

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { formatAccelerator } from '../command-palette/format-accelerator';
   /**
    * Behaviors settings panel (#1600) — extracted from SettingsDialog. Owns the
    * per-change sidebar / breadcrumbs / conversations toggles and the
@@ -79,7 +80,7 @@
         <p class="hint">
           Show the Conversations panel automatically each time a thoughtbase opens.
           Off by default — the panel launches hidden and you toggle it with
-          ⌘/Ctrl+Shift+K.
+          {formatAccelerator('CmdOrCtrl+Shift+K')}.
         </p>
       </div>
       <div class="field">

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { formatAccelerator } from '../command-palette/format-accelerator';
   import Icon from './Icon.svelte';
 
   interface Props {
@@ -80,7 +81,7 @@
     <button class="search-box" onclick={onOpenGotoNote} title="Quick Open (Cmd+P) — fuzzy-match notes, sources, queries">
       <Icon name="search" size={13} color="var(--appbar-text-muted)" />
       <span class="search-placeholder">Quick Open…</span>
-      <span class="search-kbd">⌘ P</span>
+      <span class="search-kbd">{formatAccelerator('CmdOrCtrl+P')}</span>
     </button>
     <button class="icon-btn" onclick={onOpenSettings} title="Settings">
       <Icon name="settings" size={15} color="var(--appbar-text-muted)" />

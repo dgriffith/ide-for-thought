@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { formatAccelerator } from '../command-palette/format-accelerator';
   /**
    * Dialog for "open thoughtbase — here or new window?".
    *
@@ -58,7 +59,7 @@
             <span class="choice-title">In a new window</span>
             <span class="choice-sub">Keeps the current thoughtbase up and opens this one side by side.</span>
           </span>
-          <Kbd>⌘ ↵</Kbd>
+          <Kbd>{formatAccelerator('CmdOrCtrl+Return')}</Kbd>
         </button>
       </div>
     {/snippet}
