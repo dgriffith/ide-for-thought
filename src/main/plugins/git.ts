@@ -28,6 +28,7 @@ import git, { Errors, type GitHttpRequest, type HttpClient } from 'isomorphic-gi
 import http from 'isomorphic-git/http/web';
 import { normalizeRemoteToHttps } from '../git/remote-policy';
 import { unsafeName, ZIP_LIMITS } from './zip';
+import { PathCollisions } from '../../shared/portable-names';
 
 export const GIT_LIMITS = {
   /** Bytes received from the server, all requests together. */
@@ -199,6 +200,7 @@ export async function checkoutPluginTree(repoDir: string, commit: string, dest: 
   const root = path.resolve(dest);
   await fsp.mkdir(root, { recursive: true });
   let count = 0;
+  const collisions = new PathCollisions();
   let total = 0;
   await git.walk({
     fs,
@@ -214,7 +216,7 @@ export async function checkoutPluginTree(repoDir: string, commit: string, dest: 
     map: async (name, [entry]) => {
       if (name === '.' || !entry) return true;
       if (++count > limits.entries) throw new Error(`It has more than ${limits.entries} files and folders, the most a plugin may have.`);
-      const bad = unsafeName(name);
+      const bad = unsafeName(name) ?? collisions.claim(name);
       if (bad) throw new Error(`"${name}" ${bad}; the repository can't be installed safely.`);
       if (name.split('/').some((s) => s.toLowerCase() === '.git')) throw new Error(`"${name}" is inside a ".git" folder; the repository can't be installed safely.`);
       const target = path.resolve(root, ...name.split('/'));

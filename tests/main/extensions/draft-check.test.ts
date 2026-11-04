@@ -30,7 +30,7 @@ describe('draftPathProblem (#2652)', () => {
   it.each(['plugin.json', 'skills/x.md', 'server/index.js', 'tests/__init__.py', 'a/b/c.txt'])('accepts %s', (p) => {
     expect(draftPathProblem(p)).toBeNull();
   });
-  it.each(['', '../x', 'a/../b', '/etc/passwd', '.minerva/x', 'a/.git/config', 'a\\b', 'C:x', '-rf', 'a//b', 'a/', `${'a/'.repeat(6)}x`, 'x'.repeat(201)])('refuses %j', (p) => {
+  it.each(['', '../x', 'a/../b', '/etc/passwd', '.minerva/x', 'a/.git/config', 'a\\b', 'C:x', '-rf', 'a//b', 'a/', `${'a/'.repeat(6)}x`, 'x'.repeat(201), 'skills/con.md', 'nul', 'plugin.json.', 'aux/x.md'])('refuses %j', (p) => {
     expect(draftPathProblem(p)).not.toBeNull();
   });
 });
