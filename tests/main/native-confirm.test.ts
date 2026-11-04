@@ -63,6 +63,17 @@ describe('isLaunchable (#2568)', () => {
         fs.writeFileSync(path.join(dir, name), 'x');
         expect(isLaunchable(path.join(dir, name)), name).toBe(false);
       }
+      // Windows (#2984): Microsoft's blocked-attachment types and PATHEXT,
+      // only there — on macOS a .reg or .cer is a text file or a certificate.
+      const win = (name: string, env: NodeJS.ProcessEnv = {}) => isLaunchable(path.join(dir, name), 'win32', env);
+      for (const name of ['a.scr', 'b.HTA', 'c.pif', 'd.cpl', 'e.msc', 'f.reg', 'g.vbe', 'h.psm1', 'i.appref-ms', 'j.msp', 'k.ws', 'l.wsh', 'm.application', 'n.gadget', 'o.exe']) {
+        expect(win(name), name).toBe(true);
+      }
+      expect(win('tool.xyz', { PATHEXT: '.COM;.EXE;.XYZ' })).toBe(true);
+      expect(win('tool.xyz', { PATHEXT: '.COM;.EXE' })).toBe(false);
+      for (const name of ['paper.pdf', 'note.md', 'data.csv', 'noext']) expect(win(name, { PATHEXT: '.COM;.EXE' }), name).toBe(false);
+      expect(isLaunchable(path.join(dir, 'f.reg'), 'darwin')).toBe(false);
+      expect(isLaunchable(path.join(dir, 'a.scr'), 'linux')).toBe(false);
       if (process.platform !== 'win32') {
         const bin = path.join(dir, 'tool');
         fs.writeFileSync(bin, '#!/bin/sh\n', { mode: 0o755 });
