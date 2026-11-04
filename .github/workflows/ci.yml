@@ -6,16 +6,16 @@
 #   - coverage: vitest with v8 instrumentation + the per-area coverage floors
 #   - audit: dependency advisories (ubuntu; reads only the lockfile)
 #   - e2e: electron-forge package + Playwright Electron smoke
+#   - lint-and-test-linux: lint + vitest on ubuntu-latest
 #   - lint-and-test-windows: lint + vitest on windows-latest
 #
-# All six are required checks in `.github/rulesets/main.json` (#2353), on
+# All seven are required checks in `.github/rulesets/main.json` (#2353), on
 # pull requests AND on main — so the PR critical path is the slowest of them,
 # not their sum.
 #
-# Three more are NOT required and cannot fail the run:
+# Two more are NOT required and cannot fail the run:
 #   - x64-smoke: an x64 build smoke-booted on an Intel runner, on main pushes
 #     (and PRs labelled `x64-smoke`) only — an early warning for #962.
-#   - lint-and-test-linux: the same lint and suite on ubuntu-latest (#2178).
 #   - security scan: Electronegativity + Semgrep against a baseline (#2570).
 #
 # The macOS jobs run on macos-latest: it matches the dev machine and the
@@ -206,12 +206,10 @@ jobs:
       - name: Test
         run: pnpm test
 
-  # The same lint and suite on Linux (#2178, epic #2200), so Windows/Linux work
-  # has a test signal to trust. NOT a required check yet, and `continue-on-error`
-  # so it can't turn a run red: release.yml's gate reads the whole run's
-  # conclusion (scripts/lib/release-ci-gate.mjs), and an advisory job must not
-  # block a release. Once it has a record of passing it can join the required
-  # checks in .github/rulesets/main.json (branch-ruleset.test.ts).
+  # The same lint and suite on Linux (#2178, epic #2200). A required check
+  # since 2026-11-03, after passing on every run since it was added, so it is
+  # NOT `continue-on-error`: a Linux failure turns the run red, and
+  # release.yml's gate reads the whole run.
   #
   # What Linux found, both fixed in the PR that added this: the palette
   # snapshot read the host's platform (⌘ vs Ctrl), and two caches trusted a
@@ -219,9 +217,8 @@ jobs:
   # Lint fonts and the generated-docs check stay on lint-and-test: they test
   # files, not the platform.
   lint-and-test-linux:
-    name: lint-and-test on Linux (non-blocking)
+    name: lint-and-test on Linux
     runs-on: ubuntu-latest
-    continue-on-error: true
     timeout-minutes: 30
 
     steps:

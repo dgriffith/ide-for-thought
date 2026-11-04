@@ -20,6 +20,7 @@
           { "context": "coverage", "integration_id": 15368 },
           { "context": "audit", "integration_id": 15368 },
           { "context": "e2e", "integration_id": 15368 },
+          { "context": "lint-and-test on Linux", "integration_id": 15368 },
           { "context": "lint-and-test on Windows", "integration_id": 15368 }
         ]
       }
