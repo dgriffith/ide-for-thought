@@ -1,23 +1,24 @@
 # CI for Minerva (#340 + #394).
 #
-# Four jobs run in parallel, with no `needs:` edges between them:
-#   - lint-and-test: tsc + svelte-check + eslint + plain vitest
+# These jobs run in parallel, with no `needs:` edges between them:
+#   - lint: tsc + svelte-check + eslint + the file checks (ubuntu)
+#   - lint-and-test: plain vitest (the name predates `lint` moving out)
 #   - coverage: vitest with v8 instrumentation + the per-area coverage floors
 #   - audit: dependency advisories (ubuntu; reads only the lockfile)
 #   - e2e: electron-forge package + Playwright Electron smoke
+#   - lint-and-test-windows: lint + vitest on windows-latest
 #
-# All four are required checks in `.github/rulesets/main.json` (#2353), on
+# All six are required checks in `.github/rulesets/main.json` (#2353), on
 # pull requests AND on main — so the PR critical path is the slowest of them,
 # not their sum.
 #
 # Three more are NOT required and cannot fail the run:
 #   - x64-smoke: an x64 build smoke-booted on an Intel runner, on main pushes
 #     (and PRs labelled `x64-smoke`) only — an early warning for #962.
-#   - lint-and-test-linux / lint-and-test-windows: the same lint and suite on
-#     ubuntu-latest (#2178) and windows-latest (#2180), the Windows/Linux
-#     signal for epic #2200.
+#   - lint-and-test-linux: the same lint and suite on ubuntu-latest (#2178).
+#   - security scan: Electronegativity + Semgrep against a baseline (#2570).
 #
-# The required jobs run on macos-latest: it matches the dev machine and the
+# The macOS jobs run on macos-latest: it matches the dev machine and the
 # shipped platform. The e2e job additionally needs a darwin Electron app
 # bundle, so cross-platform e2e means separate package targets per platform
 # (#2179).
@@ -264,9 +265,11 @@ jobs:
       - name: Test
         run: pnpm test
 
-  # The same lint and suite on Windows (#2180, epic #2200) — advisory and
-  # `continue-on-error` for the same reasons as lint-and-test-linux above. The
-  # repo's .gitattributes keeps the checkout LF, as the fixtures expect.
+  # The same lint and suite on Windows (#2180, epic #2200). A required check
+  # since 2026-11-03, once the suite passed there (#2989, #2990, #2979, #2980
+  # and friends), so it is NOT `continue-on-error`: a Windows failure turns the
+  # run red, and release.yml's gate reads the whole run. The repo's
+  # .gitattributes keeps the checkout LF, as the fixtures expect.
   #
   # Steps run in bash (Git Bash, on every Windows runner), not the default
   # PowerShell. Under pwsh, the bare `pnpm` the setup action puts on PATH
@@ -275,9 +278,8 @@ jobs:
   # pnpm-version step and the test step's summary check exist so an empty run
   # can't read as green again.
   lint-and-test-windows:
-    name: lint-and-test on Windows (non-blocking)
+    name: lint-and-test on Windows
     runs-on: windows-latest
-    continue-on-error: true
     timeout-minutes: 45
     defaults:
       run:
