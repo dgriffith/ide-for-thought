@@ -196,6 +196,9 @@ importers:
       citeproc:
         specifier: ^2.4.63
         version: 2.4.63
+      cross-spawn:
+        specifier: ^7.0.6
+        version: 7.0.6
       cytoscape:
         specifier: ^3.34.4
         version: 3.34.4
@@ -329,6 +332,9 @@ importers:
       '@types/chrome':
         specifier: ^0.3.7
         version: 0.3.7
+      '@types/cross-spawn':
+        specifier: ^6.0.6
+        version: 6.0.6
       '@types/d3-time':
         specifier: 3.0.4
         version: 3.0.4
@@ -2795,6 +2801,9 @@ packages:
 
   '@types/chrome@0.3.7':
     resolution: {integrity: sha512-jWZgbHqWbTL1a5+PoyN0OJutNyejWgyZ5MdcvKo6iJE1TNRtXR3FxsC4WzNl52yZWPidfWC8NV/VUNZf+OFKcA==}
+
+  '@types/cross-spawn@6.0.6':
+    resolution: {integrity: sha512-fXRhhUkG4H3TQk5dBhQ7m/JDdSNHKwR2BBia62lhwEIq9xGiQKLxd6LymNhn47SjXhsUEPmxi+PKw2OkW4LLjA==}
 
   '@types/d3-array@3.2.2':
     resolution: {integrity: sha512-hOLWVbm7uRza0BYXpIIW5pxfrKe0W+D5lrFiAEYR+pb6w3N2SwSMaJbXdUfSEv+dT4MfHBLtn5js0LAWaO6otw==}
@@ -11000,6 +11009,10 @@ snapshots:
   '@types/chrome@0.3.7':
     dependencies:
       '@types/har-format': 1.2.16
+
+  '@types/cross-spawn@6.0.6':
+    dependencies:
+      '@types/node': 26.4.0
 
   '@types/d3-array@3.2.2': {}
 

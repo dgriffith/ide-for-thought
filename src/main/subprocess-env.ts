@@ -29,6 +29,10 @@ const BASE_KEYS = [
   // Windows (MCP SDK's default set)
   'APPDATA', 'HOMEDRIVE', 'HOMEPATH', 'LOCALAPPDATA', 'PROCESSOR_ARCHITECTURE',
   'PROGRAMFILES', 'SYSTEMDRIVE', 'SYSTEMROOT', 'TEMP', 'USERNAME', 'USERPROFILE',
+  // …and what lets a Windows child find and run anything at all (#2980):
+  // PATHEXT is how `npx` resolves to `npx.cmd`, COMSPEC is the shell a
+  // `.cmd` runs under, WINDIR what much of the system expects. No secrets.
+  'PATHEXT', 'COMSPEC', 'WINDIR',
   // Locale, temp dir and time zone — affect behaviour, carry no secrets.
   'LANG', 'TMPDIR', 'TMP', 'TZ',
 ] as const;

@@ -72,4 +72,11 @@ describe('allowlistedEnv (#2560)', () => {
   it('a prefix must match from the start', () => {
     expect(allowlistedEnv({ MY_LC_ALL: 'x', XCONDA_PREFIX: 'y' }, KERNEL_ENV_EXTRA, 'darwin')).toEqual({});
   });
+
+  it('passes what a Windows child needs to find and run a .cmd shim (#2980)', () => {
+    const env = { Path: 'C:\\Windows', PATHEXT: '.COM;.EXE;.BAT;.CMD', ComSpec: 'C:\\Windows\\system32\\cmd.exe', windir: 'C:\\Windows', AWS_SECRET_ACCESS_KEY: 'x' };
+    expect(allowlistedEnv(env, {}, 'win32')).toEqual({
+      Path: 'C:\\Windows', PATHEXT: '.COM;.EXE;.BAT;.CMD', ComSpec: 'C:\\Windows\\system32\\cmd.exe', windir: 'C:\\Windows',
+    });
+  });
 });

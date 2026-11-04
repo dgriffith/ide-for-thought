@@ -1,4 +1,5 @@
-"""Line-delimited JSON-RPC client over the per-kernel Unix socket (#242).
+"""Line-delimited JSON-RPC client over the per-kernel socket (#242), or on
+Windows the per-kernel named pipe (#2979) — CPython there has no AF_UNIX.
 
 The kernel adapter spawns the Python child with `MINERVA_IPC_SOCKET`
 pointing at a per-project listening socket. We open a single connection
@@ -30,6 +31,31 @@ _buf = b''
 _id_seq = itertools.count(1)
 
 
+class _PipeConn:
+    """A Windows named pipe (#2979) behind the two socket methods this module
+    uses. Opened as an unbuffered binary file: a raw read returns whatever
+    bytes are available (the pipe is byte-mode, as libuv creates it), so the
+    line framing below works unchanged."""
+
+    def __init__(self, path):
+        self._f = open(path, 'r+b', buffering=0)
+
+    def recv(self, n):
+        try:
+            return self._f.read(n) or b''
+        except (BrokenPipeError, OSError):
+            return b''
+
+    def sendall(self, data):
+        view = memoryview(data)
+        while view:
+            written = self._f.write(view)
+            view = view[written:]
+
+
+_PIPE_PREFIX = '\\\\.\\pipe\\'
+
+
 def _connect():
     socket_path = os.environ.get('MINERVA_IPC_SOCKET')
     if not socket_path:
@@ -38,6 +64,8 @@ def _connect():
             'running inside a Minerva compute kernel.',
             code='NoTransport',
         )
+    if socket_path.startswith(_PIPE_PREFIX):
+        return _PipeConn(socket_path)
     s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     s.connect(socket_path)
     return s
