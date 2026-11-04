@@ -10,12 +10,14 @@
  * took longer than 5s, so the probe fell back and this test read `legacy`. What's
  * under test is the modern path, not how fast the runner is.
  */
-import { it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { StdioTransport } from '../../../src/main/mcp-client/stdio-transport';
 import { _setEraProbeTimeoutMsForTests } from '../../../src/main/mcp-client/era';
 import { skipIfNoMcpFixture, MCP_MODERN_FIXTURE_PACKAGE } from '../../helpers/mcp-fixture';
 
-skipIfNoMcpFixture('stdio transport vs. a real modern MCP server', () => {
+// Not on Windows yet: through `npx` there the server never answers the first
+// request(s) (#2996). The `.cmd` shim itself is covered by windows-cmd-shim.test.ts.
+(process.platform === 'win32' ? describe.skip : skipIfNoMcpFixture)('stdio transport vs. a real modern MCP server', () => {
   beforeEach(() => { _setEraProbeTimeoutMsForTests(45_000); });
   afterEach(() => { _setEraProbeTimeoutMsForTests(null); });
 

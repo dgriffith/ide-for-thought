@@ -32,7 +32,7 @@ import type {
   StoredMcpServerConfig,
 } from '../../shared/mcp-servers';
 import { allowTool, isToolAllowed, pluginServerIdentity, serverIdentity } from './tool-permissions';
-import { isPluginServerId, pluginServerDecls, setPluginServerApproval } from '../plugins/mcp-servers';
+import { isPluginServerId, PLUGIN_SERVER_PREFIX, pluginServerDecls, setPluginServerApproval } from '../plugins/mcp-servers';
 import {
   addStoredServer,
   getStoredServers,
@@ -161,6 +161,16 @@ export async function reconcilePluginServers(): Promise<void> {
     else if (entry.startedAs !== serverIdentity(cfg.descriptor)) await disconnectOne(id);
   }
   await Promise.allSettled([...want.values()].filter((s) => !live.has(s.id)).map((s) => connectOne(s, { interactive: false })));
+}
+
+/**
+ * Stop every running server plugin `pluginId` ships, and wait for each to
+ * exit — before its folder is removed or replaced (#2180; see
+ * `FolderRelease`). The next reconcile starts whatever should be running.
+ */
+export async function stopPluginServers(pluginId: string): Promise<void> {
+  const prefix = `${PLUGIN_SERVER_PREFIX}${pluginId}/`;
+  await Promise.all([...live.keys()].filter((id) => id.startsWith(prefix)).map((id) => disconnectOne(id)));
 }
 
 async function disconnectOne(id: string): Promise<void> {
