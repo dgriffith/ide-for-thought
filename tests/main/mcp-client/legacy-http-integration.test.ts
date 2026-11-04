@@ -5,7 +5,8 @@
  * hand-probing the server before writing this transport).
  */
 import { it, expect, afterEach } from 'vitest';
-import { spawn, type ChildProcess } from 'node:child_process';
+import { spawnSync, type ChildProcess } from 'node:child_process';
+import spawn from 'cross-spawn';
 import { LegacyHttpTransport } from '../../../src/main/mcp-client/http/legacy-http-transport';
 import { skipIfNoMcpFixture, MCP_FIXTURE_PACKAGE } from '../../helpers/mcp-fixture';
 
@@ -14,7 +15,7 @@ const URL_ = `http://127.0.0.1:${PORT}/mcp`;
 
 let serverProcess: ChildProcess | null = null;
 
-async function waitForServerReady(proc: ChildProcess, timeoutMs = 20_000): Promise<void> {
+async function waitForServerReady(proc: ChildProcess, timeoutMs = 45_000): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error('server-everything did not report ready in time')), timeoutMs);
     // The ready message goes to stderr, not stdout — verified by hand.
@@ -34,13 +35,21 @@ async function waitForServerReady(proc: ChildProcess, timeoutMs = 20_000): Promi
 
 afterEach(async () => {
   if (serverProcess) {
-    serverProcess.kill('SIGTERM');
+    // On Windows `npx` runs under cmd.exe, and signalling that leaves the
+    // server holding the port — take the whole tree down instead.
+    if (process.platform === 'win32' && serverProcess.pid) {
+      spawnSync('taskkill', ['/pid', String(serverProcess.pid), '/T', '/F'], { stdio: 'ignore' });
+    } else {
+      serverProcess.kill('SIGTERM');
+    }
     serverProcess = null;
   }
 });
 
 skipIfNoMcpFixture('legacy Streamable HTTP transport vs. a real legacy MCP server (#2029)', () => {
   it('connects, resolves legacy era, session round-trips, lists/calls real tools', async () => {
+    // cross-spawn, as the app's own stdio transport (#2980): `npx` is a `.cmd`
+    // shim on Windows, which plain spawn can't run (ENOENT).
     serverProcess = spawn('npx', ['-y', MCP_FIXTURE_PACKAGE, 'streamableHttp'], {
       env: { ...process.env, PORT: String(PORT) },
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -60,5 +69,6 @@ skipIfNoMcpFixture('legacy Streamable HTTP transport vs. a real legacy MCP serve
     } finally {
       await transport.close();
     }
-  }, 30_000);
+    // As long as the stdio integration tests allow a cold `npx` start.
+  }, 60_000);
 });
