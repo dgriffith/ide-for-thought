@@ -189,7 +189,7 @@ function buildAppMenu(isMac: boolean): Electron.MenuItemConstructorOptions[] {
           ? [{ label: 'Restart to Install Update', click: () => quitAndInstallUpdate() }]
           : []),
         { type: 'separator' as const },
-        command('app.settings', undefined, { accelerator: 'Cmd+,' }),
+        command('app.settings'),
         { type: 'separator' as const },
         { role: 'services' as const },
         { type: 'separator' as const },
@@ -400,7 +400,7 @@ function buildEditMenu(gate: Gate, isMac: boolean): Electron.MenuItemConstructor
       ...(!isMac
         ? [
             { type: 'separator' as const },
-            command('app.settings', gate, { accelerator: 'Ctrl+,' }),
+            command('app.settings', gate),
           ]
         : []),
     ],

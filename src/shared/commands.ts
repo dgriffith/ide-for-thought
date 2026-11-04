@@ -151,7 +151,7 @@ export const COMMANDS = [
   { id: 'query.new', title: 'New Query', category: 'Query', key: 'CmdOrCtrl+Shift+Q', palette: { when: 'project' }, menu: {} },
   { id: 'query.editSaved', title: 'Edit Saved Queries…', category: 'Query', palette: { when: 'project' }, menu: { gate: false } },
   // ── App ──
-  { id: 'app.settings', title: 'Settings…', category: 'App', key: 'CmdOrCtrl+,', palette: { when: 'always' }, menu: { label: 'Preferences…', gate: false } },
+  { id: 'app.settings', title: 'Settings…', category: 'App', key: 'CmdOrCtrl+,', palette: { when: 'always' }, menu: { gate: false } },
 
   // ── Menu only ──
   { id: 'app.about', title: 'About Minerva', category: 'App', menu: { gate: false } },
