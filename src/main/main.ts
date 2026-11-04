@@ -6,7 +6,7 @@ import { broadcast } from './ipc/broadcast';
 import { registerIpcHandlers } from './ipc';
 import { resolveDisplayName } from './project-config';
 import { buildMenu, rebuildMenu, clearMenuEditorState } from './menu';
-import { createWindow, openProjectInWindow, setMenuRebuilder, setMenuStateCleaner } from './window-manager';
+import { createWindow, openProjectInWindow, setMenuRebuilder, setMenuStateCleaner, windowsForProject } from './window-manager';
 import { appIconPath } from './app-icon';
 import { loadSession } from './session';
 import { registerBuiltinExecutors } from './compute/executors';
@@ -36,6 +36,7 @@ import { initAutoUpdate, setUpdateStateListener } from './auto-update';
 import { installE2EHooks } from './e2e-hooks';
 import { logger } from '../shared/logger';
 import { cliModeArgs, runCliMode } from './cli-mode';
+import { handleSecondInstance } from './single-instance';
 
 // `minerva` CLI (#2565): the shim runs this binary with `--minerva-cli`. In
 // that mode the app never starts — the bundled CLI runs and exits — so it is
@@ -46,6 +47,30 @@ else startApp();
 
 function startApp(): void {
   app.setName('Minerva');
+
+  // One Minerva per profile (#2982): a second launch hands its argv to this
+  // one and quits. After setName (the name decides the userData path the lock
+  // lives in) and before anything touches userData. Packaged builds only — see
+  // single-instance.ts.
+  if (app.isPackaged && !app.requestSingleInstanceLock()) {
+    app.quit();
+    return;
+  }
+  // Electron emits this only once the app is ready.
+  app.on('second-instance', (_event, argv, cwd) => {
+    handleSecondInstance(argv, cwd, {
+      windows: () => BrowserWindow.getAllWindows(),
+      focused: () => BrowserWindow.getFocusedWindow(),
+      windowsForProject,
+      createWindow: () => createWindow(),
+      openProject: (win, rootPath) => {
+        win.webContents.once('did-finish-load', async () => {
+          await openProjectInWindow(win, rootPath);
+          broadcast(win, Channels.PROJECT_OPENED, { rootPath, name: resolveDisplayName(rootPath) });
+        });
+      },
+    });
+  });
 
   // e2e test seams (#998) — no-op unless MINERVA_E2E=1 (set by the Playwright job).
   installE2EHooks();
