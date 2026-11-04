@@ -185,9 +185,22 @@ function buildTree(base: string, links: LinkSpec[]): string {
   for (const { dir, name, target } of links) {
     const at = path.join(root, dir, name);
     if (fs.existsSync(at) || isLink(at)) continue;
-    fs.symlinkSync(target.startsWith('@') ? base + target.slice(1) : target, at);
+    const to = target.startsWith('@') ? base + target.slice(1) : target;
+    fs.symlinkSync(to, at, linkType(path.resolve(path.dirname(at), to)));
   }
   return root;
+}
+
+/** Windows makes a link a file or a directory link, and when not told which
+ *  Node stats the target to decide — which throws ELOOP for a link to a loop
+ *  (#2180). Decided here instead: a directory link to a directory, a file link
+ *  to anything else, dangling and looping targets included. Ignored elsewhere. */
+function linkType(target: string): 'dir' | 'file' {
+  try {
+    return fs.statSync(target).isDirectory() ? 'dir' : 'file';
+  } catch {
+    return 'file';
+  }
 }
 
 function isLink(p: string): boolean {
