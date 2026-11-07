@@ -22,11 +22,17 @@ afterEach(() => _resetSidForTests());
 const WHOAMI = '"desktop-1\\\\ada","S-1-5-21-1111-2222-3333-1001"\r\n';
 
 describe('restrictToCurrentUser', () => {
-  it('removes inheritance and grants the current user alone, by SID', () => {
+  it('resets the ACL, then removes inheritance and grants the current user alone, by SID', () => {
     const exec = vi.fn((file: string) => (file === 'whoami' ? WHOAMI : ''));
-    expect(restrictToCurrentUser('C:\\tb\\.minerva\\.secrets.json.ab.tmp', exec)).toBe(true);
-    expect(exec).toHaveBeenCalledWith('whoami', ['/user', '/fo', 'csv', '/nh']);
-    expect(exec).toHaveBeenLastCalledWith('icacls', ['C:\\tb\\.minerva\\.secrets.json.ab.tmp', '/inheritance:r', '/grant:r', '*S-1-5-21-1111-2222-3333-1001:F']);
+    const tmp = 'C:\\tb\\.minerva\\.secrets.json.ab.tmp';
+    expect(restrictToCurrentUser(tmp, exec)).toBe(true);
+    expect(exec.mock.calls).toEqual([
+      ['whoami', ['/user', '/fo', 'csv', '/nh']],
+      // Explicit SYSTEM / Administrators entries become inherited…
+      ['icacls', [tmp, '/reset']],
+      // …so removing inheritance removes them, leaving the user's grant.
+      ['icacls', [tmp, '/inheritance:r', '/grant:r', '*S-1-5-21-1111-2222-3333-1001:F']],
+    ]);
   });
 
   it('asks whoami once per process', () => {

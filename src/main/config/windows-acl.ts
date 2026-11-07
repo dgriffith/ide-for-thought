@@ -9,9 +9,12 @@
  * substrate server's token advert — and a thoughtbase can sit in a shared
  * folder that other accounts can read.
  *
- * So on Windows a secret file gets the 0600 equivalent: inheritance removed and
- * one entry, full control for the current user (`icacls <file> /inheritance:r
- * /grant:r *<SID>:F`). The writer applies it to the EMPTY temp file before the
+ * So on Windows a secret file gets the 0600 equivalent: one entry, full
+ * control for the current user. Two icacls calls, because a file can carry
+ * EXPLICIT entries for SYSTEM and Administrators — the CI runner's do, and
+ * `/inheritance:r` removes only inherited ones: `/reset` first (every entry
+ * becomes inherited), then `/inheritance:r /grant:r *<SID>:F` (all of those
+ * go; the user's is the one left). The writer applies it to the EMPTY temp file before the
  * secret is written, so the secret is never on disk under the folder's ACL,
  * and the rename keeps it (an NTFS rename carries the security descriptor).
  *
@@ -48,7 +51,9 @@ export function currentUserSid(exec: Exec = run): string {
 /** Restrict `absPath` to the current user alone. Returns whether it did. */
 export function restrictToCurrentUser(absPath: string, exec: Exec = run): boolean {
   try {
-    exec('icacls', [absPath, '/inheritance:r', '/grant:r', `*${currentUserSid(exec)}:F`]);
+    const sid = currentUserSid(exec);
+    exec('icacls', [absPath, '/reset']);
+    exec('icacls', [absPath, '/inheritance:r', '/grant:r', `*${sid}:F`]);
     return true;
   } catch (err) {
     logger('secrets').warn('could not restrict a secret file to this Windows account; it keeps its folder\'s permissions:', absPath, err);

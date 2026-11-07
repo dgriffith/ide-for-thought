@@ -109,7 +109,7 @@ the stores under `userData/` and `~/.minerva/` that is already the user's
 own, but `<thoughtbase>/.minerva/secrets.json` and the substrate token advert
 live wherever the thoughtbase does, possibly a shared folder. So there
 `SECRET_FILE_MODE` restricts the file's ACL to the current user instead
-(`config/windows-acl.ts`: `icacls … /inheritance:r /grant:r *<SID>:F`),
+(`config/windows-acl.ts`: `icacls … /reset`, then `/inheritance:r /grant:r *<SID>:F`, since a file can carry explicit SYSTEM / Administrators entries),
 applied to the empty temp file before the secret is written. A failure is
 logged and the write goes ahead. `tests/main/config/windows-acl.test.ts`
 reads the ACL back on the Windows CI leg.
