@@ -75,6 +75,13 @@ const KINDS_BY_PLATFORM = {
     { ext: '.deb', key: 'deb', role: 'Debian/Ubuntu package' },
     { ext: '.rpm', key: 'rpm', role: 'Fedora/RHEL package' },
   ],
+  // Squirrel.Windows (#2181): Setup.exe is the download, and the full .nupkg
+  // is what update.electronjs.org hands an installed app, so like the macOS
+  // ZIP it is downloaded by every user on every release.
+  win32: [
+    { ext: '-full.nupkg', key: 'nupkg', role: 'Squirrel.Windows update payload — every user downloads this for every release' },
+    { ext: 'setup.exe', key: 'setupExe', role: 'Windows installer' },
+  ],
 };
 
 /** The kinds a release on `platform` must produce. */
@@ -173,8 +180,8 @@ function main() {
       'measured — compression output varies a little between runners, and a gate that ' +
       'fails on that noise is one people re-bless without reading. The .zip is the Squirrel.Mac ' +
       'auto-update payload — Squirrel has no delta mechanism, so every installed user ' +
-      'downloads all of it for every point release. The .deb and .rpm are the Linux packages (#2182), ' +
-      'measured by the Linux release job. The check fails when an artifact ' +
+      'downloads all of it for every point release, as does the Windows -full.nupkg (#2181). The .deb ' +
+      'and .rpm are the Linux packages (#2182). Each platform\'s release job measures its own. The check fails when an artifact ' +
       `grows past its budget, and when one falls more than ${SHRINK_SLACK_MB} MB below ` +
       'it (lower the number so the win is held). Re-bless with ' +
       '`node scripts/check-artifact-size.mjs out/make --update`.';

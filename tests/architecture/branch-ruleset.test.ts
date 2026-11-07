@@ -44,6 +44,9 @@ const NOT_REQUIRED: Record<string, string> = {
   'e2e on Linux (advisory)':
     'The e2e suite under Xvfb (#2179, epic #2200). continue-on-error while it proves itself; promote it to ' +
     'required (and drop this entry) once it has run green for a while, as lint-and-test on Linux was (#3001).',
+  'Windows package (advisory)':
+    'Packages, smoke-boots, installs, uses and uninstalls the Windows build (#2181). continue-on-error ' +
+    'while it settles; promote it (and drop this entry) once it has run green for a while.',
   'security scan (advisory)':
     'Electronegativity + Semgrep against a baseline (#2570). Advisory while the baseline settles: a new ' +
     'finding is a ::warning and a summary row, and continue-on-error keeps it out of the merge gate. ' +

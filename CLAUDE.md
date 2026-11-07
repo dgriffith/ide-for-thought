@@ -985,7 +985,7 @@ Every workflow declares `permissions:`, the workflow-scope value is
 |---|---|---|
 | `ci.yml` | `contents: read` | — |
 | `bench.yml` | `contents: read` | `issues: write` on `bench` (#2242) |
-| `release.yml` | `contents: read` | `contents: write` on `build-macos` and `publish-linux` (#2182); `actions: read` on `ci-verdict` (#2371) |
+| `release.yml` | `contents: read` | `contents: write` on `build-macos` and `publish-packages` (#2181, #2182); `actions: read` on `ci-verdict` (#2371) |
 | `pr-bench.yml` | `contents: read` | — (#2386) |
 | `quality-dashboard.yml` | `contents: read` | `issues: write` + `actions: read` on `dashboard` (#2389) |
 
@@ -1019,7 +1019,7 @@ could combine into a red main (#2348).
 The `ci.yml` jobs deliberately **not** required are `x64-smoke` (#2387: an
 unsigned x64 build smoke-booted on `macos-15-intel`, on main pushes and PRs
 labelled `x64-smoke` only, an early warning for #962, see `docs/packaging.md`),
-and the security scan (#2570). `lint-and-test on Linux` (#2178) and
+the security scan (#2570), and two advisory platform jobs while they settle: `e2e on Linux` (#2179) and `Windows package` (#2181, which packages, boots, installs and uninstalls the Windows build). `lint-and-test on Linux` (#2178) and
 `lint-and-test on Windows` (#2180) **are** required, since 2026-11-03: the
 suite passes on `ubuntu-latest` and `windows-latest`, and a change that breaks
 either can't merge. The repo's
