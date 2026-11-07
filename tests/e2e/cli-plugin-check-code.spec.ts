@@ -14,6 +14,7 @@ import { spawn } from 'node:child_process';
 import path from 'node:path';
 import fs from 'node:fs';
 import { makeTempDir, minervaEnv, packagedApp, projectRoot } from './helpers/launch';
+import { killTree } from './helpers/kill-tree';
 import type { PluginCheckReport } from '../../src/shared/plugins/check';
 
 let app: ReturnType<typeof packagedApp>;
@@ -42,7 +43,7 @@ function minerva(args: string[], ms = 90_000): Promise<{ status: number | null; 
     let stderr = '';
     child.stdout.on('data', (d: Buffer) => { stdout += d.toString(); });
     child.stderr.on('data', (d: Buffer) => { stderr += d.toString(); });
-    const killGroup = () => { try { process.kill(-child.pid!, 'SIGKILL'); } catch { /* already gone */ } };
+    const killGroup = () => killTree(child.pid);
     const timer = setTimeout(killGroup, ms);
     child.on('exit', (status) => {
       clearTimeout(timer);

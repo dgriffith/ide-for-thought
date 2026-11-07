@@ -34,6 +34,7 @@ import { spawn, spawnSync, type SpawnSyncReturns } from 'node:child_process';
 import path from 'node:path';
 import fs from 'node:fs';
 import { makeTempDir, minervaEnv, packagedApp } from './helpers/launch';
+import { killTree } from './helpers/kill-tree';
 
 let app: ReturnType<typeof packagedApp>;
 let project: string;
@@ -94,7 +95,7 @@ function runBounded(cmd: string, args: string[], opts: { cwd: string; env: NodeJ
     let stderr = '';
     child.stdout.on('data', (d: Buffer) => { stdout += d.toString(); });
     child.stderr.on('data', (d: Buffer) => { stderr += d.toString(); });
-    const killGroup = () => { try { process.kill(-child.pid!, 'SIGKILL'); } catch { /* already gone */ } };
+    const killGroup = () => killTree(child.pid);
     const timer = setTimeout(killGroup, ms);
     child.on('exit', (status, signal) => {
       clearTimeout(timer);
@@ -144,8 +145,11 @@ test('packaged CLI: mcp answers tools/list and a semantic_search call', async ()
   expect(r.status, describeRun(r)).toBe(0);
 
   const byId = new Map<number, { result?: { tools?: unknown[]; isError?: boolean; content?: { text: string }[] } }>();
-  for (const line of r.stdout.split('\n').filter(Boolean)) {
-    const msg = JSON.parse(line) as { id: number };
+  // Whitespace-only lines are skipped (Windows' stdout carried one, #3023);
+  // any other line must be JSON-RPC — stdout is the protocol channel.
+  for (const line of r.stdout.split(/\r?\n/).filter((l) => l.trim() !== '')) {
+    let msg: { id: number };
+    try { msg = JSON.parse(line) as { id: number }; } catch { throw new Error(`a non-JSON line on the protocol channel: ${JSON.stringify(line)}\n${describeRun(r)}`); }
     byId.set(msg.id, msg);
   }
   expect(byId.get(2)?.result?.tools?.length, describeRun(r)).toBeGreaterThan(0);
