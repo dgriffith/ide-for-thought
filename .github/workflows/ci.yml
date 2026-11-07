@@ -823,6 +823,150 @@ jobs:
             test-results/
           retention-days: 30
 
+  # The Windows package (#2181, epic #2200): built, fuse-checked, smoke-booted,
+  # made into its Squirrel installer, installed the way a user would, used,
+  # and uninstalled, on every PR, so a Windows packaging regression shows here
+  # and not on release day. Advisory while it settles, like e2e-linux:
+  # `continue-on-error` keeps the run green for release.yml's gate (#2371),
+  # and branch-ruleset.test.ts lists it as not required.
+  #
+  # Not the e2e suite on Windows; that's its own step (#2179's sibling). This
+  # is what a Windows release depends on: the package boots and installs.
+  package-windows:
+    name: Windows package (advisory)
+    runs-on: windows-latest
+    continue-on-error: true
+    timeout-minutes: 45
+    env:
+      # build:e2e's `NODE_OPTIONS=… electron-forge package` prefix is POSIX
+      # shell; the steps below run its two halves with the heap set here.
+      NODE_OPTIONS: --max-old-space-size=4096
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up pnpm
+        # Version comes from the `packageManager` field in package.json.
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      # As lint-and-test-windows: a pnpm that runs nothing must fail here.
+      - name: Check pnpm runs
+        run: |
+          v="$(pnpm --version)"
+          echo "pnpm $v"
+          [ -n "$v" ] || { echo "::error::pnpm printed no version: it isn't running"; exit 1; }
+
+      # Unconditional lockfile/manifest check (#2244) — see lint-and-test.
+      - name: Verify lockfile matches package.json
+        run: pnpm install --frozen-lockfile --lockfile-only
+
+      # Same key as the other jobs (lockfile-gate.test.ts holds them
+      # byte-identical); a hit shares lint-and-test-windows's entry.
+      - name: Cache node_modules
+        id: node-modules-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: node_modules
+          key: node-modules-v1-${{ runner.os }}-${{ runner.arch }}-node-${{ hashFiles('.nvmrc') }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Install dependencies
+        if: steps.node-modules-cache.outputs.cache-hit != 'true'
+        run: pnpm install --frozen-lockfile
+
+      # The e2e job's exact key: the corpus is data, so a hit shares its entry.
+      - name: Cache help-docs corpus
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: resources/help-docs
+          key: >-
+            help-corpus-v1-${{ hashFiles('website/docs/_content/**',
+            'scripts/build-help-corpus.mjs', 'scripts/lib/extract-docs-corpus.mjs',
+            'scripts/lib/docs-model.mjs', 'src/main/embeddings/**') }}
+
+      - name: Package the app (unsigned)
+        run: |
+          node scripts/prep.mjs
+          pnpm exec electron-forge package
+
+      # Windows keeps asar integrity ON (#2981): packager writes the archive's
+      # hash into the exe as a resource. A wrong value fails here by name; a
+      # missing resource fails the boot below.
+      - name: Check Electron fuses on the packaged app
+        run: node scripts/check-electron-fuses.mjs
+
+      # duckdb.dll is opened by the OS loader, not from inside app.asar (#2185).
+      - name: DuckDB's native library is unpacked from the asar
+        run: |
+          set -euo pipefail
+          UNPACKED="out/Minerva-win32-x64/resources/app.asar.unpacked"
+          find "$UNPACKED" -name '*.node' -o -name '*.dll' | sed "s|^$UNPACKED/||"
+          find "$UNPACKED" -name 'duckdb.dll' | grep -q . \
+            || { echo "::error::no duckdb.dll under $UNPACKED — the asar unpack glob in forge.config.ts misses it"; exit 1; }
+
+      # Minerva.exe, booted on a DuckDB-backed project — release's smoke boot.
+      - name: Smoke-boot the packaged app
+        run: pnpm exec playwright test tests/e2e/smoke.spec.ts -g "packaged app"
+
+      - name: Make the Squirrel installer from the packaged app
+        run: pnpm exec electron-forge make --from-package
+
+      # The installer's whole life, as a user meets it. Setup.exe installs
+      # per-user into %LOCALAPPDATA%\minerva and runs the app's
+      # --squirrel-install hook (squirrel-events.ts), which makes the Start
+      # menu shortcut; then the installed CLI answers a query, opening
+      # duckdb.dll from the install; then uninstall runs --squirrel-uninstall,
+      # which removes the shortcut again.
+      - name: Install, use and uninstall
+        run: |
+          set -euo pipefail
+          setup="$(find out/make/squirrel.windows -name '*Setup.exe' | head -n1)"
+          [ -n "$setup" ] || { echo "::error::no Setup.exe in out/make/squirrel.windows"; exit 1; }
+          "$setup" --silent
+          # Setup launches the app once installed; it's not wanted here.
+          sleep 5
+          taskkill //IM Minerva.exe //F //T || true
+          local_app="$(cygpath -u "$LOCALAPPDATA")/minerva"
+          programs="$(cygpath -u "$APPDATA")/Microsoft/Windows/Start Menu/Programs"
+          ls "$local_app"
+          exe="$(find "$local_app" -path '*/app-*/Minerva.exe' | head -n1)"
+          [ -n "$exe" ] || { echo "::error::no app-*/Minerva.exe under $local_app"; exit 1; }
+          find "$programs" -name 'Minerva.lnk' | grep -q . \
+            || { echo "::error::the install hook made no Start menu shortcut"; exit 1; }
+          tb="$(mktemp -d)"
+          printf '# Hello\n' > "$tb/hello.md"
+          out="$("$exe" --minerva-cli -- sql 'SELECT 6 * 7 AS answer' --project "$(cygpath -w "$tb")")"
+          echo "$out"
+          grep -q 42 <<<"$out" || { echo "::error::the installed Minerva didn't answer a SQL query"; exit 1; }
+          "$local_app/Update.exe" --uninstall -s
+          sleep 5
+          if find "$programs" -name 'Minerva.lnk' | grep -q .; then
+            echo "::error::uninstall left the Start menu shortcut behind"; exit 1
+          fi
+
+      # Sizes, against build/artifact-size-budget.json once the Windows
+      # artifacts have budgets; until then each is printed and passes.
+      - name: Windows artifact sizes
+        run: node scripts/check-artifact-size.mjs out/make
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: playwright-report-windows-package
+          path: |
+            playwright-report.json
+            test-results/
+          retention-days: 30
+
   # Early warning for an x64 (Intel) macOS build — #2387, ahead of #962.
   #
   # NON-BLOCKING, and not in .github/rulesets/main.json. Minerva ships arm64

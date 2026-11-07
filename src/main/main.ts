@@ -37,12 +37,18 @@ import { installE2EHooks } from './e2e-hooks';
 import { logger } from '../shared/logger';
 import { cliModeArgs, runCliMode } from './cli-mode';
 import { handleSecondInstance } from './single-instance';
+import { handleSquirrelEvent, squirrelEvent } from './squirrel-events';
 
 // `minerva` CLI (#2565): the shim runs this binary with `--minerva-cli`. In
 // that mode the app never starts — the bundled CLI runs and exits — so it is
 // decided before anything else here. See cli-mode.ts.
 const cliArgs = cliModeArgs(process.argv, process.env);
+// The Windows installer and updater launch the app to run their hooks (#2181):
+// shortcuts made or removed, then quit, with no window, lock or userData.
+// See squirrel-events.ts.
+const squirrel = cliArgs ? null : squirrelEvent(process.argv, process.platform);
 if (cliArgs) runCliMode(cliArgs);
+else if (squirrel) handleSquirrelEvent(squirrel, { exePath: process.execPath, quit: () => app.quit() });
 else startApp();
 
 function startApp(): void {
