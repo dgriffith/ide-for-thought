@@ -85,7 +85,8 @@ that doesn't exist. `secretStorageStatus()` reports which case applies, AI
 settings and MCP settings show a persistent note, and the first plaintext
 write in a process logs one `[secrets]` warning. Nothing is refused, because
 refusing a key on a machine with no keyring would leave the app unusable
-there. The files are owner-only (0600, #2562) either way. macOS always has the
+there. The files are owner-only (0600 on macOS and Linux, #2562; by ACL on
+Windows, #2190) either way. macOS always has the
 Keychain, so this only affects the Linux/Windows ports (#2198).
 
 Secrets live in:
@@ -102,3 +103,13 @@ via `writeJsonFileAtomic*`'s `mode` option, applied to the temp file before the
 rename so the secret is never on disk world-readable, and tightening an older
 0644 file on its next write (#2562). `tests/main/config/secret-file-mode.test.ts`
 fails if a write to one of them drops it.
+
+**On Windows a mode does nothing** (#2190): a file takes its folder's ACL. For
+the stores under `userData/` and `~/.minerva/` that is already the user's
+own, but `<thoughtbase>/.minerva/secrets.json` and the substrate token advert
+live wherever the thoughtbase does, possibly a shared folder. So there
+`SECRET_FILE_MODE` restricts the file's ACL to the current user instead
+(`config/windows-acl.ts`: `icacls … /inheritance:r /grant:r *<SID>:F`),
+applied to the empty temp file before the secret is written. A failure is
+logged and the write goes ahead. `tests/main/config/windows-acl.test.ts`
+reads the ACL back on the Windows CI leg.

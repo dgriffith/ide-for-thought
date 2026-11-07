@@ -76,10 +76,12 @@ function notePlaintextWrite(): void {
   if (warnedPlaintext) return;
   warnedPlaintext = true;
   const { reason } = secretStorageStatus();
+  // Owner-only by mode on macOS and Linux, by ACL on Windows (#2190).
+  const files = process.platform === 'win32' ? 'in files only your Windows account can read' : 'in owner-only files';
   logger('secrets').warn(
     reason === 'linux-basic-text'
-      ? 'no OS key store (Linux basic_text backend; install/unlock a Secret Service such as gnome-keyring or KWallet) — secrets are stored as plain text, in owner-only files'
-      : 'no OS key store available — secrets are stored as plain text, in owner-only files',
+      ? `no OS key store (Linux basic_text backend; install/unlock a Secret Service such as gnome-keyring or KWallet) — secrets are stored as plain text, ${files}`
+      : `no OS key store available — secrets are stored as plain text, ${files}`,
   );
 }
 
