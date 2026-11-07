@@ -59,12 +59,12 @@ async function colourCounts(win: Page, dataUrl: string, targets: Record<string, 
     const rgb = Object.fromEntries(Object.entries(want).map(([k, hex]) => [k, [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16))]));
     const out: Record<string, number> = Object.fromEntries(Object.keys(want).map((k) => [k, 0]));
     out.white = 0;
-    out.emojiRed = 0; // 📍's red head, a colour no tile or pin here has
+    out.emojiRed = 0; // 📍's red head, a colour no tile or pin here has — red on macOS, pink-red on Windows (#3023)
     for (let i = 0; i < d.length; i += 4) {
       const [r, g, b] = [d[i]!, d[i + 1]!, d[i + 2]!];
       for (const [k, [tr, tg, tb]] of Object.entries(rgb)) if (Math.abs(r - tr!) + Math.abs(g - tg!) + Math.abs(b - tb!) < 24) out[k]!++;
       if (r > 250 && g > 250 && b > 250) out.white++;
-      if (r > 170 && g < 90 && b < 90) out.emojiRed++;
+      if (r > 170 && r - g > 100 && r - b > 60) out.emojiRed++;
     }
     return out;
   }, [dataUrl, targets] as const);

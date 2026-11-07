@@ -93,6 +93,25 @@ describe('Preview resize handles (#2666)', () => {
     expect(view!.state.doc.toString()).toBe(imageNote);
   });
 
+  it('the release sets the size, even when the last move before it never arrived (#3023)', async () => {
+    const { container } = setup(imageNote);
+    const handle = container.querySelector('.resizable-image [data-resize-handle]')!;
+    await fireEvent.pointerDown(handle, { button: 0, pointerId: 1, clientX: 100, clientY: 100 });
+    await fireEvent.pointerMove(handle, { pointerId: 1, clientX: 175, clientY: 100 });
+    // Chromium coalesced the final move away: the pointer is released at +80.
+    await fireEvent.pointerUp(handle, { pointerId: 1, clientX: 180, clientY: 100 });
+    expect(view!.state.doc.toString()).toBe('# Shots\n\nBefore ![shot|280](pic.png) after.\n');
+  });
+
+  it('a cancelled drag writes nothing', async () => {
+    const { container, onApplyEdit } = setup(imageNote);
+    const handle = container.querySelector('.resizable-image [data-resize-handle]')!;
+    await fireEvent.pointerDown(handle, { button: 0, pointerId: 1, clientX: 100, clientY: 100 });
+    await fireEvent.pointerMove(handle, { pointerId: 1, clientX: 175, clientY: 100 });
+    await fireEvent.pointerCancel(handle, { pointerId: 1, clientX: 180, clientY: 100 });
+    expect(onApplyEdit).not.toHaveBeenCalled();
+  });
+
   it('double-clicking the handle resets the image to its natural size', async () => {
     const { container } = setup(imageNote);
     await fireEvent.dblClick(container.querySelector('.resizable-image [data-resize-handle]')!);
