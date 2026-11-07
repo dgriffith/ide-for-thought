@@ -53,6 +53,10 @@ describe('unpackPluginZip (#2634)', () => {
     ['a drive letter', 'C:/escape.md'],
     ['a backslash', '..\\escape.md'],
     ['an empty segment', 'types//x.md'],
+    // Names Windows writes differently or not at all (#2983).
+    ['a device name', 'types/con.md'],
+    ['a trailing dot', 'plugin.json.'],
+    ['an alternate data stream', 'types/sample.md:hidden'],
   ] as const) {
     it(`refuses an entry with ${what}, and writes nothing outside`, async () => {
       fs.writeFileSync(path.join(tmp, 'canary.md'), 'safe');
@@ -63,6 +67,16 @@ describe('unpackPluginZip (#2634)', () => {
       nothingEscaped();
     });
   }
+
+  it('refuses names that differ only in case — a file, or a folder on the way (#2983)', async () => {
+    await expect(unpackPluginZip(archive([
+      { name: 'plugin.json', data: '{}' }, { name: 'types/a.md', data: 'a' }, { name: 'types/A.md', data: 'b' },
+    ]), dest)).rejects.toThrow(/"types\/A\.md" and "types\/a\.md" differ only in case/);
+    fs.rmSync(dest, { recursive: true, force: true });
+    await expect(unpackPluginZip(archive([
+      { name: 'plugin.json', data: '{}' }, { name: 'types/a.md', data: 'a' }, { name: 'Types/b.md', data: 'b' },
+    ]), dest)).rejects.toThrow(/"Types" and "types"/);
+  });
 
   it('refuses a link entry', async () => {
     await expect(unpackPluginZip(archive([

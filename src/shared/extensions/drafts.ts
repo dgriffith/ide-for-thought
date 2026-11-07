@@ -8,6 +8,7 @@
  * plugin's folder), never to the thoughtbase. They're checked by
  * `draftPathProblem` before the card is shown, and again where main writes.
  */
+import { nonPortablePath } from '../portable-names';
 
 export const EXTENSION_DRAFT_KINDS = ['skill', 'plugin'] as const;
 export type ExtensionDraftKind = (typeof EXTENSION_DRAFT_KINDS)[number];
@@ -75,5 +76,8 @@ export function draftPathProblem(written: string): string | null {
   if (segments.length > 6 || !segments.every((s) => SEGMENT.test(s))) {
     return `"${written}" must be a relative path of plain names (letters, digits, ".", "_", "-"), with "/" between them.`;
   }
+  // Plain, and portable: no device names or trailing dots (#2983).
+  const nonPortable = nonPortablePath(written);
+  if (nonPortable) return `"${written}" can't be written on every platform: ${nonPortable}.`;
   return null;
 }

@@ -25,6 +25,7 @@ import path from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import yauzl from 'yauzl';
 import { PLUGIN_MANIFEST } from '../../shared/plugins/format';
+import { nonPortablePath, PathCollisions } from '../../shared/portable-names';
 
 export const ZIP_LIMITS = {
   /** The archive file itself. */
@@ -49,6 +50,10 @@ export function unsafeName(name: string): string | null {
   if (name.startsWith('/') || /^[A-Za-z]:/.test(name)) return 'is an absolute path';
   const segments = name.replace(/\/$/, '').split('/');
   if (segments.some((s) => s === '' || s === '..')) return 'has an empty or ".." segment';
+  // Names Windows writes differently or not at all (#2983) — refused on every
+  // platform, so an archive installs the same everywhere.
+  const nonPortable = nonPortablePath(name);
+  if (nonPortable) return `can't be written on every platform: ${nonPortable}`;
   return null;
 }
 
@@ -88,10 +93,11 @@ export async function unpackPluginZip(zipPath: string, dest: string): Promise<vo
       throw new Error(`It has ${zip.entryCount} entries; a plugin archive may have at most ${ZIP_LIMITS.entries}.`);
     }
     let total = 0;
+    const collisions = new PathCollisions();
     for await (const entry of entries(zip)) {
       const name = entry.fileName;
       if (isDebris(name)) continue;
-      const bad = unsafeName(name);
+      const bad = unsafeName(name) ?? collisions.claim(name);
       if (bad) throw new Error(`"${name}" ${bad}; the archive can't be unpacked safely.`);
       const mode = (entry.externalFileAttributes >>> 16) & S_IFMT;
       if (mode === S_IFLNK) throw new Error(`"${name}" is a link; a plugin archive holds plain files only.`);
