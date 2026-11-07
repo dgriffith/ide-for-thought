@@ -19,11 +19,19 @@
  * refusing to store a key would leave the app unusable on that machine.
  */
 import { execFileSync } from 'node:child_process';
+import path from 'node:path';
 import { logger } from '../../shared/logger';
 
 export type Exec = (file: string, args: string[]) => string;
 
-const run: Exec = (file, args) => execFileSync(file, args, { encoding: 'utf-8', windowsHide: true, timeout: 10_000 });
+/**
+ * Windows' own tools, by absolute path: a PATH with Git for Windows' `usr\bin`
+ * ahead of System32 — Git Bash's, and many developers' — finds GNU coreutils'
+ * `whoami`, which refuses `/user` (seen on the Windows CI leg).
+ */
+const system32 = (exe: string) => path.win32.join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', exe);
+
+const run: Exec = (file, args) => execFileSync(system32(`${file}.exe`), args, { encoding: 'utf-8', windowsHide: true, timeout: 10_000 });
 
 let cachedSid: string | null = null;
 

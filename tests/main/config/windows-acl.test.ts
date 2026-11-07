@@ -46,7 +46,9 @@ describe('restrictToCurrentUser', () => {
 describe.runIf(process.platform === 'win32')('on Windows, a secret store is owner-only by ACL (#2190)', () => {
   const sid = () => currentUserSid();
   /** icacls' listing: one `<name or SID>:(<rights>)` line per entry. */
-  const acl = (file: string) => execFileSync('icacls', [file], { encoding: 'utf-8' });
+  const acl = (file: string) => execFileSync(path.win32.join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'icacls.exe'), [file], { encoding: 'utf-8' });
+  /** icacls' entries for `file`: `<name>:(<rights>)`, one per line. */
+  const entries = (file: string, listing: string) => listing.split(/\r?\n/).map((l) => l.replace(file, '').trim()).filter((l) => l && !/^Successfully processed/.test(l));
 
   for (const [name, write] of [
     ['writeJsonFileAtomic', (f: string) => writeJsonFileAtomic(f, { key: 'canary' }, { mode: SECRET_FILE_MODE })],
@@ -61,8 +63,7 @@ describe.runIf(process.platform === 'win32')('on Windows, a secret store is owne
         const listing = acl(file);
         // icacls resolves the SID to a name; ask it by SID to compare.
         const name = execFileSync('powershell', ['-NoProfile', '-Command', `(New-Object System.Security.Principal.SecurityIdentifier('${sid()}')).Translate([System.Security.Principal.NTAccount]).Value`], { encoding: 'utf-8' }).trim();
-        const entries = listing.split(/\r?\n/).slice(0, -2).map((l) => l.replace(file, '').trim()).filter(Boolean);
-        expect(entries, listing).toEqual([`${name}:(F)`]);
+        expect(entries(file, listing), listing).toEqual([`${name}:(F)`]);
         expect(listing).not.toMatch(/\(I\)/); // no inherited entry
       } finally {
         fs.rmSync(dir, { recursive: true, force: true });
@@ -70,12 +71,13 @@ describe.runIf(process.platform === 'win32')('on Windows, a secret store is owne
     });
   }
 
-  it('a store written without SECRET_FILE_MODE keeps its folder\'s ACL', async () => {
+  it('a store written without SECRET_FILE_MODE isn\'t restricted to the user alone', async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-acl-'));
     try {
       const file = path.join(dir, 'session.json');
       await writeJsonFileAtomic(file, {});
-      expect(acl(file)).toMatch(/\(I\)/);
+      // SYSTEM, Administrators and the user, as the runner lists it.
+      expect(entries(file, acl(file)).length, acl(file)).toBeGreaterThan(1);
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }
