@@ -11,7 +11,7 @@ import { render, fireEvent, cleanup, waitFor, screen } from '@testing-library/sv
 const { saveMock, listMock, emojiPanelMock, platform } = vi.hoisted(() => ({
   saveMock: vi.fn(), listMock: vi.fn(), emojiPanelMock: vi.fn(),
   // Mutable so a test can render both the macOS and the non-macOS form.
-  platform: { IS_MAC: true },
+  platform: { IS_MAC: true, HAS_EMOJI_PANEL: true },
 }));
 vi.mock('../../../src/renderer/lib/stores/object-types.svelte', () => ({
   objectTypesStore: { save: saveMock },
@@ -19,13 +19,14 @@ vi.mock('../../../src/renderer/lib/stores/object-types.svelte', () => ({
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({
   api: { types: { list: listMock }, shell: { showEmojiPanel: emojiPanelMock } },
 }));
-vi.mock('../../../src/renderer/lib/utils/platform', () => ({ get IS_MAC() { return platform.IS_MAC; } }));
+vi.mock('../../../src/renderer/lib/utils/platform', () => ({ get IS_MAC() { return platform.IS_MAC; }, get HAS_EMOJI_PANEL() { return platform.HAS_EMOJI_PANEL; } }));
 
 import TypeEditorDialog from '../../../src/renderer/lib/components/TypeEditorDialog.svelte';
 import { COLOR_SWATCHES } from '../../../src/shared/color-swatches';
 
 beforeEach(() => {
   platform.IS_MAC = true;
+  platform.HAS_EMOJI_PANEL = true;
   saveMock.mockResolvedValue({ id: 'book', filePath: '.minerva/types/book.md' });
   listMock.mockResolvedValue({ types: [{ id: 'person' }, { id: 'book' }], errors: [] });
   emojiPanelMock.mockResolvedValue(undefined);
@@ -269,10 +270,11 @@ describe('TypeEditorDialog — icon picker', () => {
     expect(emojiPanelMock).toHaveBeenCalled();
   });
 
-  it('hides the picker button off macOS, leaving the field typable', async () => {
-    // No cross-platform equivalent exists, so the plain text field is the
-    // fallback rather than a button that would do nothing.
+  it('hides the picker button where the OS has no panel (Linux), leaving the field typable', async () => {
+    // Linux has no system emoji panel, so the plain text field is the
+    // fallback rather than a button that would do nothing (#2194).
     platform.IS_MAC = false;
+    platform.HAS_EMOJI_PANEL = false;
     render(TypeEditorDialog, { initial: { label: 'Book', icon: '📖', properties: [] }, onSaved: vi.fn(), onClose: vi.fn() });
 
     expect(screen.queryByLabelText('Choose an emoji')).toBeNull();

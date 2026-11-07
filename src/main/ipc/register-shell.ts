@@ -149,11 +149,12 @@ export function registerShell(): void {
 
   // Native emoji picker for the object-type icon field. The panel types into
   // whatever text field has focus, so the renderer focuses the input first and
-  // we just raise the panel. macOS-only — `showEmojiPanel` doesn't exist on
-  // other platforms, and there's no Electron equivalent to fall back to, so
-  // this is a deliberate no-op there rather than a throw: the renderer already
-  // hides the button off-macOS, and a stray call shouldn't reject.
+  // we just raise the panel. macOS's character viewer, and Windows' Win+.
+  // panel (#2194): Electron's `showEmojiPanel` raises either. Linux has no
+  // system panel (it depends on the input method), so there this is a
+  // deliberate no-op rather than a throw: the renderer hides the button, and a
+  // stray call shouldn't reject.
   handle(Channels.SHELL_SHOW_EMOJI_PANEL, () => {
-    if (process.platform === 'darwin') app.showEmojiPanel();
+    if (process.platform === 'darwin' || process.platform === 'win32') app.showEmojiPanel();
   });
 }

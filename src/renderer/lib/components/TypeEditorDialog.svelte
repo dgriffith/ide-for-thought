@@ -14,7 +14,7 @@
   import { objectTypesStore } from '../stores/object-types.svelte';
   import { PROPERTY_TYPES, titleCase, type PropertyDef, type PropertyType } from '../../../shared/objects/type-def';
   import { COLOR_SWATCHES, DEFAULT_SWATCH, toHex6 } from '../../../shared/color-swatches';
-  import { IS_MAC } from '../utils/platform';
+  import { HAS_EMOJI_PANEL } from '../utils/platform';
   import type { TypeInfo } from '../../../shared/objects/type-def';
   import {
     TEMPLATE_BUILTIN_CHIPS,
@@ -175,7 +175,7 @@
   let iconInput = $state<HTMLInputElement | undefined>();
 
   /**
-   * Raise the OS emoji picker (macOS). It types into whatever field has focus,
+   * Raise the OS emoji picker (macOS, Windows). It types into whatever field has focus,
    * so focus + SELECT the icon input first: picking then replaces the current
    * icon rather than appending a second glyph after it.
    */
@@ -230,7 +230,7 @@
           <!-- maxlength fits a full ZWJ sequence (👨‍👩‍👧‍👦 is 11 UTF-16 units);
                the old cap of 4 truncated those mid-sequence into mojibake. -->
           <input id="te-icon" bind:this={iconInput} bind:value={icon} placeholder="📖" maxlength="16" />
-          {#if IS_MAC}
+          {#if HAS_EMOJI_PANEL}
             <button class="adorn" title="Choose an emoji…" aria-label="Choose an emoji" onclick={pickEmoji}>☺</button>
           {/if}
         </div>
