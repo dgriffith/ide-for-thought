@@ -24,7 +24,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse } from 'yaml';
 import { FuseV1Options } from '@electron/fuses';
-import { FUSE_POLICY, forgeFuseSettings, checkFuseWire } from '../../scripts/lib/electron-fuses.mjs';
+import { fusePolicy, forgeFuseSettings, checkFuseWire } from '../../scripts/lib/electron-fuses.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -41,18 +41,44 @@ const EXPECTED: Record<string, boolean> = {
   WasmTrapHandlers: true,
 };
 
+// Where a platform differs (#2981), and why: Electron checks asar integrity on
+// macOS and Windows only, so on Linux the bit would claim a check that never runs.
+const PLATFORM_DIFFERENCES: Record<string, Record<string, boolean>> = {
+  darwin: {},
+  win32: {},
+  linux: { EnableEmbeddedAsarIntegrityValidation: false },
+};
+
+// The host's policy — what forge packages and the read-back compares here.
+const FUSE_POLICY = fusePolicy();
+
 const ENABLE = 49;
 const DISABLE = 48;
-function wireFromPolicy(): Record<string, unknown> {
+function wireFromPolicy(platform: string = process.platform): Record<string, unknown> {
   return {
     version: '1',
-    ...Object.fromEntries(FUSE_POLICY.map((f) => [f.index, f.enabled ? ENABLE : DISABLE])),
+    ...Object.fromEntries(fusePolicy(platform).map((f) => [f.index, f.enabled ? ENABLE : DISABLE])),
   };
 }
 
 describe('Electron fuse policy (#2366)', () => {
-  it('pins every fuse to its decided value', () => {
-    expect(Object.fromEntries(FUSE_POLICY.map((f) => [f.name, f.enabled]))).toEqual(EXPECTED);
+  for (const [platform, differences] of Object.entries(PLATFORM_DIFFERENCES)) {
+    it(`pins every fuse to its decided value on ${platform} (#2981)`, () => {
+      expect(Object.fromEntries(fusePolicy(platform).map((f) => [f.name, f.enabled]))).toEqual({ ...EXPECTED, ...differences });
+    });
+  }
+
+  it('every platform keeps the app in the archive, with no Node switches and no file:// powers (#2981)', () => {
+    for (const platform of Object.keys(PLATFORM_DIFFERENCES)) {
+      const on = Object.fromEntries(fusePolicy(platform).map((f) => [f.name, f.enabled]));
+      expect(on, platform).toMatchObject({
+        RunAsNode: false,
+        EnableNodeOptionsEnvironmentVariable: false,
+        EnableNodeCliInspectArguments: false,
+        OnlyLoadAppFromAsar: true,
+        GrantFileProtocolExtraPrivileges: false,
+      });
+    }
   });
 
   it('covers a contiguous wire with unique names — no gap for a fuse to hide in', () => {
@@ -103,12 +129,24 @@ describe('forge.config.ts applies the policy', () => {
     const asar = config.packagerConfig?.asar;
     expect(asar, 'packagerConfig.asar must be set for the asar fuses').toBeTruthy();
     expect(typeof asar === 'object' ? asar.unpack : '').toMatch(/\.?\{?node/);
+    // DuckDB's binding links a shared library the OS loader must open from
+    // disk: .dylib, .so on Linux, .dll on Windows (#2185).
+    for (const ext of ['dylib', 'so', 'dll']) expect(typeof asar === 'object' ? asar.unpack : '', ext).toMatch(new RegExp(`[{,]${ext}[,}]`));
   });
 });
 
 describe('checkFuseWire (the read-back comparison)', () => {
   it('accepts a wire that matches the policy', () => {
     expect(checkFuseWire(wireFromPolicy())).toMatchObject({ ok: true, errors: [] });
+  });
+
+  it("reads a wire against the platform it was built for (#2981)", () => {
+    expect(checkFuseWire(wireFromPolicy('linux'), 'linux').ok).toBe(true);
+    expect(checkFuseWire(wireFromPolicy('darwin'), 'darwin').ok).toBe(true);
+    // A Linux build carrying the mac value claims a check Linux never runs.
+    const r = checkFuseWire(wireFromPolicy('darwin'), 'linux');
+    expect(r.ok).toBe(false);
+    expect(r.errors.join('\n')).toMatch(/EnableEmbeddedAsarIntegrityValidation is enabled/);
   });
 
   it('rejects a fuse at the wrong value', () => {
@@ -149,6 +187,13 @@ describe('the built app is read back', () => {
     const check = steps.findIndex(isFuseCheck);
     expect(build, 'ci.yml e2e no longer runs pnpm test:e2e').toBeGreaterThanOrEqual(0);
     expect(check, 'ci.yml e2e must run scripts/check-electron-fuses.mjs').toBeGreaterThan(build);
+  });
+
+  it("ci.yml's Linux e2e job checks the Linux package's fuses after packaging (#2981)", () => {
+    const steps = stepsOf('ci.yml', 'e2e-linux');
+    const build = steps.findIndex((s) => /pnpm test:e2e/.test(s.run ?? ''));
+    expect(build).toBeGreaterThanOrEqual(0);
+    expect(steps.findIndex(isFuseCheck)).toBeGreaterThan(build);
   });
 
   it('release.yml checks the signed build before smoke-booting it', () => {

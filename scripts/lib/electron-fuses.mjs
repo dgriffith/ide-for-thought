@@ -16,6 +16,11 @@
  * `tests/architecture/electron-fuses.test.ts` pins every value below, so
  * changing one means changing that test too — deliberately.
  *
+ * One policy for every platform, with a per-platform value only where the
+ * platform forces one (#2981): an entry's `linux` is its value on Linux.
+ * Forge packages for the host, so `forgeFuseSettings()` and the read-back
+ * default to `process.platform`.
+ *
  * Plain `.mjs` (typed by the sibling `.d.mts`) for the same reason as
  * `package-prune.mjs`: forge's loader and the `scripts/*.mjs` family both
  * import it without a transpile step.
@@ -25,9 +30,9 @@
  * Wire order is Electron's (`FuseV1Options` in @electron/fuses); `index` is
  * the byte offset in the fuse wire. Every fuse the binary carries must appear.
  *
- * @type {ReadonlyArray<Readonly<{ name: string; index: number; enabled: boolean }>>}
+ * @type {ReadonlyArray<Readonly<{ name: string; index: number; enabled: boolean; linux?: boolean }>>}
  */
-export const FUSE_POLICY = Object.freeze([
+const POLICY = Object.freeze([
   // OFF (#2565). It was on for the `minerva` CLI shim, which ran
   //   ELECTRON_RUN_AS_NODE=1 <Minerva binary> <app.asar>/.vite/build/cli.js
   // and the cost was not "no more than running node": the code runs AS the
@@ -62,8 +67,14 @@ export const FUSE_POLICY = Object.freeze([
   // Info.plist (`ElectronAsarIntegrity`), which the code signature seals. So
   // an edited archive is a FATAL "Integrity check failed for asar archive" at
   // launch rather than a signed app running unsigned code. Needs `asar` in
-  // forge.config.ts.
-  Object.freeze({ name: 'EnableEmbeddedAsarIntegrityValidation', index: 4, enabled: true }),
+  // forge.config.ts. On Windows the hash is a resource in the exe (#2981).
+  //
+  // OFF on Linux (#2981): Electron checks asar integrity on macOS and Windows
+  // only (electronjs.org/docs/latest/tutorial/asar-integrity). Linux has no
+  // signature to seal a hash with, so the bit would read back "enabled" with
+  // nothing behind it — a protection this list would claim and the app would
+  // not have. `OnlyLoadAppFromAsar` still holds there.
+  Object.freeze({ name: 'EnableEmbeddedAsarIntegrityValidation', index: 4, enabled: true, linux: false }),
 
   // ON. Load app code only from `app.asar` — never from a loose
   // `Resources/app/` directory, which is what the packager emitted before
@@ -93,6 +104,20 @@ export const FUSE_POLICY = Object.freeze([
   Object.freeze({ name: 'WasmTrapHandlers', index: 8, enabled: true }),
 ]);
 
+/**
+ * The policy for one platform: each fuse's name, wire index, and value there.
+ *
+ * @param {string} [platform] a `process.platform` value
+ * @returns {ReadonlyArray<Readonly<{ name: string; index: number; enabled: boolean }>>}
+ */
+export function fusePolicy(platform = process.platform) {
+  return Object.freeze(POLICY.map((f) => Object.freeze({
+    name: f.name,
+    index: f.index,
+    enabled: platform === 'linux' && f.linux !== undefined ? f.linux : f.enabled,
+  })));
+}
+
 /** Byte values in the fuse wire (`FuseState` in @electron/fuses). */
 const STATE = Object.freeze({ 48: 'disabled', 49: 'enabled', 114: 'removed' });
 
@@ -100,10 +125,11 @@ const STATE = Object.freeze({ 48: 'disabled', 49: 'enabled', 114: 'removed' });
  * Settings object for `new FusesPlugin({ version, ...forgeFuseSettings() })`,
  * keyed by wire index as the plugin expects.
  *
+ * @param {string} [platform]
  * @returns {Record<number, boolean>}
  */
-export function forgeFuseSettings() {
-  return Object.fromEntries(FUSE_POLICY.map((f) => [f.index, f.enabled]));
+export function forgeFuseSettings(platform = process.platform) {
+  return Object.fromEntries(fusePolicy(platform).map((f) => [f.index, f.enabled]));
 }
 
 /**
@@ -111,16 +137,18 @@ export function forgeFuseSettings() {
  * @electron/fuses: `{ version: '1', 0: 49, 1: 48, … }`) against the policy.
  *
  * @param {Record<string, unknown>} wire
+ * @param {string} [platform] the platform the binary was built for
  * @returns {{ ok: boolean; lines: string[]; errors: string[] }}
  */
-export function checkFuseWire(wire) {
+export function checkFuseWire(wire, platform = process.platform) {
+  const policy = fusePolicy(platform);
   const errors = [];
   const lines = [];
   if (String(wire.version) !== '1') {
     errors.push(`fuse wire version is ${String(wire.version)}, this policy describes v1`);
   }
   const indices = Object.keys(wire).filter((k) => k !== 'version').map(Number).sort((a, b) => a - b);
-  for (const f of FUSE_POLICY) {
+  for (const f of policy) {
     const raw = wire[f.index];
     const actual = STATE[/** @type {keyof typeof STATE} */ (Number(raw))] ?? `unknown(${String(raw)})`;
     const want = f.enabled ? 'enabled' : 'disabled';
@@ -129,7 +157,7 @@ export function checkFuseWire(wire) {
     if (!good) errors.push(`${f.name} is ${actual} in the built app; the policy says ${want}`);
   }
   for (const i of indices) {
-    if (!FUSE_POLICY.some((f) => f.index === i)) {
+    if (!policy.some((f) => f.index === i)) {
       errors.push(
         `the binary has a fuse at wire index ${i} that the policy does not name — ` +
         'an Electron upgrade added one. Decide it in scripts/lib/electron-fuses.mjs ' +

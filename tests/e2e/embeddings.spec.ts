@@ -32,21 +32,11 @@
 import { test, expect, type Page } from './helpers/test';
 import path from 'node:path';
 import fs from 'node:fs';
-import { closeMinerva, launchMinerva, makeTempDir, projectRoot, seedSession } from './helpers/launch';
+import { closeMinerva, launchMinerva, makeTempDir, packagedApp, projectRoot, seedSession } from './helpers/launch';
 
 /** Path to the packaged app binary, or null if it hasn't been built. */
 function packagedBinary(): string | null {
-  if (process.platform !== 'darwin') return null; // only darwin .app layout handled
-  const p = path.join(
-    projectRoot,
-    'out',
-    `Minerva-${process.platform}-${process.arch}`,
-    'Minerva.app',
-    'Contents',
-    'MacOS',
-    'Minerva',
-  );
-  return fs.existsSync(p) ? p : null;
+  return packagedApp()?.binary ?? null;
 }
 
 interface SearchOutcome {

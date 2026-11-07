@@ -33,16 +33,9 @@ import { test, expect } from '@playwright/test';
 import { spawn, spawnSync, type SpawnSyncReturns } from 'node:child_process';
 import path from 'node:path';
 import fs from 'node:fs';
-import { makeTempDir, minervaEnv, projectRoot } from './helpers/launch';
+import { makeTempDir, minervaEnv, packagedApp } from './helpers/launch';
 
-/** The packaged `.app`, or null if it hasn't been built. */
-function packagedApp(): string | null {
-  if (process.platform !== 'darwin') return null; // only darwin .app layout handled
-  const p = path.join(projectRoot, 'out', `Minerva-${process.platform}-${process.arch}`, 'Minerva.app');
-  return fs.existsSync(path.join(p, 'Contents', 'MacOS', 'Minerva')) ? p : null;
-}
-
-let app: string | null;
+let app: ReturnType<typeof packagedApp>;
 let project: string;
 let elsewhere: string;
 let home: string;
@@ -78,11 +71,11 @@ function minerva(args: string[], input?: string): SpawnSyncReturns<string> {
 }
 
 function binary(): string {
-  return path.join(app as string, 'Contents', 'MacOS', 'Minerva');
+  return app!.binary;
 }
 
 function cliJs(): string {
-  return path.join(app as string, 'Contents', 'Resources', 'app.asar', '.vite', 'build', 'cli.js');
+  return path.join(app!.resources, 'app.asar', '.vite', 'build', 'cli.js');
 }
 
 /**
