@@ -26,7 +26,8 @@ import { logger } from '../../../shared/logger';
 import { pluginFrameOrigin } from '../../../shared/plugins/frame';
 import { PLUGIN_API_VERSION, PLUGIN_PORT_MESSAGE, type PluginMoveTarget, type PluginViewState } from '../../../shared/plugins/api';
 import { PLUGIN_SESSION_PORT_MESSAGE, type PluginIntent, type PluginIntentEvent, type PluginSessionTarget } from '../../../shared/plugins/session';
-import { COMMANDS, type CommandId } from '../../../shared/commands';
+import { COMMANDS, commandKey, type CommandId } from '../../../shared/commands';
+import { IS_MAC } from '../utils/platform';
 import { matchesAccelerator } from '../keymap/handle-keydown';
 
 /** How long to wait for a session's port after main opened it. */
@@ -92,8 +93,11 @@ export interface PluginAppOps {
 
 /** The commands a plugin view may run with a forwarded shortcut, with their keys. */
 const FORWARDABLE: ReadonlyArray<{ id: CommandId; key: string }> = COMMANDS
-  .filter((c): c is typeof c & { fromPluginViews: true; key: string } => 'fromPluginViews' in c && 'key' in c && typeof c.key === 'string')
-  .map((c) => ({ id: c.id, key: c.key }));
+  .filter((c) => 'fromPluginViews' in c)
+  .flatMap((c) => {
+    const key = commandKey(c, IS_MAC);
+    return key ? [{ id: c.id, key }] : [];
+  });
 
 const arrived = new Map<string, MessagePort>();
 const waiting = new Map<string, (port: MessagePort) => void>();

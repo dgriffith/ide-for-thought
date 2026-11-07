@@ -22,7 +22,7 @@ import {
   exportKnowledgeGraph,
 } from './maintenance-commands';
 import { STOCK_QUERIES } from '../shared/stock-queries';
-import { commandDef, type MenuCommandId } from '../shared/commands';
+import { commandDef, commandKey, type MenuCommandId } from '../shared/commands';
 import { installMinervaCommand } from './cli-install';
 import { listSavedQueries } from './saved-queries';
 import * as publish from './publish';
@@ -105,9 +105,10 @@ function command(
 ): Electron.MenuItemConstructorOptions {
   const def = commandDef(id);
   const menu = def.menu ?? {};
+  const key = commandKey(def, process.platform === 'darwin');
   const item: Electron.MenuItemConstructorOptions = {
     label: menu.label ?? def.title,
-    ...(def.key ? { accelerator: def.key } : {}),
+    ...(key ? { accelerator: key } : {}),
     ...(menu.toolTip ? { toolTip: menu.toolTip } : {}),
     click: () => send(Channels.MENU_COMMAND, id),
     ...over,
@@ -465,7 +466,9 @@ function buildViewMenu(gate: Gate, isMac: boolean): Electron.MenuItemConstructor
       ...(isMac
         ? []
         : [{ role: 'togglefullscreen' as const }, { type: 'separator' as const }]),
-      { role: 'toggleDevTools', label: 'Developer Tools' },
+      // Off macOS the role's own key is Ctrl+Shift+I, which is Ingest URL's
+      // there; F12 is the browsers' (#2986). macOS keeps ⌥⌘I.
+      { role: 'toggleDevTools', label: 'Developer Tools', ...(isMac ? {} : { accelerator: 'F12' }) },
     ],
   };
 }

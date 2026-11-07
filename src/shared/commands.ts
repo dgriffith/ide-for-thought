@@ -52,6 +52,12 @@ export interface CommandDef {
   category: string;
   /** Electron accelerator — the menu item's, and the shortcut the palette shows. */
   key?: string;
+  /**
+   * The key on Windows and Linux, where it differs (#2986): there Ctrl+Alt is
+   * AltGr, which types characters, so a `CmdOrCtrl+Alt+<letter>` key gets an
+   * alternative here. Read keys through `commandKey`, never `.key`.
+   */
+  keyOffMac?: string;
   /** Listed in the command palette, enabled `when`. */
   palette?: { when: PaletteWhen };
   /**
@@ -107,7 +113,7 @@ export const COMMANDS = [
   { id: 'edit.sortLines', title: 'Sort Lines', category: 'Edit', palette: { when: 'note' }, menu: { gate: NOTE } },
   // ── View ──
   // ⌘B is Bold's (#2758); ⌘⇧B stays the right sidebar's.
-  { id: 'view.toggleSidebar', fromPluginViews: true, title: 'Toggle Left Sidebar', category: 'View', key: 'CmdOrCtrl+Alt+B', palette: { when: 'always' }, menu: {} },
+  { id: 'view.toggleSidebar', fromPluginViews: true, title: 'Toggle Left Sidebar', category: 'View', key: 'CmdOrCtrl+Alt+B', keyOffMac: 'CmdOrCtrl+Shift+E', palette: { when: 'always' }, menu: {} },
   { id: 'view.toggleRightSidebar', fromPluginViews: true, title: 'Toggle Right Sidebar', category: 'View', key: 'CmdOrCtrl+Shift+B', palette: { when: 'always' }, menu: {} },
   { id: 'view.togglePreview', title: 'Toggle Preview Mode', category: 'View', key: 'CmdOrCtrl+Shift+P', palette: { when: 'note' }, menu: { label: 'Cycle Preview Mode', gate: NOTE } },
   { id: 'view.toggleConversations', fromPluginViews: true, title: 'Toggle Conversations', category: 'View', key: 'CmdOrCtrl+Shift+K', palette: { when: 'always' }, menu: {} },
@@ -169,14 +175,14 @@ export const COMMANDS = [
   { id: 'view.focusNextGroup', fromPluginViews: true, title: 'Focus Next Group', category: 'View', key: 'CmdOrCtrl+Alt+Right', menu: { gate: { editor: true } } },
   { id: 'view.focusPrevGroup', fromPluginViews: true, title: 'Focus Previous Group', category: 'View', key: 'CmdOrCtrl+Alt+Left', menu: { gate: { editor: true } } },
   // ⌘⇧W is Close Thoughtbase's, the close-window convention (#2758).
-  { id: 'view.closeGroup', title: 'Close Group', category: 'View', key: 'CmdOrCtrl+Alt+W', menu: { gate: { editor: true } } },
+  { id: 'view.closeGroup', title: 'Close Group', category: 'View', key: 'CmdOrCtrl+Alt+W', keyOffMac: 'CmdOrCtrl+Shift+F4', menu: { gate: { editor: true } } },
   { id: 'view.cycleTheme', title: 'Cycle Theme', category: 'View', key: 'CmdOrCtrl+Shift+T', menu: { gate: false } },
   { id: 'export.publish', title: 'Publish to Web…', category: 'Export', menu: {} },
 
   // ── Window keymap only (`renderer/lib/keymap/handle-keydown.ts`) ──
   { id: 'view.closeTab', fromPluginViews: true, title: 'Close Tab', category: 'View', key: 'CmdOrCtrl+W' },
   // ⌘⇧I is Ingest URL's, beside ⌘⇧D Ingest Identifier (#2758).
-  { id: 'learning.openConversation', title: 'Open Conversation', category: 'Learning', key: 'CmdOrCtrl+Alt+C' },
+  { id: 'learning.openConversation', title: 'Open Conversation', category: 'Learning', key: 'CmdOrCtrl+Alt+C', keyOffMac: 'CmdOrCtrl+Shift+L' },
 
   // ── Editor (CodeMirror) commands ──
   // Text
@@ -232,6 +238,16 @@ export type EditorCommandId = Extract<(typeof COMMANDS)[number], { editor: objec
 export type MenuCommandId = Extract<(typeof COMMANDS)[number], { menu: object }>['id'];
 
 const BY_ID: ReadonlyMap<string, CommandDef> = new Map(COMMANDS.map((c) => [c.id, c]));
+
+/**
+ * A command's key on this platform (#2986): `keyOffMac` where it has one and
+ * this isn't macOS, else `key`. Every reader — the menu, the keymaps, the
+ * palette, plugin views' forwarding and the plugin key rules — goes through
+ * here, so they can't disagree about which key a command has.
+ */
+export function commandKey(def: CommandDef, isMac: boolean): string | undefined {
+  return !isMac && def.keyOffMac !== undefined ? def.keyOffMac : def.key;
+}
 
 export function commandDef(id: CommandId): CommandDef {
   return BY_ID.get(id)!;

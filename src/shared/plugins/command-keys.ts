@@ -12,8 +12,13 @@
  *   to claim a key keeps it, built-in plugins first, in Settings' order; a
  *   later one runs from the palette and its menu, with no key, and Settings
  *   says which plugin has it.
+ * - **Off macOS, Ctrl+Alt is AltGr** (#2986): a key that would catch an AltGr
+ *   character there (`capturesAltGr`) isn't bound on Windows or Linux unless
+ *   the command gives a `keyOffMac` to use instead; Settings says why. The
+ *   command still runs from the palette and its menu.
  */
 import { COMMANDS } from '../commands';
+import { capturesAltGr } from '../altgr';
 
 export { PLUGIN_COMMAND_MENUS, type PluginCommandMenu } from './format';
 
@@ -54,12 +59,15 @@ const editorKeyAsAccelerator = (key: string) => key.split('-').map((t) => (t ===
 /**
  * Every key Minerva itself uses: its commands', its editor's and its menu
  * roles'. The editor's count since #2758: they were left out, so a plugin
- * could take ⌘I or ⌘E from Italic and Code.
+ * could take ⌘I or ⌘E from Italic and Code. A command's `keyOffMac` counts
+ * everywhere (#2986): a manifest is the same on every platform, so a key it
+ * may hold on one it may hold on all.
  */
 export function minervaKeys(): ReadonlySet<string> {
   const asKey = (accelerator: string) => normalizeAccelerator(accelerator) ?? accelerator;
   minerva ??= new Set([
     ...COMMANDS.flatMap((c) => ('key' in c && c.key ? [asKey(c.key)] : [])),
+    ...COMMANDS.flatMap((c) => ('keyOffMac' in c && c.keyOffMac ? [asKey(c.keyOffMac)] : [])),
     ...COMMANDS.flatMap((c) => ('editor' in c && 'key' in c.editor && c.editor.key ? [asKey(editorKeyAsAccelerator(c.editor.key))] : [])),
     ...ROLE_KEYS,
   ]);
@@ -72,6 +80,8 @@ export interface KeyedCommand {
   commandId: string;
   title: string;
   key?: string;
+  /** Its key on Windows and Linux, where it differs (#2986). */
+  keyOffMac?: string;
 }
 
 /** A plugin command's key that another plugin already has. */
@@ -83,19 +93,35 @@ export interface PluginKeyConflict {
   takenBy: string;
 }
 
+/** A plugin command's key not bound on this platform: off macOS it would catch AltGr typing (#2986). */
+export interface PluginKeyRefusal {
+  pluginId: string;
+  commandId: string;
+  title: string;
+  key: string;
+}
+
 /**
- * Which plugin command gets each key: `commands` in Settings' order (built-in
- * plugins first). Answers `pluginId/commandId → key` for the winners, and the
- * losers. A key Minerva uses never reaches here (the manifest refuses it), but
- * is skipped too, so nothing a plugin says can take one.
+ * Which plugin command gets each key on this platform: `commands` in
+ * Settings' order (built-in plugins first). Answers `pluginId/commandId → key`
+ * for the winners, the losers, and — off macOS — the keys refused because
+ * they'd catch AltGr (#2986). A key Minerva uses never reaches here (the
+ * manifest refuses it), but is skipped too, so nothing a plugin says can take
+ * one.
  */
-export function resolvePluginKeys(commands: readonly KeyedCommand[]): { keys: Map<string, string>; conflicts: PluginKeyConflict[] } {
+export function resolvePluginKeys(commands: readonly KeyedCommand[], isMac: boolean): { keys: Map<string, string>; conflicts: PluginKeyConflict[]; refused: PluginKeyRefusal[] } {
   const keys = new Map<string, string>();
   const owner = new Map<string, string>();
   const conflicts: PluginKeyConflict[] = [];
+  const refused: PluginKeyRefusal[] = [];
   for (const c of commands) {
-    const key = c.key ? normalizeAccelerator(c.key) : null;
+    const declared = !isMac && c.keyOffMac ? c.keyOffMac : c.key;
+    const key = declared ? normalizeAccelerator(declared) : null;
     if (!key || minervaKeys().has(key)) continue;
+    if (!isMac && capturesAltGr(key)) {
+      refused.push({ pluginId: c.pluginId, commandId: c.commandId, title: c.title, key });
+      continue;
+    }
     const taken = owner.get(key);
     if (taken !== undefined) {
       conflicts.push({ pluginId: c.pluginId, commandId: c.commandId, title: c.title, key, takenBy: taken });
@@ -104,5 +130,5 @@ export function resolvePluginKeys(commands: readonly KeyedCommand[]): { keys: Ma
     owner.set(key, c.pluginName);
     keys.set(`${c.pluginId}/${c.commandId}`, key);
   }
-  return { keys, conflicts };
+  return { keys, conflicts, refused };
 }
