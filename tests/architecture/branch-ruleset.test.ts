@@ -41,6 +41,9 @@ const NOT_REQUIRED: Record<string, string> = {
     'An early warning for #962 (x64 builds), which Minerva does not ship: runs on main pushes ' +
     'and only on PRs labelled x64-smoke, and is continue-on-error by design (#2387). ' +
     'Requiring it would block every PR on a check that usually never reports.',
+  'e2e on Linux (advisory)':
+    'The e2e suite under Xvfb (#2179, epic #2200). continue-on-error while it proves itself; promote it to ' +
+    'required (and drop this entry) once it has run green for a while, as lint-and-test on Linux was (#3001).',
   'security scan (advisory)':
     'Electronegativity + Semgrep against a baseline (#2570). Advisory while the baseline settles: a new ' +
     'finding is a ::warning and a summary row, and continue-on-error keeps it out of the merge gate. ' +

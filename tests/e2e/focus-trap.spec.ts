@@ -57,7 +57,7 @@ test('command palette traps Tab focus and restores it to the editor on close', a
     const palette = '.dialog[aria-label="Command palette"]';
 
     // Open the palette (⌘K). Its input autofocuses, so focus starts inside.
-    await win.keyboard.press('Meta+KeyK');
+    await win.keyboard.press('ControlOrMeta+KeyK');
     await expect(win.locator(palette)).toBeVisible({ timeout: 5000 });
     expect(await focusInside(win, palette), 'focus should start inside the palette').toBe(true);
 

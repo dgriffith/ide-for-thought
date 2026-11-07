@@ -81,7 +81,7 @@ test('preview resize handles write the size into the note, undoably (#2666)', as
     await test.step('⌘Z in the editor takes the resize back', async () => {
       await source.click();
       await changingPreview(win, preview, async () => {
-        await win.keyboard.press('Meta+z');
+        await win.keyboard.press('ControlOrMeta+z');
         await expect(source).toContainText('![shot|200](pic.png)');
       });
     });
