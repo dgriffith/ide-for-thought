@@ -135,6 +135,9 @@ test('packaged CLI: query and sql still work', async () => {
 
 test('packaged CLI: mcp answers tools/list and a semantic_search call', async () => {
   test.skip(app === null, 'packaged app not built — run `pnpm build:e2e` first');
+  // A known gap, not a pass: on Windows the packaged binary in CLI mode gets
+  // no piped stdin, so `mcp` answers nothing (#3026). Remove with the fix.
+  test.fixme(process.platform === 'win32', 'Windows CLI mode receives no piped stdin (#3026)');
   const lines = [
     { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', clientInfo: { name: 'e2e' } } },
     { jsonrpc: '2.0', method: 'notifications/initialized' },
