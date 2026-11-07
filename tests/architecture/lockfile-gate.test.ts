@@ -91,6 +91,7 @@ describe('every installing job verifies the lockfile first (#2244)', () => {
       'ci.yml:coverage',
       'ci.yml:e2e',
       'ci.yml:e2e-linux',
+      'ci.yml:e2e-windows',
       'ci.yml:lint',
       'ci.yml:lint-and-test',
       'ci.yml:lint-and-test-linux',

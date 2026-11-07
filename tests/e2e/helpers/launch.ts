@@ -107,7 +107,9 @@ export function isolatedHome(userDataDir: string): string {
  * through this, never `scrubbedEnv()` directly — that leaves the real HOME.
  */
 export function minervaEnv(home: string, extra: Record<string, string> = {}): Record<string, string> {
-  return { ...scrubbedEnv(), HOME: home, ...extra };
+  // Windows reads the home folder from USERPROFILE, not HOME (#3023): both,
+  // so `os.homedir()` is the isolated one on every OS.
+  return { ...scrubbedEnv(), HOME: home, USERPROFILE: home, ...extra };
 }
 
 /**

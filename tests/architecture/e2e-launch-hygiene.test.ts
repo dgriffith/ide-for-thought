@@ -143,6 +143,8 @@ describe('e2e launch hygiene (#1928)', () => {
       const env = minervaEnv(home, { MINERVA_E2E: '1' });
       expect(env.HOME).toBe(home);
       expect(env.HOME).not.toBe(os.homedir());
+      // Windows' home folder is USERPROFILE (#3023).
+      expect(env.USERPROFILE).toBe(home);
       expect(env.MINERVA_E2E).toBe('1');
     } finally {
       fs.rmSync(profile, { recursive: true, force: true });
