@@ -32,7 +32,10 @@ export function mcpFixtureAvailable(): boolean {
   try {
     const out = execSync(`npx -y ${MCP_FIXTURE_PACKAGE} --help`, {
       stdio: 'pipe',
-      timeout: 30_000,
+      // A cold `npx` on a Windows runner took ~30s on its own, so a 30s limit
+      // read as "no fixture" on some runs and not others — a skipped suite
+      // locally, a failed gate in CI.
+      timeout: 90_000,
       encoding: 'utf-8',
     });
     return out.includes('Everything Server Launcher');

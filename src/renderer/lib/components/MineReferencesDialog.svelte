@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { formatAccelerator } from '../command-palette/format-accelerator';
   /**
    * Review the LLM-parsed references before any stubs land on disk
    * (#106). Per CLAUDE.md trust principle, the LLM proposes,
@@ -132,7 +133,7 @@
         </div>
       {/if}
     {/snippet}
-    {#snippet footerLeft()}<span class="kbd-hint">esc · cancel · ⌘↵ approve</span>{/snippet}
+    {#snippet footerLeft()}<span class="kbd-hint">esc · cancel · {formatAccelerator('CmdOrCtrl+Return')} approve</span>{/snippet}
     {#snippet footerRight()}
       <button class="btn ghost" onclick={onCancel}>Cancel</button>
       <button class="btn primary" disabled={selectedCount === 0 || saving} onclick={apply}>

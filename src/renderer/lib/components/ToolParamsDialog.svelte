@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { formatAccelerator } from '../command-palette/format-accelerator';
   /**
    * Argument-entry modal for tools/skills that declare `parameters`. Replaces
    * the old bottom-panel "configure" form with a dismissable modal (the standard
@@ -116,12 +117,12 @@
         <div class="context-preview">Full note: {context.fullNoteTitle ?? 'Untitled'}</div>
       {/if}
     {/snippet}
-    {#snippet footerLeft()}<span class="kbd-hint">esc · cancel · ⌘↵ run</span>{/snippet}
+    {#snippet footerLeft()}<span class="kbd-hint">esc · cancel · {formatAccelerator('CmdOrCtrl+Return')} run</span>{/snippet}
     {#snippet footerRight()}
       <button class="btn secondary" onclick={onCancel}>Cancel</button>
       <button class="btn primary" onclick={run}>
         Run
-        <span class="btn-kbd">⌘↵</span>
+        <span class="btn-kbd">{formatAccelerator('CmdOrCtrl+Return')}</span>
       </button>
     {/snippet}
   </Dialog>

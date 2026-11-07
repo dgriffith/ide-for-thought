@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { formatAccelerator } from '../command-palette/format-accelerator';
   /**
    * Appearance settings panel (#1600) — extracted from SettingsDialog. Theme,
    * content font, editor font size, and window zoom. All apply LIVE (not on
@@ -89,7 +90,7 @@
           {/if}
         </select>
         <p class="hint">
-          You can also cycle themes from the status bar or with <kbd>⌘⇧T</kbd>.
+          You can also cycle themes from the status bar or with <kbd>{formatAccelerator('CmdOrCtrl+Shift+T')}</kbd>.
           Plugins can add themes; turning a plugin off while its theme is in use switches to System until it's back.
         </p>
         {#each pluginThemesStore.themes.filter((t) => t.mode === theme && t.warnings.length > 0) as t (t.mode)}
@@ -133,7 +134,7 @@
         </div>
         <p class="hint">
           Size of the text in the source editor only ({MIN_FONT}–{MAX_FONT}px). Also
-          adjustable with <kbd>⌘⇧=</kbd> / <kbd>⌘⇧-</kbd>.
+          adjustable with <kbd>{formatAccelerator('CmdOrCtrl+Shift+=')}</kbd> / <kbd>{formatAccelerator('CmdOrCtrl+Shift+-')}</kbd>.
         </p>
       </div>
       <div class="field">
@@ -153,7 +154,7 @@
         </div>
         <p class="hint">
           Scales the whole window — sidebar, toolbar, dialogs, and the editor together.
-          Also adjustable with <kbd>⌘+</kbd> / <kbd>⌘-</kbd> / <kbd>⌘0</kbd>.
+          Also adjustable with <kbd>{formatAccelerator('CmdOrCtrl+Plus')}</kbd> / <kbd>{formatAccelerator('CmdOrCtrl+-')}</kbd> / <kbd>{formatAccelerator('CmdOrCtrl+0')}</kbd>.
         </p>
       </div>
       <div class="field">
