@@ -115,9 +115,11 @@ test('the Kanban journey: a Project board, a card moved by pointer and by keyboa
       await win.getByRole('button', { name: 'Save as note' }).click();
       await win.locator('input[aria-labelledby="prompt-dialog-title"]').press('Enter'); // accept the suggested name
       const saved = path.join(projectDir, savedRel);
-      await expect.poll(() => fs.existsSync(saved), { timeout: 10_000 }).toBe(true);
-      const body = fs.readFileSync(saved, 'utf-8');
-      const spec = JSON.parse(/```object-view\n([\s\S]*?)\n```/.exec(body)![1]!) as Record<string, unknown>;
+      // Wait for the fence, not just the file: the file can exist before its
+      // contents land, and a read in between found no fence (Linux CI, #2182).
+      const fence = /```object-view\n([\s\S]*?)\n```/;
+      await expect.poll(() => (fs.existsSync(saved) ? fence.exec(fs.readFileSync(saved, 'utf-8'))?.[1] ?? null : null), { timeout: 10_000 }).not.toBeNull();
+      const spec = JSON.parse(fence.exec(fs.readFileSync(saved, 'utf-8'))![1]!) as Record<string, unknown>;
       expect(spec).toMatchObject({ typeId: 'project', layout: 'kanban', groupBy: 'status' });
     });
 
