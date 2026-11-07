@@ -35,6 +35,13 @@
    * style layers, so they survive the swap untouched — nothing to re-add.
    * MapLibre's attribution control re-reads the new style's sources on its own.
    *
+   * **No WebGL2, no map** (#3011): MapLibre throws from its constructor when
+   * the machine can't give it WebGL2 (a GPU-less VM, a remote desktop, a
+   * blocklisted driver). Then the view lists the located places instead, with
+   * one line saying why. Each row opens its note, previews on hover and takes
+   * the pin's right-click menu. An export hands back the places at once, so
+   * its table fallback (#2511) applies rather than a block that never settles.
+   *
    * Each marker is colored by the instance's own EXACT type (via
    * `objectTypesStore.typeForNote`), not the tab's type — a "Place" map
    * includes subclass instances (`rdfs:subClassOf*` in note-properties.ts),
@@ -47,7 +54,7 @@
   import { loadMapLibre } from '../map/load-maplibre';
   import { exportStyleUrl, mapStyleUrl, resolveMapStyle } from '../map/maplibre-style';
   import { MAP_STYLES, type MapStyle } from '../../../shared/objects/map-style';
-  import { MAP_EXPORT_ERROR_GRACE_MS, MAP_EXPORT_PIXEL_RATIO, MAP_EXPORT_TIMEOUT_MS, MAP_TILES_FAILED, attributionText, compositeMap, parseLatLng, type MapExportHooks, type MapPlace } from '../map/map-export';
+  import { MAP_EXPORT_ERROR_GRACE_MS, MAP_EXPORT_PIXEL_RATIO, MAP_EXPORT_TIMEOUT_MS, MAP_TILES_FAILED, attributionText, mapUnavailableReason, compositeMap, parseLatLng, type MapExportHooks, type MapPlace } from '../map/map-export';
   import { EMOJI_PIN_HEIGHT, EMOJI_PIN_OFFSET, createEmojiPinElement } from '../map/emoji-pin';
   import { objectTypesStore } from '../stores/object-types.svelte';
   import type { PropertyDef, TypeInfo, TypeInstanceRow } from '../../../shared/objects/type-def';
@@ -118,6 +125,9 @@
   let appliedStyleUrl: string | null = null;
   /** Markers placed and framed at least once — an export capture waits for it. */
   let placed = false;
+  /** Why MapLibre couldn't start here (#3011); the places are listed instead. */
+  let unavailable = $state<string | null>(null);
+  const listedPlaces = $derived(unavailable ? places() : []);
 
   /** Rebuilds every marker from the current `instances` prop. Re-run whenever
    *  the prop changes (a note added/edited/removed while this map is already
@@ -193,26 +203,14 @@
     void (async () => {
       const mod = await loadMapLibre();
       if (disposed || !container) return;
-      gl = mod;
-      if (exportHooks) {
-        map = new mod.Map({
-          container,
-          style: exportStyleUrl(mapStyle),
-          interactive: false,
-          attributionControl: false,
-          fadeDuration: 0,
-          pixelRatio: MAP_EXPORT_PIXEL_RATIO,
-          canvasContextAttributes: { preserveDrawingBuffer: true },
-        });
-        armExportCapture(map, exportHooks);
-      } else {
-        appliedStyleUrl = mapStyleUrl(mapStyle);
-        map = new mod.Map({
-          container,
-          style: appliedStyleUrl,
-        });
-        map.addControl(new mod.NavigationControl(), 'top-right');
+      try {
+        map = buildMap(mod, container);
+      } catch (err) {
+        unavailable = mapUnavailableReason(err);
+        exportHooks?.onCaptured({ ok: false, reason: unavailable, places: places() });
+        return;
       }
+      gl = mod;
       ready = true;
     })();
 
@@ -227,6 +225,29 @@
       ready = false;
     };
   });
+
+  /** The map, interactive or for an export. Throws when MapLibre can't run
+   *  here — no WebGL2 (#3011). */
+  function buildMap(mod: MapLibreModule, el: HTMLDivElement): maplibregl.Map {
+    if (exportHooks) {
+      const m = new mod.Map({
+        container: el,
+        style: exportStyleUrl(mapStyle),
+        interactive: false,
+        attributionControl: false,
+        fadeDuration: 0,
+        pixelRatio: MAP_EXPORT_PIXEL_RATIO,
+        canvasContextAttributes: { preserveDrawingBuffer: true },
+      });
+      armExportCapture(m, exportHooks);
+      return m;
+    }
+    const url = mapStyleUrl(mapStyle);
+    const m = new mod.Map({ container: el, style: url });
+    appliedStyleUrl = url;
+    m.addControl(new mod.NavigationControl(), 'top-right');
+    return m;
+  }
 
   /**
    * Each style source as LOADED — where a TileJSON-backed source (OpenFreeMap's
@@ -332,9 +353,40 @@
 </script>
 
 <div class="type-view-map-wrap" class:dark-tiles={resolvedStyle === 'dark'}>
-  <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-  <div class="type-view-map" bind:this={container} role="application" aria-label="Map" tabindex="0"></div>
-  {#if onMapStyleChange && !exportHooks}
+  {#if unavailable}
+    <div class="map-unavailable">
+      <p class="map-unavailable-note">No map: {unavailable}.{listedPlaces.length > 0 ? ' Its places are listed instead.' : ''}</p>
+      {#if listedPlaces.length > 0}
+        <ul class="map-places" aria-label="Places">
+          {#each listedPlaces as place (place.path)}
+            <li>
+              <button
+                type="button"
+                class="map-place"
+                aria-describedby={!exportHooks && hover.current?.key === place.path ? hoverId : undefined}
+                onclick={() => onOpenNote(place.path)}
+                oncontextmenu={(e) => {
+                  if (exportHooks || !onPinContextMenu) return;
+                  e.stopPropagation();
+                  hover.close();
+                  onPinContextMenu(e, place.path);
+                }}
+                onpointerenter={(e) => { if (!exportHooks) hover.pointerEnter({ key: place.path, target: place.path, anchor: e.currentTarget, fallbackTitle: place.title }); }}
+                onpointerleave={() => { if (!exportHooks) hover.pointerLeave(place.path); }}
+              >
+                <span class="map-place-title">{place.title}</span>
+                <span class="map-place-coords">{place.lat.toFixed(4)}, {place.lng.toFixed(4)}</span>
+              </button>
+            </li>
+          {/each}
+        </ul>
+      {/if}
+    </div>
+  {:else}
+    <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+    <div class="type-view-map" bind:this={container} role="application" aria-label="Map" tabindex="0"></div>
+  {/if}
+  {#if onMapStyleChange && !exportHooks && !unavailable}
     <div class="map-style-switch" role="group" aria-label="Map style">
       {#each MAP_STYLES as s (s)}
         <button
@@ -368,6 +420,44 @@
     height: 100%;
     min-height: 0;
     background: var(--bg-inset);
+  }
+
+  /* The places, when there's no map (#3011): a plain list, a quiet note above. */
+  .map-unavailable {
+    height: 100%;
+    overflow: auto;
+    padding: 12px 16px;
+    background: var(--bg-inset);
+  }
+  .map-unavailable-note {
+    margin: 0 0 8px;
+    color: var(--text-muted);
+    font-size: 12px;
+  }
+  .map-places {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .map-place {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    padding: 4px 6px;
+    border: none;
+    border-radius: 4px;
+    background: none;
+    color: var(--text);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  .map-place:hover { background: var(--bg-button-hover); }
+  .map-place:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .map-place-coords {
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
   }
 
   /* Enlarges each pin's hover/click target without changing its visual size
