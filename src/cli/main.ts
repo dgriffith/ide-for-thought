@@ -10,6 +10,7 @@
 // + fetch stack that triggers DEP0040 on load (side-effect import, order matters).
 import './suppress-punycode-warning';
 import { runCli } from './run';
+import { drained } from './drain';
 
 /** Read all of stdin (the `propose-note` note body). Returns '' at a TTY, so an
  *  interactive invocation without a pipe doesn't hang waiting for input. */
@@ -26,6 +27,9 @@ async function main(): Promise<void> {
   const result = await runCli(argv, { cwd: process.cwd(), stdin });
   if (result.stdout) process.stdout.write(result.stdout);
   if (result.stderr) process.stderr.write(result.stderr);
+  // Exit only once both are flushed: an asynchronous pipe (Windows, macOS)
+  // otherwise loses what's still queued — `mcp`'s last responses (#3023).
+  await Promise.all([drained(process.stdout), drained(process.stderr)]);
   process.exit(result.code);
 }
 

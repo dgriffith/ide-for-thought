@@ -152,6 +152,7 @@ test('packaged CLI: mcp answers tools/list and a semantic_search call', async ()
     try { msg = JSON.parse(line) as { id: number }; } catch { throw new Error(`a non-JSON line on the protocol channel: ${JSON.stringify(line)}\n${describeRun(r)}`); }
     byId.set(msg.id, msg);
   }
+  expect([...byId.keys()].sort(), `every request answered\n${describeRun(r)}`).toEqual([1, 2, 3]);
   expect(byId.get(2)?.result?.tools?.length, describeRun(r)).toBeGreaterThan(0);
   const call = byId.get(3)?.result;
   expect(call?.isError, `semantic_search failed over MCP: ${call?.content?.[0]?.text}`).not.toBe(true);

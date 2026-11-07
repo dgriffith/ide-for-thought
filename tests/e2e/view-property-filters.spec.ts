@@ -73,7 +73,14 @@ test('a map filtered to Prague shows only Prague; Save as note keeps the filter 
     await test.step('the chip removes the filter', async () => {
       // The view's tab, by its title: "Place" alone also matches the saved
       // note's tab, "Place map", and either can come first (#2748).
-      await win.locator('.tab-switch[title="Type: place"]').click();
+      // Wait for the switch itself: the saved note's embed also reads "2 of 3"
+      // but has no filter controls (#2534), so a click lost to a re-render let
+      // the count pass and the chip never come (macOS CI, #3017).
+      const viewTab = win.locator('.tab-switch[title="Type: place"]');
+      await expect(async () => {
+        await viewTab.click();
+        await expect(viewTab).toHaveAttribute('aria-current', 'page', { timeout: 1_000 });
+      }).toPass({ timeout: 10_000 });
       await expect(win.locator('.tv-count')).toHaveText('2 of 3');
       await win.getByRole('button', { name: 'Remove filter City: Prague' }).click();
       await expect(win.locator('.type-view-map .maplibregl-marker')).toHaveCount(3);
