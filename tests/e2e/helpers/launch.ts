@@ -171,6 +171,15 @@ export function launchMinerva(opts: LaunchOptions & { executablePath?: undefined
  */
 export const APPKIT_LAUNCH_ARGS: readonly string[] = process.platform === 'darwin' ? ['-ApplePersistenceIgnoreState', 'YES'] : [];
 
+/**
+ * Software WebGL on Linux (#2179). CI's Linux runner draws to Xvfb with no
+ * GPU, and Chromium no longer falls back to SwiftShader for WebGL unless told
+ * to — so MapLibre, which needs WebGL2, threw `GPUInitializationError` and
+ * every map spec found no pins. The switch only permits the fallback: a
+ * machine with a GPU still uses it.
+ */
+export const SOFTWARE_GL_LAUNCH_ARGS: readonly string[] = process.platform === 'linux' ? ['--enable-unsafe-swiftshader'] : [];
+
 export async function launchMinerva(opts: LaunchOptions): Promise<ElectronApplication | PackagedMinerva> {
   const { userDataDir, executablePath, env = {}, args = [], nodeArgs = [], timeout = 60_000 } = opts;
   const userDataArg = `--user-data-dir=${userDataDir}`;
@@ -180,9 +189,9 @@ export async function launchMinerva(opts: LaunchOptions): Promise<ElectronApplic
   // the time went (#2458).
   const app = await test.step(executablePath ? 'launch Minerva (packaged)' : 'launch Minerva', () =>
     executablePath
-      ? launchPackaged(executablePath, [userDataArg, ...APPKIT_LAUNCH_ARGS, ...args], launchEnv, timeout)
+      ? launchPackaged(executablePath, [userDataArg, ...APPKIT_LAUNCH_ARGS, ...SOFTWARE_GL_LAUNCH_ARGS, ...args], launchEnv, timeout)
       : electron.launch({
-        args: [...nodeArgs, projectRoot, userDataArg, ...APPKIT_LAUNCH_ARGS, ...args],
+        args: [...nodeArgs, projectRoot, userDataArg, ...APPKIT_LAUNCH_ARGS, ...SOFTWARE_GL_LAUNCH_ARGS, ...args],
         cwd: projectRoot,
         timeout,
         env: launchEnv,

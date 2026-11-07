@@ -45,7 +45,12 @@ async function launch() {
     path.join(userDataDir, 'session.json'),
     JSON.stringify([{ x: 80, y: 80, width: 1200, height: 800, rootPath: projectDir }]),
   );
-  const app = await launchMinerva({ userDataDir, env: { MINERVA_E2E: '1' } });
+  // Fake capture devices, so the frame's getUserMedia reaches the permission
+  // check on any runner. With no microphone at all (CI's Linux runner) it
+  // fails NotFoundError before permission is ever asked, which proves nothing
+  // about the refusal (#2179). The fake devices don't grant anything — that
+  // is `--use-fake-ui-for-media-stream`, which this must never pass.
+  const app = await launchMinerva({ userDataDir, env: { MINERVA_E2E: '1' }, args: ['--use-fake-device-for-media-stream'] });
   const cleanup = () => {
     for (const d of [userDataDir, projectDir, pluginDir, outsideDir]) fs.rmSync(d, { recursive: true, force: true });
   };

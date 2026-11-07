@@ -122,6 +122,13 @@ describe('e2e launch hygiene (#1928)', () => {
     expect(APPKIT_LAUNCH_ARGS).toEqual(process.platform === 'darwin' ? ['-ApplePersistenceIgnoreState', 'YES'] : []);
   });
 
+  it('every Linux launch may fall back to software WebGL, so a GPU-less runner still draws maps (#2179)', async () => {
+    const src = fs.readFileSync(HELPER, 'utf8');
+    expect(src.match(/\.\.\.APPKIT_LAUNCH_ARGS, \.\.\.SOFTWARE_GL_LAUNCH_ARGS/g)?.length ?? 0).toBe(2);
+    const { SOFTWARE_GL_LAUNCH_ARGS } = await import('../e2e/helpers/launch');
+    expect(SOFTWARE_GL_LAUNCH_ARGS).toEqual(process.platform === 'linux' ? ['--enable-unsafe-swiftshader'] : []);
+  });
+
   // #2466: scrubbing credentials still left the real HOME, so a local run read
   // the developer's ~/.minerva/ — user skills, menu config, and MCP servers the
   // app then spawned. CI's HOME is empty, so nothing there could notice.
