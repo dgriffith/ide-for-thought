@@ -14,7 +14,7 @@
   import { objectTypesStore } from '../stores/object-types.svelte';
   import { PROPERTY_TYPES, titleCase, type PropertyDef, type PropertyType } from '../../../shared/objects/type-def';
   import { COLOR_SWATCHES, DEFAULT_SWATCH, toHex6 } from '../../../shared/color-swatches';
-  import { HAS_EMOJI_PANEL, IS_MAC } from '../utils/platform';
+  import { HAS_EMOJI_PANEL } from '../utils/platform';
   import type { TypeInfo } from '../../../shared/objects/type-def';
   import {
     TEMPLATE_BUILTIN_CHIPS,
