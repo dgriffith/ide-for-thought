@@ -91,6 +91,12 @@ overrides:
 # unless every package with a build script is explicitly declared. Setting
 # these to `true` would be a real behavior change (scripts that have never
 # run start running) and is out of scope for a package-manager version bump.
+#
+# electron-winstaller (the Squirrel maker's, #2181): reviewed and allowed. Its
+# install script (`script/select-7z-arch.js`) copies the host arch's bundled
+# `vendor/7z-<arch>.exe` / `.dll` to `vendor/7z.exe` / `.dll`, inside its own
+# package, and nothing else. Squirrel packs the installer with that 7z.exe, so
+# without it `pnpm build` on Windows can't make one.
 allowBuilds:
   electron: true
   esbuild: true
@@ -100,6 +106,7 @@ allowBuilds:
   onnxruntime-node: false
   protobufjs: false
   tesseract.js: false
+  electron-winstaller: true
 
 # pnpm 12 defaults to blocking git-resolved subdependencies as a supply-chain
 # guard. `@electron/rebuild` (used by electron-forge's native-module rebuild

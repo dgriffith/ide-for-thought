@@ -273,9 +273,13 @@ installed apps aren't offered it).
 - **Apple Silicon only.** The CI runner is arm64 and the DuckDB native binding
   is per-arch (#962). An Intel Mac can't run this DMG.
 - **Linux packages ride along (#2182).** `build-linux` makes an x64 `.deb` and
-  `.rpm` in parallel with the mac build, and `publish-linux` attaches them to
-  the same draft once both are green (so a draft can briefly show only the mac
-  files). They're in the `minerva-linux-x64` artifact on a manual run.
+  `.rpm` in parallel with the mac build, and `build-windows` the Squirrel
+  installer (#2181): `… Setup.exe`, plus the `-full.nupkg` and `RELEASES` the
+  Windows update feed reads. `publish-packages` attaches both platforms' files
+  to the same draft once all three builds are green (so a draft can briefly
+  show only the mac files). On a manual run they're in the `minerva-linux-x64`
+  and `minerva-windows-x64` artifacts. The Windows installer is unsigned until
+  #2183, so SmartScreen warns on first run.
 - The auto-generated notes diff against the previous tag, so a 2.0 alpha's
   changelog will be enormous. Harmless on a draft; trim it if you publish.
 

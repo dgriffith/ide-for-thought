@@ -4,6 +4,7 @@ import { MakerZIP } from '@electron-forge/maker-zip';
 import { MakerDMG } from '@electron-forge/maker-dmg';
 import { MakerDeb } from '@electron-forge/maker-deb';
 import { MakerRpm } from '@electron-forge/maker-rpm';
+import { MakerSquirrel } from '@electron-forge/maker-squirrel';
 import { FusesPlugin } from '@electron-forge/plugin-fuses';
 import { FuseVersion } from '@electron/fuses';
 import path from 'node:path';
@@ -263,12 +264,23 @@ const config: ForgeConfig = {
   //    downloaded package. No auto-update: update.electronjs.org serves macOS
   //    and Windows only, so a Linux user upgrades by installing the next one
   //    (#2184). The binary is `minerva` (`executableName` above).
-  //  - Windows: none yet (#2181).
+  //  - Windows x64 (#2181): a Squirrel.Windows installer (`… Setup.exe`)
+  //    plus the `-full.nupkg` and `RELEASES` that update.electronjs.org
+  //    serves as the Windows update feed (#2184), the way the ZIP is for
+  //    macOS. A per-user install, no admin prompt; the app makes its own
+  //    shortcuts when the installer launches it (squirrel-events.ts). No MSI.
+  //    Unsigned until #2183, so SmartScreen warns on first run.
   makers: [
     new MakerZIP({}, ['darwin']),
     new MakerDMG({ icon: path.resolve(process.cwd(), 'assets', 'Minerva.icns') }),
     new MakerDeb({ options: linuxPackageOptions() }, ['linux']),
     new MakerRpm({ options: { ...linuxPackageOptions(), license: 'MIT' } }, ['linux']),
+    new MakerSquirrel({
+      authors: 'Dave Griffith',
+      description: 'A markdown IDE for knowledge bases backed by an RDF graph',
+      setupIcon: path.resolve(process.cwd(), 'assets', 'Minerva.ico'),
+      noMsi: true,
+    }, ['win32']),
   ],
   plugins: [
     // Electron fuses (#2366): bits baked into the Electron binary while

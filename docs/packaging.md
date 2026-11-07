@@ -122,10 +122,24 @@ equivalent — and with no auto-update (update.electronjs.org serves macOS and
 Windows only, #2184). Asar integrity is off on Linux, where Electron doesn't
 check it (`scripts/lib/electron-fuses.mjs`, #2981). `release.yml`'s
 `build-linux` job builds, fuse-checks and smoke-boots it under Xvfb, and
-`publish-linux` attaches both packages to the draft release, with fixed-name
-copies `Minerva-linux-x64.deb` / `.rpm`.
+`publish-packages` attaches both packages to the draft release, with
+fixed-name copies `Minerva-linux-x64.deb` / `.rpm`.
 
-**Windows** — no maker yet (#2181).
+**Windows (#2181)** — `pnpm build` on Windows makes a Squirrel.Windows
+installer (`MakerSquirrel`, no MSI) in `out/make/squirrel.windows/x64/`:
+`… Setup.exe`, the `-full.nupkg`, and `RELEASES`. The last two are the update
+feed update.electronjs.org serves (#2184), so a release must carry all three.
+Setup is a per-user install into `%LOCALAPPDATA%\minerva`, no admin prompt.
+The installer runs the app with `--squirrel-install` / `-updated` /
+`-uninstall` / `-obsolete`; `src/main/squirrel-events.ts` answers with
+`Update.exe --createShortcut` / `--removeShortcut` and quits, before any window
+or lock. Asar integrity stays on (its hash is a resource in the exe).
+Unsigned until #2183. `build:e2e`'s `NODE_OPTIONS=…` prefix is POSIX shell, so
+on Windows run `node scripts/prep.mjs` then `pnpm exec electron-forge package`
+with `NODE_OPTIONS` set. `ci.yml`'s `package-windows` job packages, boots,
+installs, uses and uninstalls it on every PR; `release.yml`'s `build-windows`
+builds it, and `publish-packages` attaches it with a fixed-name copy
+`Minerva-win-x64-Setup.exe`.
 
 ### 6. Code signing posture (#2565)
 
