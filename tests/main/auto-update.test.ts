@@ -9,7 +9,7 @@
  * tiny emitter we drive to simulate feed events.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 const h = vi.hoisted(() => {
   const listeners: Record<string, Array<(...args: unknown[]) => void>> = {};
@@ -31,6 +31,7 @@ const h = vi.hoisted(() => {
     showMessageBoxSync: vi.fn(() => 1), // default: 'Later'
     notificationShow: vi.fn(),
     notificationSupported: true,
+    openExternal: vi.fn(),
   };
 });
 
@@ -51,6 +52,7 @@ vi.mock('electron', () => {
       showMessageBoxSync: h.showMessageBoxSync,
     },
     Notification,
+    shell: { openExternal: h.openExternal },
   };
 });
 
@@ -64,9 +66,23 @@ import {
   quitAndInstallUpdate,
   setUpdateStateListener,
   _resetUpdateStateForTest,
+  RELEASES_URL,
+  updatesInApp,
 } from '../../src/main/auto-update';
 
+/** Run `fn` with `process.platform` forced. */
+async function onPlatform(value: NodeJS.Platform, fn: () => unknown): Promise<void> {
+  const original = Object.getOwnPropertyDescriptor(process, 'platform')!;
+  Object.defineProperty(process, 'platform', { ...original, value });
+  try { await fn(); } finally { Object.defineProperty(process, 'platform', original); }
+}
+
+// The in-app updater runs on macOS and Windows only (#2184): pin macOS so
+// these tests mean the same on a Linux or Windows host; the per-platform
+// block at the end sets its own.
+const realPlatform = Object.getOwnPropertyDescriptor(process, 'platform')!;
 beforeEach(() => {
+  Object.defineProperty(process, 'platform', { ...realPlatform, value: 'darwin' });
   h.isPackaged = false;
   h.updateElectronApp.mockReset();
   h.autoUpdater.checkForUpdates.mockReset();
@@ -75,9 +91,11 @@ beforeEach(() => {
   h.showMessageBoxSync.mockReset().mockReturnValue(1);
   h.notificationShow.mockReset();
   h.notificationSupported = true;
+  h.openExternal.mockReset();
   setUpdateStateListener(() => {});
   _resetUpdateStateForTest();
 });
+afterEach(() => { Object.defineProperty(process, 'platform', realPlatform); });
 
 describe('initAutoUpdate', () => {
   it('does nothing when the app is not packaged (dev)', () => {
@@ -180,5 +198,51 @@ describe('quitAndInstallUpdate', () => {
     h.showMessageBoxSync.mockReturnValue(1); // 'Later'
     quitAndInstallUpdate();
     expect(h.autoUpdater.quitAndInstall).not.toHaveBeenCalled();
+  });
+});
+
+describe('per platform (#2184)', () => {
+  it('macOS and Windows update in the app; Linux by installing the next package', () => {
+    expect(updatesInApp('darwin')).toBe(true);
+    expect(updatesInApp('win32')).toBe(true);
+    expect(updatesInApp('linux')).toBe(false);
+  });
+
+  it('on Windows the packaged app starts the same updater as on macOS', async () => {
+    h.isPackaged = true;
+    await onPlatform('win32', () => initAutoUpdate());
+    expect(h.updateElectronApp).toHaveBeenCalledTimes(1);
+  });
+
+  it('on Linux nothing polls', async () => {
+    h.isPackaged = true;
+    await onPlatform('linux', () => initAutoUpdate());
+    expect(h.updateElectronApp).not.toHaveBeenCalled();
+  });
+
+  it('on Linux, Check for Updates… says how to update and offers the releases page', async () => {
+    h.isPackaged = true;
+    h.showMessageBox.mockResolvedValueOnce({ response: 0 });
+    await onPlatform('linux', async () => {
+      checkForUpdatesNow();
+      await vi.waitFor(() => expect(h.openExternal).toHaveBeenCalledWith(RELEASES_URL));
+    });
+    expect(h.autoUpdater.checkForUpdates).not.toHaveBeenCalled();
+    expect(h.showMessageBox).toHaveBeenCalledWith(expect.objectContaining({
+      message: "You're running Minerva 1.2.3",
+      buttons: ['Open Releases Page', 'OK'],
+      detail: expect.stringMatching(/\.deb or \.rpm/),
+    }));
+  });
+
+  it('on Linux, OK opens nothing', async () => {
+    h.isPackaged = true;
+    h.showMessageBox.mockResolvedValueOnce({ response: 1 });
+    await onPlatform('linux', async () => {
+      checkForUpdatesNow();
+      await vi.waitFor(() => expect(h.showMessageBox).toHaveBeenCalled());
+    });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(h.openExternal).not.toHaveBeenCalled();
   });
 });

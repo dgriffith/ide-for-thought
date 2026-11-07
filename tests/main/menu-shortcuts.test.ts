@@ -110,3 +110,24 @@ describe('getMenuShortcuts (#804)', () => {
     }
   });
 });
+
+describe('Check for Updates… on every platform (#2184)', () => {
+  type Item = { label?: string; submenu?: Item[] };
+  /** Top-level menu labels that hold a "Check for Updates…" item. */
+  function menusWithUpdates(platform: NodeJS.Platform): string[] {
+    const original = Object.getOwnPropertyDescriptor(process, 'platform')!;
+    Object.defineProperty(process, 'platform', { ...original, value: platform });
+    try {
+      const template = rebuildMenu() as Item[];
+      return template.filter((m) => (m.submenu ?? []).some((i) => i.label === 'Check for Updates…')).map((m) => m.label ?? '');
+    } finally {
+      Object.defineProperty(process, 'platform', original);
+    }
+  }
+
+  it('macOS has it in the app menu; Windows and Linux, which have none, in Help', () => {
+    expect(menusWithUpdates('darwin')).toEqual(['Minerva']);
+    expect(menusWithUpdates('win32')).toEqual(['Help']);
+    expect(menusWithUpdates('linux')).toEqual(['Help']);
+  });
+});

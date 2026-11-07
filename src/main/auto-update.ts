@@ -18,11 +18,27 @@
  * auto-update begins the moment a drafted release is published (see the
  * release runbook, #960). End-to-end apply is verified across two real
  * releases in #961.
+ *
+ * **Per platform (#2184).** macOS updates through Squirrel.Mac and the ZIP;
+ * Windows through Squirrel.Windows and the release's `RELEASES` + `.nupkg`
+ * (#2181) — the same feed and the same code here. **Linux has no in-app
+ * update**: update.electronjs.org and Electron's autoUpdater don't serve it,
+ * and a `.deb` / `.rpm` belongs to the system's package manager. So on Linux
+ * nothing polls, and Check for Updates… says how to update instead, with the
+ * releases page a click away.
  */
 
-import { app, autoUpdater, dialog, Notification } from 'electron';
+import { app, autoUpdater, dialog, Notification, shell } from 'electron';
 import { updateElectronApp } from 'update-electron-app';
 import { logger } from '../shared/logger';
+
+/** Where a Linux user gets the next package (#2184). */
+export const RELEASES_URL = 'https://github.com/dgriffith/ide-for-thought/releases/latest';
+
+/** Whether this platform updates in the app (macOS, Windows) or by installing a new package (Linux). */
+export function updatesInApp(platform: NodeJS.Platform = process.platform): boolean {
+  return platform === 'darwin' || platform === 'win32';
+}
 
 export type UpdateState =
   | 'idle'
@@ -67,7 +83,7 @@ function setState(next: UpdateState): void {
  * a warning: a broken updater must never crash the user's app on launch.
  */
 export function initAutoUpdate(): void {
-  if (!app.isPackaged) return;
+  if (!app.isPackaged || !updatesInApp()) return;
   try {
     wireEvents();
     updateElectronApp({
@@ -145,6 +161,10 @@ export function checkForUpdatesNow(): void {
     );
     return;
   }
+  if (!updatesInApp()) {
+    void linuxUpdateDialog();
+    return;
+  }
   // Already have a build staged — just offer to install it rather than re-check.
   if (state === 'downloaded') {
     promptRestart();
@@ -194,6 +214,19 @@ function notifyReady(): void {
   const notice = new Notification({ title: 'Update ready', body });
   notice.on('click', () => promptRestart());
   notice.show();
+}
+
+/** Linux (#2184): how to update, since nothing here can. */
+async function linuxUpdateDialog(): Promise<void> {
+  const { response } = await dialog.showMessageBox({
+    type: 'info',
+    message: `You're running Minerva ${app.getVersion()}`,
+    detail: 'On Linux, Minerva updates the way it was installed: download the newer .deb or .rpm from the releases page and install it over this one. Your thoughtbases and settings are kept.',
+    buttons: ['Open Releases Page', 'OK'],
+    defaultId: 0,
+    cancelId: 1,
+  });
+  if (response === 0) void shell.openExternal(RELEASES_URL);
 }
 
 function infoDialog(message: string, detail: string): Promise<unknown> {

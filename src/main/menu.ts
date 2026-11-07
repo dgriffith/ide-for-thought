@@ -170,6 +170,22 @@ export function rebuildMenu(): Electron.MenuItemConstructorOptions[] {
   return template;
 }
 
+/**
+ * Check for Updates… — "Checking…" and disabled while a check is in flight
+ * (#963) — and, once a build is staged, Restart to Install Update. On Linux
+ * the check explains how to update instead (#2184).
+ */
+function updateItems(): Electron.MenuItemConstructorOptions[] {
+  return [
+    {
+      label: getUpdateState() === 'checking' ? 'Checking for Updates…' : 'Check for Updates…',
+      enabled: getUpdateState() !== 'checking',
+      click: () => checkForUpdatesNow(),
+    },
+    ...(isUpdateDownloaded() ? [{ label: 'Restart to Install Update', click: () => quitAndInstallUpdate() }] : []),
+  ];
+}
+
 /** App menu (macOS only) — About, updates, Preferences, standard app roles. */
 function buildAppMenu(isMac: boolean): Electron.MenuItemConstructorOptions[] {
   if (!isMac) return [];
@@ -179,16 +195,7 @@ function buildAppMenu(isMac: boolean): Electron.MenuItemConstructorOptions[] {
       submenu: [
         command('app.about'),
         { type: 'separator' as const },
-        {
-          // "Checking…" (disabled) while a check is in flight (#963).
-          label: getUpdateState() === 'checking' ? 'Checking for Updates…' : 'Check for Updates…',
-          enabled: getUpdateState() !== 'checking',
-          click: () => checkForUpdatesNow(),
-        },
-        // Only present once a build is staged; installs on confirm+restart.
-        ...(isUpdateDownloaded()
-          ? [{ label: 'Restart to Install Update', click: () => quitAndInstallUpdate() }]
-          : []),
+        ...updateItems(),
         { type: 'separator' as const },
         command('app.settings'),
         { type: 'separator' as const },
@@ -780,12 +787,14 @@ function buildHelpMenu(isMac: boolean): Electron.MenuItemConstructorOptions {
             },
           ]
         : []),
-      // macOS keeps About in the app menu; Windows/Linux have no app menu,
-      // so About lives at the foot of Help (the platform convention).
+      // macOS keeps About and the update items in the app menu; Windows and
+      // Linux have no app menu, so they live at the foot of Help, the
+      // platform convention (#2184).
       ...(isMac
         ? []
         : [
             { type: 'separator' as const },
+            ...updateItems(),
             command('app.about'),
           ]),
     ],
