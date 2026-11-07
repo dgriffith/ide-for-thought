@@ -266,19 +266,17 @@ describe('EXPORT_CSV (#2055)', () => {
 });
 
 describe('SHELL_SHOW_EMOJI_PANEL', () => {
-  it('raises the native panel on macOS', () => {
+  it('raises the native panel on macOS and Windows (#2194)', () => {
     const h = handlers.get(Channels.SHELL_SHOW_EMOJI_PANEL)!;
     withPlatform('darwin', () => { h({}); });
-    expect(emojiPanelCalls.n).toBe(1);
+    withPlatform('win32', () => { h({}); });
+    expect(emojiPanelCalls.n).toBe(2);
   });
 
-  it('is a silent no-op off macOS — no throw, so a stray call cannot reject', () => {
-    // Electron only defines showEmojiPanel on darwin, and there's no
-    // cross-platform equivalent; the renderer hides the button elsewhere.
+  it('is a silent no-op on Linux — no throw, so a stray call cannot reject', () => {
+    // Linux has no system emoji panel; the renderer hides the button there.
     const h = handlers.get(Channels.SHELL_SHOW_EMOJI_PANEL)!;
-    for (const p of ['win32', 'linux']) {
-      withPlatform(p, () => { expect(() => h({})).not.toThrow(); });
-    }
+    withPlatform('linux', () => { expect(() => h({})).not.toThrow(); });
     expect(emojiPanelCalls.n).toBe(0);
   });
 });
