@@ -5,7 +5,15 @@
  * are ignored. What a command DOES is the shared action table's
  * (command-keymap.test.ts).
  */
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+
+// The keymap reads a command's key for this platform (#2986). Pinned to macOS,
+// as these tests were written, so they don't depend on the host; the off-mac
+// cases set it.
+const platform = vi.hoisted(() => ({ IS_MAC: true }));
+vi.mock('../../../src/renderer/lib/utils/platform', () => ({ get IS_MAC() { return platform.IS_MAC; } }));
+afterEach(() => { platform.IS_MAC = true; });
+
 import { handleKeydown, handlePluginKeydown, matchesAccelerator, type KeymapDeps } from '../../../src/renderer/lib/keymap/handle-keydown';
 
 function makeDeps(overrides: Partial<KeymapDeps> = {}): KeymapDeps & { run: ReturnType<typeof vi.fn> } {
@@ -66,6 +74,17 @@ describe('handleKeydown — dispatch', () => {
     handleKeydown(ingest, deps);
     expect(deps.run).toHaveBeenCalledTimes(1);
     expect(ingest.preventDefault).not.toHaveBeenCalled();
+  });
+
+  it('off macOS, Open Conversation is Ctrl+Shift+L, and Ctrl+Alt+C — AltGr+C, "ć" in Polish — types (#2986)', () => {
+    platform.IS_MAC = false;
+    const deps = makeDeps();
+    const altgr = { ...press('ć', { ctrl: true, alt: true }), metaKey: false, code: 'KeyC' } as unknown as KeyboardEvent;
+    handleKeydown(altgr, deps);
+    expect(deps.run).not.toHaveBeenCalled();
+    expect(altgr.preventDefault).not.toHaveBeenCalled();
+    handleKeydown({ ...press('L', { ctrl: true, shift: true }), metaKey: false }, deps);
+    expect(deps.run).toHaveBeenCalledExactlyOnceWith('learning.openConversation');
   });
 
   it('works with Ctrl as the modifier too', () => {

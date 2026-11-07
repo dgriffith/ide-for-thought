@@ -76,7 +76,8 @@ test('List Tools: a plugin command in the palette and the editor menu, run by it
     await test.step('on its own key, ⌘⌥⇧S (#2879)', async () => {
       await win.locator('.cm-content').click();
       await win.keyboard.press('ControlOrMeta+KeyA');
-      await win.keyboard.press('ControlOrMeta+Alt+Shift+KeyS');
+      // ⌘⌥⇧S on macOS; Ctrl+Shift+O elsewhere, where Ctrl+Alt is AltGr (#2986).
+      await win.keyboard.press(process.platform === 'darwin' ? 'Meta+Alt+Shift+KeyS' : 'Control+Shift+KeyO');
       await expect(lines).toHaveText(SORTED, { timeout: 15_000 });
       await win.keyboard.press('ControlOrMeta+KeyZ');
       await expect(lines).toHaveText(ORIGINAL);
