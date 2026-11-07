@@ -117,7 +117,7 @@ vi.mock('../../src/main/session', () => ({ saveSession: () => {}, loadSession: (
   'http://localhost:5173';
 (globalThis as unknown as { MAIN_WINDOW_VITE_NAME: string }).MAIN_WINDOW_VITE_NAME = 'main_window';
 
-import { createWindow } from '../../src/main/window-manager';
+import { createWindow, windowFrame } from '../../src/main/window-manager';
 import { _resetFirstPaintMarkForTests, BOOT_TIMING_ENV } from '../../src/main/boot-timing';
 
 /** `createWindow`'s return value, seen as the fake it actually is. */
@@ -134,6 +134,20 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers();
+});
+
+describe('the window frame per platform (#2191)', () => {
+  it('macOS draws its own title bar under the traffic lights; Windows and Linux get the native frame', () => {
+    expect(windowFrame('darwin')).toEqual({ titleBarStyle: 'hiddenInset', trafficLightPosition: { x: 12, y: 12 } });
+    // Off macOS a hidden title bar means no window controls and no menu bar.
+    expect(windowFrame('win32')).toEqual({});
+    expect(windowFrame('linux')).toEqual({});
+  });
+
+  it('createWindow uses it for this platform', () => {
+    const win = make();
+    expect(win.options.titleBarStyle).toBe(windowFrame(process.platform).titleBarStyle);
+  });
 });
 
 describe('createWindow first paint (#2223)', () => {
