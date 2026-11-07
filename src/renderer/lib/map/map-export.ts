@@ -39,6 +39,17 @@ export const MAP_EXPORT_TIMEOUT_MS = 20_000;
 export const MAP_EXPORT_ERROR_GRACE_MS = 3_000;
 /** Shown in place of the map; the raw network error means nothing to a reader. */
 export const MAP_TILES_FAILED = 'the map tiles could not be loaded — check your connection';
+/** Why there's no map at all (#3011): MapLibre refuses to start without
+ *  WebGL2 — a GPU-less VM, a remote desktop, a blocklisted driver. */
+export const MAP_NO_WEBGL = "this machine can't draw maps: they need WebGL2, which isn't available here";
+
+/** The reason to show when MapLibre's constructor threw (#3011). Its WebGL
+ *  error is a paragraph of advice for a web page's visitor, so it's replaced;
+ *  anything else is passed through as it came. */
+export function mapUnavailableReason(err: unknown): string {
+  const message = err instanceof Error ? err.message : String(err);
+  return /webgl/i.test(message) ? MAP_NO_WEBGL : `the map couldn't start (${message})`;
+}
 
 /** Parse a "<lat>,<lng>" geo value; null for missing/malformed (omitted, not
  *  errored — #2066). Shared by the live map and the export fallback. */
