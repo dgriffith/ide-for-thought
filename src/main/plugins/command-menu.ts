@@ -21,8 +21,9 @@ export interface PluginMenuCommand {
 export function pluginMenuCommands(): Map<PluginCommandMenu, PluginMenuCommand[]> {
   const all = activePluginCommands();
   const { keys } = resolvePluginKeys(all.map(({ pluginId, pluginName, command }) => ({
-    pluginId, pluginName, commandId: command.id, title: command.title, ...(command.key ? { key: command.key } : {}),
-  })));
+    pluginId, pluginName, commandId: command.id, title: command.title,
+    ...(command.key ? { key: command.key } : {}), ...(command.keyOffMac ? { keyOffMac: command.keyOffMac } : {}),
+  })), process.platform === 'darwin');
   const out = new Map<PluginCommandMenu, PluginMenuCommand[]>();
   for (const { pluginId, command } of all) {
     if (!command.menu) continue;

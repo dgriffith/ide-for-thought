@@ -30,11 +30,16 @@
     if (href) void api.shell.openExternal(href);
   }
 
-  /** A plugin command's shortcut another plugin already has (#2879), in words. */
-  const keyConflicts = $derived(codePluginsStore.commandKeys().conflicts);
+  /** A plugin command's shortcut another plugin already has (#2879), or one
+   *  that would catch AltGr typing here (#2986), in words. */
+  const commandKeys = $derived(codePluginsStore.commandKeys());
   function conflictsOf(id: string): string[] {
-    return keyConflicts.filter((c) => c.pluginId === id)
-      .map((c) => `"${c.title}" has no shortcut: ${formatAccelerator(c.key)} is ${c.takenBy}'s.`);
+    return [
+      ...commandKeys.conflicts.filter((c) => c.pluginId === id)
+        .map((c) => `"${c.title}" has no shortcut: ${formatAccelerator(c.key)} is ${c.takenBy}'s.`),
+      ...commandKeys.refused.filter((c) => c.pluginId === id)
+        .map((c) => `"${c.title}" has no shortcut here: ${formatAccelerator(c.key)} is AltGr on this keyboard, which types characters like @ and €.`),
+    ];
   }
 
   const plugins = getPluginsStore();

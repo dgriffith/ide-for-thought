@@ -40,7 +40,7 @@ function steps(): Step[] {
 const isTagCheck = (s: Step) => /check-release-tag/.test(s.run ?? '');
 const isBuild = (s: Step) => /electron-forge (make|package)|pnpm build/.test(s.run ?? '');
 
-/** Each job that builds a release — build-macos, and build-linux since #2182. */
+/** Each job that builds a release — build-macos, build-linux (#2182), build-windows (#2181). */
 function buildingJobs(): Array<[string, Step[]]> {
   return Object.entries(release().jobs ?? {})
     .map(([id, j]): [string, Step[]] => [id, j.steps ?? []])
@@ -54,7 +54,7 @@ describe('release.yml verifies the pushed tag (#2245)', () => {
 
   it('runs the tag check in every job that builds (#2182)', () => {
     const jobs = buildingJobs();
-    expect(jobs.map(([id]) => id)).toEqual(expect.arrayContaining(['build-macos', 'build-linux']));
+    expect(jobs.map(([id]) => id)).toEqual(expect.arrayContaining(['build-macos', 'build-linux', 'build-windows']));
     for (const [id, jobSteps] of jobs) {
       expect(
         jobSteps.filter(isTagCheck).length,
@@ -93,7 +93,7 @@ describe('release.yml verifies the pushed tag (#2245)', () => {
         'the tag must not be interpolated into the run: script',
       ).not.toContain('${{ github.ref_name }}');
     }
-    // Nor anywhere else: publish-linux's upload takes the tag the same way.
+    // Nor anywhere else: publish-packages' upload takes the tag the same way.
     for (const step of steps()) expect(step.run ?? '', step.name).not.toContain('${{ github.ref_name }}');
   });
 

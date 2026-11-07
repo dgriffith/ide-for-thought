@@ -9,7 +9,7 @@
  * tiny emitter we drive to simulate feed events.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 const h = vi.hoisted(() => {
   const listeners: Record<string, Array<(...args: unknown[]) => void>> = {};
@@ -77,7 +77,12 @@ async function onPlatform(value: NodeJS.Platform, fn: () => unknown): Promise<vo
   try { await fn(); } finally { Object.defineProperty(process, 'platform', original); }
 }
 
+// The in-app updater runs on macOS and Windows only (#2184): pin macOS so
+// these tests mean the same on a Linux or Windows host; the per-platform
+// block at the end sets its own.
+const realPlatform = Object.getOwnPropertyDescriptor(process, 'platform')!;
 beforeEach(() => {
+  Object.defineProperty(process, 'platform', { ...realPlatform, value: 'darwin' });
   h.isPackaged = false;
   h.updateElectronApp.mockReset();
   h.autoUpdater.checkForUpdates.mockReset();
@@ -90,6 +95,7 @@ beforeEach(() => {
   setUpdateStateListener(() => {});
   _resetUpdateStateForTest();
 });
+afterEach(() => { Object.defineProperty(process, 'platform', realPlatform); });
 
 describe('initAutoUpdate', () => {
   it('does nothing when the app is not packaged (dev)', () => {

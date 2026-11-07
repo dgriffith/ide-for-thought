@@ -132,8 +132,19 @@ describe('each platform measures its own artifacts (#2182)', () => {
     expect(Object.keys(found).sort()).toEqual(['deb', 'rpm']);
   });
 
+  it('Windows needs the Squirrel installer and its update payload (#2181)', () => {
+    const files: Record<string, string[]> = { '/w': ['minerva-4.0.0-full.nupkg', 'Minerva-4.0.0 Setup.exe', 'RELEASES'] };
+    const found = findArtifacts('/w', {
+      readdirSync: ((dir: string) => (files[posix(dir)] ?? []).map((name) => ({ name, isDirectory: () => false }))) as never,
+      statSync: (() => ({ size: 5 * MB })) as never,
+      platform: 'win32',
+    });
+    expect(Object.keys(found).sort()).toEqual(['nupkg', 'setupExe']);
+    expect(compare({ setupExe: found.setupExe! }, {}, 'win32').missing.map((m) => m.key)).toEqual(['nupkg']);
+  });
+
   it('a platform with no release artifacts is an error, not an empty pass', () => {
-    expect(() => kindsFor('win32')).toThrow(/no release artifacts/);
+    expect(() => kindsFor('freebsd')).toThrow(/no release artifacts/);
   });
 });
 

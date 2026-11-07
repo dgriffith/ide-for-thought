@@ -16,7 +16,8 @@
  */
 import { api } from '../ipc/client';
 import { logger } from '../../../shared/logger';
-import { resolvePluginKeys, type PluginKeyConflict } from '../../../shared/plugins/command-keys';
+import { resolvePluginKeys, type PluginKeyConflict, type PluginKeyRefusal } from '../../../shared/plugins/command-keys';
+import { IS_MAC } from '../utils/platform';
 import type { PluginBlock, PluginCommand, PluginSummary, PluginView, PluginViewPlace } from '../../../shared/plugins/format';
 import type { PluginBlockSyntax } from '../../../shared/live-blocks';
 
@@ -144,10 +145,11 @@ export const codePluginsStore = {
    * The keys plugin commands keep (#2879), by the rule main's menu uses
    * (`resolvePluginKeys`): the first plugin to claim a key has it. Reactive.
    */
-  commandKeys(): { keys: Map<string, string>; conflicts: PluginKeyConflict[] } {
+  commandKeys(): { keys: Map<string, string>; conflicts: PluginKeyConflict[]; refused: PluginKeyRefusal[] } {
     return resolvePluginKeys(codePluginsStore.allCommands().map(({ pluginId, pluginName, command }) => ({
-      pluginId, pluginName, commandId: command.id, title: command.title, ...(command.key ? { key: command.key } : {}),
-    })));
+      pluginId, pluginName, commandId: command.id, title: command.title,
+      ...(command.key ? { key: command.key } : {}), ...(command.keyOffMac ? { keyOffMac: command.keyOffMac } : {}),
+    })), IS_MAC);
   },
   /** Every command, with the key it kept (#2879): the palette's list. Reactive. */
   keyedCommands(): (ActivePluginCommand & { key?: string })[] {

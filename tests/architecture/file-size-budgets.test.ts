@@ -91,7 +91,7 @@ const BUDGETS: Record<string, number> = { // +16: each day named from its conten
   // repo's dev-docs folder and how the parity test keeps it honest) and the
   // Command Palette item, whose comment explains that adding the item IS the
   // documentation fix — Keyboard Shortcuts derives from this template.
-  'src/main/menu.ts': 846, // +5: File → New Audio Recording (#2428); −174: menu commands moved onto the command registry (#2625); +8: a Saved Queries section per plugin (#2633); +6: plugin themes in View → Theme (#2787); +3: Python's kernel items only while the built-in Python plugin is on (#2822); +4: the menu bar's plugin commands (#2879); +9: the update items in Help off macOS, shared with the app menu (#2184)
+  'src/main/menu.ts': 849, // +5: File → New Audio Recording (#2428); −174: menu commands moved onto the command registry (#2625); +8: a Saved Queries section per plugin (#2633); +6: plugin themes in View → Theme (#2787); +3: Python's kernel items only while the built-in Python plugin is on (#2822); +4: the menu bar's plugin commands (#2879); +3: Developer Tools on F12 off macOS, where its own key is Ingest URL's (#2986); +9: the update items in Help off macOS, shared with the app menu (#2184)
   'src/renderer/lib/components/sidebar/NotesPanel.svelte': 635, // the Notes tree, extracted from Sidebar.svelte (982 → 360) when the left sidebar became a panel registry (#2626)
   'src/renderer/lib/app/refactor-ops.svelte.ts': 654, // −270: the tag and property actions moved to note-action-ops.svelte.ts (#2783), which the sidebar and every view share
   // Raised again in #2208: the staleness check became two queries (sort a

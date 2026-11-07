@@ -34,6 +34,7 @@ import { LIVE_DIRECTIVE_OPENERS, LIVE_FENCE_LANGS } from '../../shared/live-bloc
 import { RUNNABLE_LANGUAGE_SET } from '../../shared/compute/fences';
 import { validateExporters, validateIngestors, validateInspections } from './code-io-schema';
 import { minervaKeys, normalizeAccelerator } from '../../shared/plugins/command-keys';
+import { capturesAltGr } from '../../shared/altgr';
 
 /** Lowercase letters and digits in dash-separated words: `reading-list`, `lab2`. */
 export const PLUGIN_ID = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
@@ -46,7 +47,7 @@ const isId = (id: string) => PLUGIN_ID.test(id) && id.length <= MAX_PLUGIN_ID;
 const KNOWN_KEYS = new Set(['$schema', 'id', 'name', 'version', 'minerva', 'description', 'author', 'license', 'contributes', 'settings', 'mcpServers', 'code']);
 /** What a `code` section may hold (#2823). Entry points join it with the frame (#2824) and the worker host (#2830). */
 const CODE_KEYS = new Set(['capabilities', 'api', 'views', 'blocks', 'worker', 'commands', 'ingestors', 'exporters', 'inspections']);
-const COMMAND_KEYS = new Set(['id', 'title', 'when', 'editorMenu', 'menu', 'key', 'run']);
+const COMMAND_KEYS = new Set(['id', 'title', 'when', 'editorMenu', 'menu', 'key', 'keyOffMac', 'run']);
 const COMMAND_RUN_KINDS = ['handler', 'skill', 'query', 'view', 'mcpTool'] as const;
 /** Most commands one plugin may add (#2643). */
 export const MAX_PLUGIN_COMMANDS = 32;
@@ -385,6 +386,17 @@ function validateCommands(raw: unknown, has: CommandHas, problems: string[]): Pl
       else if (out.some((o) => o.key === normal)) problems.push(`"code.commands" gives ${normal} to two commands.`);
       else key = normal;
     }
+    // Windows and Linux (#2986): Ctrl+Alt is AltGr there, so a key that would
+    // catch its characters needs another, and that one can't be such a key.
+    let keyOffMac: string | undefined;
+    if (c.keyOffMac !== undefined) {
+      const normal = typeof c.keyOffMac === 'string' ? normalizeAccelerator(c.keyOffMac) : null;
+      if (!normal) problems.push(`"${at}.keyOffMac" must be a shortcut with CmdOrCtrl, like "CmdOrCtrl+Shift+L"; got ${JSON.stringify(c.keyOffMac)}.`);
+      else if (capturesAltGr(normal)) problems.push(`"${at}.keyOffMac" is ${normal}, which on Windows and Linux is AltGr and types characters; use CmdOrCtrl or CmdOrCtrl+Shift with the key.`);
+      else if (minervaKeys().has(normal)) problems.push(`"${at}.keyOffMac" is ${normal}, which Minerva uses itself.`);
+      else if (out.some((o) => (o.keyOffMac ?? o.key) === normal)) problems.push(`"code.commands" gives ${normal} to two commands on Windows and Linux.`);
+      else keyOffMac = normal;
+    }
     const run = validateCommandRun(c.run, `${at}.run`, has, problems);
     if (problems.length > before || !run) return;
     out.push({
@@ -392,6 +404,7 @@ function validateCommands(raw: unknown, has: CommandHas, problems: string[]): Pl
       ...(c.editorMenu === true ? { editorMenu: true } : {}),
       ...(menu !== undefined ? { menu: menu as PluginCommandMenu } : {}),
       ...(key !== undefined ? { key } : {}),
+      ...(keyOffMac !== undefined ? { keyOffMac } : {}),
       run,
     });
   });
