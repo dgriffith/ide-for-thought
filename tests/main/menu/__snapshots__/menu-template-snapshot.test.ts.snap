@@ -6,7 +6,7 @@ exports[`the menu bar (#2625) > with a thoughtbase open, a note active and text 
   ---
   Check for Updates… → checkForUpdatesNow
   ---
-  Preferences… [Cmd+,] → send menu:command ["app.settings"]
+  Settings… [CmdOrCtrl+,] → send menu:command ["app.settings"]
   ---
   (role services)
   ---
@@ -201,7 +201,7 @@ exports[`the menu bar (#2625) > with no thoughtbase open 1`] = `
   ---
   Check for Updates… → checkForUpdatesNow
   ---
-  Preferences… [Cmd+,] → send menu:command ["app.settings"]
+  Settings… [CmdOrCtrl+,] → send menu:command ["app.settings"]
   ---
   (role services)
   ---
