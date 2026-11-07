@@ -20,8 +20,12 @@
  * one is refused, so a third-party plugin can't stand in for a built-in one.
  */
 import type { PluginManifest } from '../../shared/plugins/format';
+import { acceleratorLabel } from '../../shared/accelerator-label';
 import { validatePluginManifest } from './manifest';
 import { loadPluginRecordsSync, updatePluginRecords, updatePluginRecordsSync, type PluginRecords } from './state';
+
+/** A shortcut as this platform's user presses it, for the descriptions below (#2987). */
+const key = (accelerator: string): string => acceleratorLabel(accelerator, process.platform);
 
 export interface CorePluginDefinition {
   /** Its `plugin.json`, as written. */
@@ -112,7 +116,7 @@ const CORE_PLUGIN_DEFINITIONS: readonly CorePluginDefinition[] = [
       description: [
         "Show a type view as a board: a column per option of a choice property, cards you drag between them.",
         "",
-        "Pick **Kanban** in a type view's layouts. Choose which property to group by, drag cards between columns to change it, and drag within a column to set your own order. Columns can be reordered and empty ones hidden. Right-click a card for its tags and properties, or **Move to ▸**. ⌘Z undoes the last move.",
+        `Pick **Kanban** in a type view's layouts. Choose which property to group by, drag cards between columns to change it, and drag within a column to set your own order. Columns can be reordered and empty ones hidden. Right-click a card for its tags and properties, or **Move to ▸**. ${key('CmdOrCtrl+Z')} undoes the last move.`,
         "",
         "## Security",
         "",
@@ -165,7 +169,7 @@ const CORE_PLUGIN_DEFINITIONS: readonly CorePluginDefinition[] = [
       description: [
         "Show a type view as a month grid: each dated note on its day, dragged to another day to reschedule it.",
         "",
-        "Pick **Calendar** in a type view's layouts, for any type with a date property. Multi-day notes run as bars; notes dated only to a month or year sit in bands above the grid. Drag an event to another day, or right-click it and choose **Move to date…** to pick a day with the keyboard or type one. ⌘Z undoes the last move.",
+        `Pick **Calendar** in a type view's layouts, for any type with a date property. Multi-day notes run as bars; notes dated only to a month or year sit in bands above the grid. Drag an event to another day, or right-click it and choose **Move to date…** to pick a day with the keyboard or type one. ${key('CmdOrCtrl+Z')} undoes the last move.`,
         "",
         "## Security",
         "",
@@ -230,7 +234,7 @@ const CORE_PLUGIN_DEFINITIONS: readonly CorePluginDefinition[] = [
       version: '1.0.0',
       minerva: '>=4.0.0',
       description: [
-        "Sort the Markdown list in your selection, from the command palette, the Edit menu, the editor's right-click menu or ⌘⌥⇧S. Nested items move with their parent.",
+        `Sort the Markdown list in your selection, from the command palette, the Edit menu, the editor's right-click menu or ${key('CmdOrCtrl+Alt+Shift+S')}. Nested items move with their parent.`,
         "",
         "Select a list and run **Sort List in Selection**. Its outermost items sort by their text, ignoring case, checkboxes and list markers, with numbers in numeric order (\"item 2\" before \"item 10\"). Each item keeps its nested items and continuation lines, and an ordered list is renumbered.",
         "",
@@ -241,7 +245,7 @@ const CORE_PLUGIN_DEFINITIONS: readonly CorePluginDefinition[] = [
         "Its code runs in a sandboxed worker, with no network and no file access.",
         "",
         "- It sees only the text you selected, and returns the sorted text. Minerva puts it back only if that text is still selected and unchanged, so a stale result can't overwrite an edit.",
-        "- The change is an ordinary edit in your editor: ⌘Z undoes it.",
+        `- The change is an ordinary edit in your editor: ${key('CmdOrCtrl+Z')} undoes it.`,
       ].join('\n'),
       contributes: {},
       code: {

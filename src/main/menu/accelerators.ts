@@ -7,22 +7,12 @@
  * template (which DOES need Electron); this module only reads it back.
  */
 import type { MenuItemConstructorOptions } from 'electron';
+import { acceleratorLabel } from '../../shared/accelerator-label';
 
 /** Render an Electron accelerator string for display on the current platform
  *  (⌘⇧S on macOS, Ctrl+Shift+S elsewhere). */
 export function formatAccelerator(accelerator: string, platform: NodeJS.Platform = process.platform): string {
-  const isMac = platform === 'darwin';
-  const mac: Record<string, string> = {
-    CmdOrCtrl: '⌘', Cmd: '⌘', Command: '⌘', Ctrl: '⌃', Control: '⌃',
-    Alt: '⌥', Option: '⌥', Shift: '⇧', Super: '⌘', Plus: '+', Minus: '−',
-  };
-  const other: Record<string, string> = {
-    CmdOrCtrl: 'Ctrl', Cmd: 'Ctrl', Command: 'Ctrl', Ctrl: 'Ctrl', Control: 'Ctrl',
-    Alt: 'Alt', Option: 'Alt', Shift: 'Shift', Super: 'Win', Plus: '+', Minus: '−',
-  };
-  const map = isMac ? mac : other;
-  const tokens = accelerator.split('+').map((t) => map[t] ?? t);
-  return isMac ? tokens.join('') : tokens.join('+');
+  return acceleratorLabel(accelerator, platform);
 }
 
 /**

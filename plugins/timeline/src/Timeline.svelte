@@ -591,7 +591,6 @@
     cursor: pointer;
   }
   .tl-btn:hover { border-color: var(--accent); }
-  .tl-btn[aria-pressed='true'] { border-color: var(--accent); background: color-mix(in oklch, var(--accent) 18%, var(--bg-button)); }
   .tl-stage { position: relative; flex: 1; min-height: 120px; }
   .tl-viewport { position: absolute; inset: 0; overflow-x: hidden; overflow-y: auto; background: var(--bg); }
   .tl-pannable { touch-action: none; cursor: grab; }

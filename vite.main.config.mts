@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import { execSync } from 'node:child_process';
+import { onwarn } from './scripts/lib/build-warnings.mjs';
 
 // Stamp the build with the current commit + date so the About dialog (#803)
 // can show what's running. Resolved at config-eval time (Node); a packaged
@@ -21,6 +22,8 @@ export default defineConfig({
   },
   build: {
     rollupOptions: {
+      // Known-harmless warnings dropped one by one (#2977).
+      onwarn,
       // Kept as runtime `require`s rather than bundled:
       // - `canvas`: linkedom's optional canvas integration tries
       //   `require('canvas')` and falls back to an internal shim when it's
