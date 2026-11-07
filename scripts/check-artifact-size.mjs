@@ -60,14 +60,33 @@ export function formatMb(bytes) {
   return `${(bytes / MB).toFixed(1)} MB`;
 }
 
-/** Artifacts to measure, by extension, with the role each one plays. */
-const KINDS = [
-  { ext: '.zip', key: 'zip', role: 'Squirrel.Mac auto-update payload — every user downloads this for every release' },
-  { ext: '.dmg', key: 'dmg', role: 'human-downloadable installer' },
-];
+/**
+ * Artifacts to measure on each platform's release job, by extension, with the
+ * role each one plays. Linux's (#2182) have no update role: nothing
+ * downloads them automatically, so a byte there costs one download per
+ * install, not one per user per release.
+ */
+const KINDS_BY_PLATFORM = {
+  darwin: [
+    { ext: '.zip', key: 'zip', role: 'Squirrel.Mac auto-update payload — every user downloads this for every release' },
+    { ext: '.dmg', key: 'dmg', role: 'human-downloadable installer' },
+  ],
+  linux: [
+    { ext: '.deb', key: 'deb', role: 'Debian/Ubuntu package' },
+    { ext: '.rpm', key: 'rpm', role: 'Fedora/RHEL package' },
+  ],
+};
+
+/** The kinds a release on `platform` must produce. */
+export function kindsFor(platform = 'darwin') {
+  const kinds = KINDS_BY_PLATFORM[platform];
+  if (!kinds) throw new Error(`no release artifacts are defined for ${platform}`);
+  return kinds;
+}
 
 /** Find one artifact per kind under `dir`, recursively. */
-export function findArtifacts(dir, { readdirSync = fs.readdirSync, statSync = fs.statSync } = {}) {
+export function findArtifacts(dir, { readdirSync = fs.readdirSync, statSync = fs.statSync, platform = 'darwin' } = {}) {
+  const KINDS = kindsFor(platform);
   const found = {};
   const walk = (current) => {
     for (const entry of readdirSync(current, { withFileTypes: true })) {
@@ -95,7 +114,8 @@ export function findArtifacts(dir, { readdirSync = fs.readdirSync, statSync = fs
  * Returns `{ grown, shrunk, missing }` rather than throwing, so the same logic
  * is testable without a 240 MB file on disk.
  */
-export function compare(found, budgets) {
+export function compare(found, budgets, platform = 'darwin') {
+  const KINDS = kindsFor(platform);
   const grown = [];
   const shrunk = [];
   const missing = [];
@@ -129,7 +149,9 @@ function main() {
   const budgets = fs.existsSync(BUDGET_FILE)
     ? JSON.parse(fs.readFileSync(BUDGET_FILE, 'utf-8'))
     : {};
-  const found = findArtifacts(dir);
+  const platform = process.platform;
+  const KINDS = kindsFor(platform);
+  const found = findArtifacts(dir, { platform });
 
   for (const kind of KINDS) {
     const a = found[kind.key];
@@ -151,7 +173,8 @@ function main() {
       'measured — compression output varies a little between runners, and a gate that ' +
       'fails on that noise is one people re-bless without reading. The .zip is the Squirrel.Mac ' +
       'auto-update payload — Squirrel has no delta mechanism, so every installed user ' +
-      'downloads all of it for every point release. The check fails when an artifact ' +
+      'downloads all of it for every point release. The .deb and .rpm are the Linux packages (#2182), ' +
+      'measured by the Linux release job. The check fails when an artifact ' +
       `grows past its budget, and when one falls more than ${SHRINK_SLACK_MB} MB below ` +
       'it (lower the number so the win is held). Re-bless with ' +
       '`node scripts/check-artifact-size.mjs out/make --update`.';
@@ -161,7 +184,7 @@ function main() {
     return;
   }
 
-  const { grown, shrunk, missing } = compare(found, budgets);
+  const { grown, shrunk, missing } = compare(found, budgets, platform);
 
   if (missing.length > 0) {
     for (const kind of missing) {

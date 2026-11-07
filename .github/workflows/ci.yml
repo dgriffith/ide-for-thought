@@ -773,6 +773,35 @@ jobs:
           find "$UNPACKED" -name 'libduckdb.so' | grep -q . \
             || { echo "::error::no libduckdb.so under $UNPACKED — the asar unpack glob in forge.config.ts misses it"; exit 1; }
 
+      # The Linux makers (#2182), on every PR rather than only on release day —
+      # the B-H1 gap release.yml was written to close, where a maker regression
+      # stayed invisible until a tag. `--from-package` reuses the app the step
+      # above packaged, so it costs the makers' time only.
+      - name: Install rpmbuild
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq rpm
+
+      - name: Make the .deb and .rpm from the packaged app
+        run: pnpm exec electron-forge make --from-package
+
+      # Installed the way a user would, then used: `minerva sql` opens DuckDB
+      # from /usr/lib/minerva, so the binding, its unpacked .so (#2185) and the
+      # /usr/bin symlink the package writes are all exercised for real.
+      - name: Install the .deb and run its CLI
+        run: |
+          set -euo pipefail
+          sudo apt-get install -y -qq ./out/make/deb/x64/*.deb
+          command -v minerva
+          tb="$(mktemp -d)"
+          printf '# Hello\n' > "$tb/hello.md"
+          out="$(xvfb-run --auto-servernum minerva --minerva-cli -- sql 'SELECT 6 * 7 AS answer' --project "$tb")"
+          echo "$out"
+          grep -q 42 <<<"$out" || { echo "::error::the installed minerva didn't answer a SQL query"; exit 1; }
+
+      # Sizes, against build/artifact-size-budget.json once the Linux packages
+      # have budgets; until then each is printed and passes.
+      - name: Linux package sizes
+        run: node scripts/check-artifact-size.mjs out/make
+
       # The same report and budget as the macOS job. While the job is
       # advisory, a breach shows here and in the job's own red X, not the run.
       - name: E2E flake report

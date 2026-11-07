@@ -179,7 +179,18 @@ test('a note with every live kind exports each one rendered, no raw source left 
           // Set after loading, every time: Electron shares a zoom level across
           // an origin's pages, so one window's zoom would carry to the next.
           w.webContents.setZoomFactor(zoomFactor);
-          await w.webContents.executeJavaScript('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))');
+          // Then wait for layout to have it. Two animation frames weren't
+          // always enough: on Linux CI the narrow pass measured a 1970px
+          // viewport in a 1000px window, the previous window's 0.5 still in
+          // effect (#2182). The CSS width the zoom implies is the signal.
+          const cssWidth = Math.round(w.getContentSize()[0]! / zoomFactor);
+          await w.webContents.executeJavaScript(`new Promise((resolve) => {
+            const start = performance.now();
+            const tick = () => (Math.abs(window.innerWidth - ${cssWidth}) <= 2 || performance.now() - start > 5000)
+              ? requestAnimationFrame(() => resolve(undefined))
+              : requestAnimationFrame(tick);
+            tick();
+          })`);
           return await w.webContents.executeJavaScript(`(() => {
             const frame = document.querySelector('.minerva-live-frame').getBoundingClientRect();
             const p = [...document.querySelectorAll('article p')].find((el) => el.textContent === 'Plain text keeps its reading width.').getBoundingClientRect();

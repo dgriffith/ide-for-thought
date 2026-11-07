@@ -11,7 +11,7 @@
  * 240 MB file on disk.
  */
 import { describe, it, expect } from 'vitest';
-import { compare, findArtifacts, formatMb } from '../../scripts/check-artifact-size.mjs';
+import { compare, findArtifacts, formatMb, kindsFor } from '../../scripts/check-artifact-size.mjs';
 import { posix } from '../helpers/posix-path';
 
 const MB = 1024 * 1024;
@@ -102,6 +102,38 @@ describe('findArtifacts', () => {
     const found = findArtifacts('/make', { readdirSync, statSync });
     expect(found.zip?.file).toContain('Minerva-darwin-arm64-2.0.2.zip');
     expect(found.dmg?.file).toContain('Minerva-2.0.2-arm64.dmg');
+  });
+});
+
+describe('each platform measures its own artifacts (#2182)', () => {
+  it('Linux needs a .deb and an .rpm, not the macOS pair', () => {
+    expect(kindsFor('linux').map((k) => k.ext)).toEqual(['.deb', '.rpm']);
+    const { missing } = compare({ deb: { file: 'a.deb', bytes: 90 * MB } }, {}, 'linux');
+    expect(missing.map((m) => m.key)).toEqual(['rpm']);
+  });
+
+  it('a Linux package with no budget yet is measured, not failed', () => {
+    const r = compare({ deb: { file: 'a.deb', bytes: 90 * MB }, rpm: { file: 'a.rpm', bytes: 91 * MB } }, { zip: 1, dmg: 1 }, 'linux');
+    expect(r).toEqual({ grown: [], shrunk: [], missing: [] });
+  });
+
+  it('a Linux package past its budget fails like a DMG', () => {
+    const r = compare({ deb: { file: 'a.deb', bytes: 100 * MB }, rpm: { file: 'a.rpm', bytes: 90 * MB } }, { deb: 95 * MB, rpm: 95 * MB }, 'linux');
+    expect(r.grown.map((g) => g.kind.key)).toEqual(['deb']);
+  });
+
+  it('finds the Linux packages and ignores a DMG beside them', () => {
+    const files: Record<string, string[]> = { '/d': ['minerva_4.0.0_amd64.deb', 'minerva-4.0.0-1.x86_64.rpm', 'stray.dmg'] };
+    const found = findArtifacts('/d', {
+      readdirSync: ((dir: string) => (files[posix(dir)] ?? []).map((name) => ({ name, isDirectory: () => false }))) as never,
+      statSync: (() => ({ size: 5 * MB })) as never,
+      platform: 'linux',
+    });
+    expect(Object.keys(found).sort()).toEqual(['deb', 'rpm']);
+  });
+
+  it('a platform with no release artifacts is an error, not an empty pass', () => {
+    expect(() => kindsFor('win32')).toThrow(/no release artifacts/);
   });
 });
 
