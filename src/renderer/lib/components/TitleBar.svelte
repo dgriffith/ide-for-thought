@@ -1,5 +1,6 @@
 <script lang="ts">
   import { formatAccelerator } from '../command-palette/format-accelerator';
+  import { IS_MAC } from '../utils/platform';
   import Icon from './Icon.svelte';
 
   interface Props {
@@ -43,19 +44,19 @@
   });
 </script>
 
-<div class="titlebar">
+<div class="titlebar" class:native-frame={!IS_MAC}>
   <div class="nav-arrows">
     <button
       class="nav-btn"
       disabled={!canGoBack}
       onclick={onNavBack}
-      title="Back (Cmd+[)"
+      title="Back ({formatAccelerator('CmdOrCtrl+[')})"
     ><Icon name="back" size={15} /></button>
     <button
       class="nav-btn"
       disabled={!canGoForward}
       onclick={onNavForward}
-      title="Forward (Cmd+])"
+      title="Forward ({formatAccelerator('CmdOrCtrl+]')})"
     ><Icon name="forward" size={15} /></button>
   </div>
 
@@ -78,7 +79,7 @@
   </div>
 
   <div class="right-cluster">
-    <button class="search-box" onclick={onOpenGotoNote} title="Quick Open (Cmd+P) — fuzzy-match notes, sources, queries">
+    <button class="search-box" onclick={onOpenGotoNote} title="Quick Open ({formatAccelerator('CmdOrCtrl+P')}) — fuzzy-match notes, sources, queries">
       <Icon name="search" size={13} color="var(--appbar-text-muted)" />
       <span class="search-placeholder">Quick Open…</span>
       <span class="search-kbd">{formatAccelerator('CmdOrCtrl+P')}</span>
@@ -117,6 +118,12 @@
     padding-left: 80px;
     padding-right: 14px;
     position: relative;
+  }
+  /* Windows and Linux (#2191): the native frame sits above this bar, so there
+     are no traffic lights to clear and nothing for this bar to drag. */
+  .titlebar.native-frame {
+    -webkit-app-region: no-drag;
+    padding-left: 14px;
   }
 
   /* Nav cluster — back/forward arrows */
