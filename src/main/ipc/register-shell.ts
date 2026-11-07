@@ -16,15 +16,43 @@ const LAUNCHABLE_EXTENSIONS = new Set([
   '.url', '.webloc', '.inetloc', '.fileloc',
 ]);
 
+/**
+ * What else the Windows shell runs, installs, mounts or imports when a file is
+ * opened (#2984): Microsoft's blocked-attachment list (Outlook and Defender's
+ * "unsafe file types"), minus what's already above. Windows only — on macOS and
+ * Linux most of these just open in an editor or don't open at all. Any
+ * extension in the user's `PATHEXT` counts as well.
+ */
+const WINDOWS_LAUNCHABLE_EXTENSIONS = new Set([
+  '.ade', '.adp', '.application', '.appref-ms', '.asp', '.aspx', '.asx', '.bas', '.bgi', '.cab', '.cer',
+  '.chm', '.cnt', '.cpl', '.crt', '.der', '.diagcab', '.fxp', '.gadget', '.grp', '.hlp', '.hpj', '.hta', '.htc',
+  '.inf', '.ins', '.isp', '.its', '.jnlp', '.mad', '.maf', '.mag', '.mam', '.maq', '.mar', '.mas', '.mat',
+  '.mau', '.mav', '.maw', '.mcf', '.mda', '.mdb', '.mde', '.mdt', '.mdw', '.mdz', '.msc', '.msh', '.msh1',
+  '.msh2', '.mshxml', '.msh1xml', '.msh2xml', '.msp', '.mst', '.msu', '.ops', '.osd', '.pcd', '.pif', '.plg',
+  '.prf', '.prg', '.printerexport', '.ps1xml', '.ps2', '.ps2xml', '.psc1', '.psc2', '.psd1', '.psm1', '.pst',
+  '.pyc', '.pyo', '.pyz', '.pyzw', '.reg', '.scf', '.scr', '.sct', '.shb', '.shs', '.theme', '.vb', '.vbe',
+  '.vbp', '.vhd', '.vhdx', '.vsmacros', '.vsw', '.webpnp', '.website', '.ws', '.wsc', '.wsh', '.xbap', '.xll', '.xnk',
+]);
+
 /** True for a file that opening would run: an app/script type, or anything executable. */
-export function isLaunchable(fullPath: string): boolean {
-  if (LAUNCHABLE_EXTENSIONS.has(path.extname(fullPath).toLowerCase())) return true;
+export function isLaunchable(
+  fullPath: string,
+  platform: NodeJS.Platform = process.platform,
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  const ext = path.extname(fullPath).toLowerCase();
+  if (LAUNCHABLE_EXTENSIONS.has(ext)) return true;
+  if (platform === 'win32' && ext) {
+    if (WINDOWS_LAUNCHABLE_EXTENSIONS.has(ext)) return true;
+    const pathExt = (env.PATHEXT ?? '').toLowerCase().split(';').filter(Boolean);
+    if (pathExt.includes(ext)) return true;
+  }
   const st = statSync(fullPath, { throwIfNoEntry: false });
   if (!st) return false;
   // A bundle directory (`Foo.app/`) is caught by its extension above; any
   // other directory just opens in the file manager.
   if (st.isDirectory()) return false;
-  return process.platform !== 'win32' && (st.mode & 0o111) !== 0;
+  return platform !== 'win32' && (st.mode & 0o111) !== 0;
 }
 
 export function registerShell(): void {
