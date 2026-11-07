@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { formatAccelerator } from '../command-palette/format-accelerator';
   /**
    * Floating dictation indicator (#voice, Phase 2).
    *
@@ -45,7 +46,7 @@
     {:else}
       <span class="dot pulse"></span>
       <span class="label">Listening<span class="ell">…</span></span>
-      <span class="hint">⌘⇧V insert · esc cancel</span>
+      <span class="hint">{formatAccelerator('CmdOrCtrl+Shift+V')} insert · esc cancel</span>
       <button class="pill-btn primary" onclick={() => void toggleEditorDictation(null)}>Insert</button>
       <button class="pill-btn" onclick={() => cancelEditorDictation()}>Cancel</button>
     {/if}

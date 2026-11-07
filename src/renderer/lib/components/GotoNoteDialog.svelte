@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { formatAccelerator } from '../command-palette/format-accelerator';
   import type { NoteFile, SourceMetadata, SavedQuery } from '../../../shared/types';
   import { displaySourceTitle } from '../../../shared/source-display';
   import Icon from './Icon.svelte';
@@ -246,7 +247,7 @@
         class="input"
         {placeholder}
       />
-      <Kbd>⌘ P</Kbd>
+      <Kbd>{formatAccelerator('CmdOrCtrl+P')}</Kbd>
     </div>
 
     {#if multiScope}

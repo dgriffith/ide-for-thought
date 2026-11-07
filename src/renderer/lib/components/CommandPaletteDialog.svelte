@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { formatAccelerator } from '../command-palette/format-accelerator';
   /**
    * Command palette (#463). Fuzzy-matches across the host-supplied
    * command registry; renders results with recently-used floated
@@ -128,7 +129,7 @@
         class="input"
         placeholder="Type a command…"
       />
-      <Kbd>⌘ ⇧ P</Kbd>
+      <Kbd>{formatAccelerator('CmdOrCtrl+K')}</Kbd>
     </div>
 
     {#if results.length > 0}

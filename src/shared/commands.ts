@@ -137,7 +137,7 @@ export const COMMANDS = [
   { id: 'refactor.autoLinkInbound', title: 'Auto-link Inbound', category: 'Refactor', palette: { when: 'note' }, menu: { label: 'Auto-link inbound…', gate: NOTE } },
   { id: 'refactor.decompose', title: 'Decompose into Claims', category: 'Refactor', palette: { when: 'note' }, menu: { label: 'Decompose Note…', gate: NOTE } },
   { id: 'refactor.format', title: 'Format', category: 'Refactor', palette: { when: 'note' },
-    menu: { toolTip: 'Format the active note, or every note in the left-sidebar selection (use ⌘-click / shift-click to multi-select, ⌘-A to select all).' } },
+    menu: { toolTip: 'Format the active note, or every note in the left-sidebar selection (Cmd/Ctrl-click or Shift-click to multi-select, Cmd/Ctrl+A to select all).' } },
   // ── Research ──
   { id: 'research.ingestUrl', title: 'Ingest URL as Source…', category: 'Research', key: 'CmdOrCtrl+Shift+I', palette: { when: 'project' }, menu: {} },
   { id: 'research.ingestIdentifier', title: 'Ingest Identifier…', category: 'Research', key: 'CmdOrCtrl+Shift+D', palette: { when: 'project' }, menu: {} },
