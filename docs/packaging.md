@@ -111,21 +111,21 @@ required check) — a red X on a main commit there means x64 broke, not that
 main did. An arm64 build can't be tested on an Intel runner "under Rosetta":
 Rosetta translates x86_64 → arm64 only.
 
-### 5. Windows / Linux
+### 5. Linux and Windows
 
-Same commands work cross-platform:
+**Linux (#2182)** — `pnpm build` on Linux makes an x64 `.deb` and `.rpm`
+(`MakerDeb` / `MakerRpm`, scoped to `linux`). The rpm maker needs `rpmbuild`
+(`sudo apt-get install rpm` on Ubuntu). The packaged binary is `minerva`
+(`executableName`), beside a `resources/` folder; `scripts/lib/packaged-app.mjs`
+is where every script and spec finds it. Unsigned — Linux has no Gatekeeper
+equivalent — and with no auto-update (update.electronjs.org serves macOS and
+Windows only, #2184). Asar integrity is off on Linux, where Electron doesn't
+check it (`scripts/lib/electron-fuses.mjs`, #2981). `release.yml`'s
+`build-linux` job builds, fuse-checks and smoke-boots it under Xvfb, and
+`publish-linux` attaches both packages to the draft release, with fixed-name
+copies `Minerva-linux-x64.deb` / `.rpm`.
 
-```bash
-# on Windows: produces .exe + Squirrel installer
-pnpm build
-# on Linux: produces .AppImage / .deb / .rpm depending on makers
-pnpm build
-```
-
-The `MakerZIP` is registered for all three platforms, so at minimum
-each yields a ZIP under `out/make/zip/<platform>/<arch>/`. Add
-`MakerSquirrel` (Windows) or `MakerDeb` / `MakerRpm` (Linux) to
-`forge.config.ts` if you want first-class installers per platform.
+**Windows** — no maker yet (#2181).
 
 ### 6. Code signing posture (#2565)
 

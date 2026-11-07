@@ -38,37 +38,47 @@ function steps(): Step[] {
 }
 
 const isTagCheck = (s: Step) => /check-release-tag/.test(s.run ?? '');
+const isBuild = (s: Step) => /electron-forge (make|package)|pnpm build/.test(s.run ?? '');
+
+/** Each job that builds a release — build-macos, and build-linux since #2182. */
+function buildingJobs(): Array<[string, Step[]]> {
+  return Object.entries(release().jobs ?? {})
+    .map(([id, j]): [string, Step[]] => [id, j.steps ?? []])
+    .filter(([, s]) => s.some(isBuild));
+}
 
 describe('release.yml verifies the pushed tag (#2245)', () => {
   it('parses and has steps — an empty scan would pass vacuously', () => {
     expect(steps().length).toBeGreaterThan(10);
   });
 
-  it('runs the tag check', () => {
-    const found = steps().filter(isTagCheck);
-    expect(
-      found.length,
-      'release.yml must run scripts/check-release-tag.mjs — the tag is the one ' +
-      'release input nothing else validates (#2245)',
-    ).toBe(1);
+  it('runs the tag check in every job that builds (#2182)', () => {
+    const jobs = buildingJobs();
+    expect(jobs.map(([id]) => id)).toEqual(expect.arrayContaining(['build-macos', 'build-linux']));
+    for (const [id, jobSteps] of jobs) {
+      expect(
+        jobSteps.filter(isTagCheck).length,
+        `${id} must run scripts/check-release-tag.mjs — the tag is the one ` +
+        'release input nothing else validates (#2245)',
+      ).toBe(1);
+    }
   });
 
   it('runs it on tag pushes', () => {
     // Guarded rather than unconditional, unlike the lockfile gate (#2244):
     // `workflow_dispatch` on a branch has no tag to check, and failing there
     // would block a deliberate manual build.
-    const step = steps().find(isTagCheck)!;
-    expect(step.if).toContain("refs/tags/");
+    for (const step of steps().filter(isTagCheck)) expect(step.if).toContain("refs/tags/");
   });
 
   it('runs BEFORE the build, so a bad tag fails in seconds not minutes', () => {
     // A signed, notarized build of the wrong version costs ~15 minutes and
     // produces artifacts that must not be published.
-    const all = steps();
-    const checkAt = all.findIndex(isTagCheck);
-    const buildAt = all.findIndex((s) => /electron-forge (make|package)|pnpm build/.test(s.run ?? ''));
-    expect(checkAt).toBeGreaterThanOrEqual(0);
-    if (buildAt >= 0) expect(checkAt).toBeLessThan(buildAt);
+    for (const [id, jobSteps] of buildingJobs()) {
+      const checkAt = jobSteps.findIndex(isTagCheck);
+      expect(checkAt, id).toBeGreaterThanOrEqual(0);
+      expect(checkAt, id).toBeLessThan(jobSteps.findIndex(isBuild));
+    }
   });
 
   it('passes the tag as an env var, never interpolated into the shell', () => {
@@ -76,12 +86,15 @@ describe('release.yml verifies the pushed tag (#2245)', () => {
     // hold shell metacharacters. Interpolating `${{ github.ref_name }}`
     // directly into `run:` is the classic Actions script-injection shape, so
     // it arrives through `env:` and reaches the script as an argv.
-    const step = steps().find(isTagCheck)!;
-    expect(step.env?.TAG, 'the tag should come in through env:').toContain('github.ref_name');
-    expect(
-      step.run,
-      'the tag must not be interpolated into the run: script',
-    ).not.toContain('${{ github.ref_name }}');
+    for (const step of steps().filter(isTagCheck)) {
+      expect(step.env?.TAG, 'the tag should come in through env:').toContain('github.ref_name');
+      expect(
+        step.run,
+        'the tag must not be interpolated into the run: script',
+      ).not.toContain('${{ github.ref_name }}');
+    }
+    // Nor anywhere else: publish-linux's upload takes the tag the same way.
+    for (const step of steps()) expect(step.run ?? '', step.name).not.toContain('${{ github.ref_name }}');
   });
 
   it('the script it calls exists and is executable by node', () => {

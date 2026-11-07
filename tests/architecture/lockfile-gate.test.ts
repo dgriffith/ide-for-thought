@@ -83,7 +83,7 @@ describe('every installing job verifies the lockfile first (#2244)', () => {
     // PRs (#2432), `pr-bench.yml` with one from the start (#2386), and
     // `lint-and-test-linux` / `-windows` with one from the start (#2178,
     // #2180), and `lint` when it moved off the macOS job (2026-11-03), and
-    // `e2e-linux` (#2179). Listed
+    // `e2e-linux` (#2179), and release.yml's `build-linux` (#2182). Listed
     // so a future reader doesn't re-derive this.
     expect(installing.map((j) => `${j.file}:${j.job}`).sort()).toEqual([
       'bench.yml:bench',
@@ -96,6 +96,7 @@ describe('every installing job verifies the lockfile first (#2244)', () => {
       'ci.yml:lint-and-test-windows',
       'ci.yml:x64-smoke',
       'pr-bench.yml:pr-bench',
+      'release.yml:build-linux',
       'release.yml:build-macos',
     ]);
   });

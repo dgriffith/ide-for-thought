@@ -2,6 +2,8 @@ import type { ForgeConfig } from '@electron-forge/shared-types';
 import { VitePlugin } from '@electron-forge/plugin-vite';
 import { MakerZIP } from '@electron-forge/maker-zip';
 import { MakerDMG } from '@electron-forge/maker-dmg';
+import { MakerDeb } from '@electron-forge/maker-deb';
+import { MakerRpm } from '@electron-forge/maker-rpm';
 import { FusesPlugin } from '@electron-forge/plugin-fuses';
 import { FuseVersion } from '@electron/fuses';
 import path from 'node:path';
@@ -172,6 +174,24 @@ const signing = forgeSigningConfig(signingDecision, {
   entitlements: path.resolve(process.cwd(), 'build', 'entitlements.mac.plist'),
 });
 
+/**
+ * What a Linux package says about itself (#2182), shared by the deb and rpm
+ * makers. `bin` is the binary's name in the package (`executableName`), and
+ * the desktop entry the installers write launches it with the icon below.
+ */
+function linuxPackageOptions() {
+  return {
+    bin: LINUX_EXECUTABLE_NAME,
+    productName: 'Minerva',
+    genericName: 'Knowledge Base',
+    description: 'A markdown IDE for knowledge bases backed by an RDF graph',
+    homepage: 'https://github.com/dgriffith/ide-for-thought',
+    icon: path.resolve(process.cwd(), 'assets', 'minerva-1024.png'),
+    categories: ['Office' as const],
+    maintainer: 'Dave Griffith',
+  };
+}
+
 const config: ForgeConfig = {
   packagerConfig: {
     name: 'Minerva',
@@ -233,15 +253,22 @@ const config: ForgeConfig = {
       },
     ],
   },
-  // macOS arm64 only — matching the actual release matrix in release.yml
-  // (deliberate single-arch today, #962). This used to declare ZIP makers
-  // for linux/win32 too, which release.yml never builds and which would
-  // need their own maker (win32 needs MakerSquirrel, not MakerZIP) and
-  // update feed to be real; narrowed rather than left implying a
-  // cross-platform release that doesn't exist (#1636).
+  // One maker per artifact release.yml actually builds and ships, scoped to
+  // its platform (#1636): a maker declared for a target no job builds implies
+  // a release that doesn't exist.
+  //  - macOS arm64 (deliberate single-arch today, #962): the DMG people
+  //    download, and the ZIP that is the Squirrel.Mac update payload.
+  //  - Linux x64 (#2182): a .deb and an .rpm, unsigned — Linux has no
+  //    Gatekeeper equivalent, and a distro signs its own repositories, not a
+  //    downloaded package. No auto-update: update.electronjs.org serves macOS
+  //    and Windows only, so a Linux user upgrades by installing the next one
+  //    (#2184). The binary is `minerva` (`executableName` above).
+  //  - Windows: none yet (#2181).
   makers: [
     new MakerZIP({}, ['darwin']),
     new MakerDMG({ icon: path.resolve(process.cwd(), 'assets', 'Minerva.icns') }),
+    new MakerDeb({ options: linuxPackageOptions() }, ['linux']),
+    new MakerRpm({ options: { ...linuxPackageOptions(), license: 'MIT' } }, ['linux']),
   ],
   plugins: [
     // Electron fuses (#2366): bits baked into the Electron binary while

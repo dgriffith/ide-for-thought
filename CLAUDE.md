@@ -985,7 +985,7 @@ Every workflow declares `permissions:`, the workflow-scope value is
 |---|---|---|
 | `ci.yml` | `contents: read` | — |
 | `bench.yml` | `contents: read` | `issues: write` on `bench` (#2242) |
-| `release.yml` | `contents: read` | `contents: write` on `build-macos`; `actions: read` on `ci-verdict` (#2371) |
+| `release.yml` | `contents: read` | `contents: write` on `build-macos` and `publish-linux` (#2182); `actions: read` on `ci-verdict` (#2371) |
 | `pr-bench.yml` | `contents: read` | — (#2386) |
 | `quality-dashboard.yml` | `contents: read` | `issues: write` + `actions: read` on `dashboard` (#2389) |
 

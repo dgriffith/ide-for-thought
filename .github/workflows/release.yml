@@ -1,7 +1,7 @@
 # Release pipeline for Minerva (#660).
 #
-# Builds the macOS distributables (DMG + ZIP) via electron-forge make and
-# publishes them. Two triggers:
+# Builds the macOS distributables (DMG + ZIP) and the Linux packages (.deb +
+# .rpm, #2182) via electron-forge make and publishes them. Two triggers:
 #   - push a `v*` tag  → build + attach to a DRAFT GitHub Release for review
 #   - workflow_dispatch → build + upload artifacts only (test the make path
 #     without cutting a release)
@@ -380,3 +380,143 @@ jobs:
         run: |
           security delete-keychain "$SIGNING_KEYCHAIN" || true
           rm -f "$RUNNER_TEMP/apple_api_key.p8" || true
+
+  # The Linux packages (#2182, epic #2200): a .deb and an .rpm for x64,
+  # built on Ubuntu alongside build-macos, never instead of it.
+  #
+  # Unsigned by design. Linux has no Gatekeeper equivalent that blocks a
+  # downloaded package, and MINERVA_RELEASE refuses any host but macOS
+  # (signing-policy.mjs), so `pnpm build` here is the plain make. No update
+  # payload either: update.electronjs.org serves macOS and Windows only
+  # (#2184), so a Linux user upgrades by installing the next package.
+  #
+  # Read-only: it uploads a workflow artifact, and publish-linux below attaches
+  # the files to the draft Release build-macos creates. Two jobs each creating
+  # the draft would race and could make two.
+  build-linux:
+    needs: ci-verdict
+    runs-on: ubuntu-latest
+    # Not yet measured on a release; the Linux e2e job packages in ~3 min.
+    timeout-minutes: 30
+    env:
+      # As build-macos: electron-forge package OOMs on the default heap (#373).
+      NODE_OPTIONS: --max-old-space-size=4096
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up pnpm
+        # Version comes from the `packageManager` field in package.json.
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      # Unconditional lockfile/manifest check (#2244) — see build-macos.
+      - name: Verify lockfile matches package.json
+        run: pnpm install --frozen-lockfile --lockfile-only
+
+      # Same key as every other job (lockfile-gate.test.ts holds them
+      # byte-identical); `runner.os` gives Linux its own entry, shared with
+      # ci.yml's Linux jobs.
+      - name: Cache node_modules
+        id: node-modules-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: node_modules
+          key: node-modules-v1-${{ runner.os }}-${{ runner.arch }}-node-${{ hashFiles('.nvmrc') }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Install dependencies
+        if: steps.node-modules-cache.outputs.cache-hit != 'true'
+        run: pnpm install --frozen-lockfile
+
+      # Before the build, as on build-macos (#2245): a package of the wrong
+      # version is worse than none.
+      - name: Verify tag matches package.json version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: node scripts/check-release-tag.mjs "$TAG"
+        env:
+          TAG: ${{ github.ref_name }}
+
+      # The rpm maker shells out to rpmbuild, which Ubuntu doesn't ship.
+      # dpkg-deb and fakeroot (the deb maker's) are on the image already.
+      - name: Install rpmbuild
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq rpm
+
+      - name: Build distributables (electron-forge make, unsigned)
+        run: pnpm build
+
+      # Linux's own fuse policy: asar integrity off, where Electron doesn't
+      # check it (#2981). Before the smoke boot, as on build-macos.
+      - name: Check Electron fuses on the packaged app
+        run: node scripts/check-electron-fuses.mjs
+
+      # See ci.yml's e2e-linux: Ubuntu 24.04's AppArmor blocks the user
+      # namespaces Chromium's sandbox uses; lifted on this throwaway VM rather
+      # than booting the app with --no-sandbox.
+      - name: Allow Chromium's user-namespace sandbox
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
+      # The packaged app forge just built (out/Minerva-linux-x64/minerva),
+      # booted on a DuckDB-backed project, as build-macos does.
+      - name: Smoke-boot the packaged app
+        run: xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" pnpm exec playwright test tests/e2e/smoke.spec.ts -g "packaged app"
+
+      - name: First-paint time (packaged app)
+        if: always()
+        run: node scripts/first-paint-report.mjs test-results/first-paint.jsonl --label "release, ${{ runner.os }} ${{ runner.arch }}"
+
+      # Plus stable-named copies, as for the DMG: a download link that never
+      # changes, `.../releases/latest/download/Minerva-linux-x64.deb`.
+      - name: Collect artifacts
+        run: |
+          set -euo pipefail
+          mkdir -p dist-artifacts
+          find out/make -type f \( -name '*.deb' -o -name '*.rpm' \) -exec cp {} dist-artifacts/ \;
+          for ext in deb rpm; do
+            f="$(find dist-artifacts -maxdepth 1 -name "*.$ext" | head -n1)"
+            if [ -z "$f" ]; then
+              echo "::error::No .$ext in out/make — the $ext maker produced nothing."
+              exit 1
+            fi
+            cp "$f" "dist-artifacts/Minerva-linux-x64.$ext"
+          done
+          ls -la dist-artifacts
+
+      - name: Check artifact size budgets
+        run: node scripts/check-artifact-size.mjs dist-artifacts
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: minerva-linux-x64
+          path: dist-artifacts/*
+          if-no-files-found: error
+
+  # Attach the Linux packages to the draft Release build-macos created (#2182).
+  # After both builds, so the draft exists and a red Linux build never leaves a
+  # half-attached release. `gh release upload` finds a draft by its tag, where
+  # action-gh-release would not, and would make a second draft.
+  publish-linux:
+    needs: [build-macos, build-linux]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download the Linux packages
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: minerva-linux-x64
+          path: dist-artifacts
+
+      - name: Attach them to the draft Release
+        run: gh release upload "$TAG" dist-artifacts/* --repo "$GITHUB_REPOSITORY" --clobber
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}

@@ -272,6 +272,10 @@ installed apps aren't offered it).
 
 - **Apple Silicon only.** The CI runner is arm64 and the DuckDB native binding
   is per-arch (#962). An Intel Mac can't run this DMG.
+- **Linux packages ride along (#2182).** `build-linux` makes an x64 `.deb` and
+  `.rpm` in parallel with the mac build, and `publish-linux` attaches them to
+  the same draft once both are green (so a draft can briefly show only the mac
+  files). They're in the `minerva-linux-x64` artifact on a manual run.
 - The auto-generated notes diff against the previous tag, so a 2.0 alpha's
   changelog will be enormous. Harmless on a draft; trim it if you publish.
 
