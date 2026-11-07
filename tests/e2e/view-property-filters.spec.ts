@@ -62,9 +62,11 @@ test('a map filtered to Prague shows only Prague; Save as note keeps the filter 
       await win.getByRole('button', { name: 'Save as note' }).click();
       await win.locator('input[aria-labelledby="prompt-dialog-title"]').press('Enter'); // accept the suggested name
       const saved = path.join(projectDir, 'Place map.md');
-      await expect.poll(() => fs.existsSync(saved), { timeout: 10_000 }).toBe(true);
-      const body = fs.readFileSync(saved, 'utf-8');
-      const spec = JSON.parse(/```object-view\n([\s\S]*?)\n```/.exec(body)![1]!) as Record<string, unknown>;
+      // Wait for the fence, not just the file: it can exist before its
+      // contents land (#2182's Kanban race, seen here on Windows, #3023).
+      const fence = /```object-view\n([\s\S]*?)\n```/;
+      await expect.poll(() => (fs.existsSync(saved) ? fence.exec(fs.readFileSync(saved, 'utf-8'))?.[1] ?? null : null), { timeout: 10_000 }).not.toBeNull();
+      const spec = JSON.parse(fence.exec(fs.readFileSync(saved, 'utf-8'))![1]!) as Record<string, unknown>;
       expect(spec).toMatchObject({ typeId: 'place', layout: 'map', filters: [{ property: 'city', values: ['Prague'] }] });
     });
 

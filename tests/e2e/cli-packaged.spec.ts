@@ -63,7 +63,7 @@ test.afterAll(() => {
 function minerva(args: string[], input?: string): SpawnSyncReturns<string> {
   return spawnSync(binary(), ['--minerva-cli', '--', ...args], {
     cwd: elsewhere,
-    env: minervaEnv(home),
+    env: minervaEnv(home, {}, { cliMode: true }),
     encoding: 'utf-8',
     input,
     timeout: 45_000,
@@ -156,7 +156,7 @@ test('packaged CLI: mcp answers tools/list and a semantic_search call', async ()
 test('packaged CLI: a shim installed before #2565 (ELECTRON_RUN_AS_NODE) still works', async () => {
   test.skip(app === null, 'packaged app not built — run `pnpm build:e2e` first');
   const r = spawnSync(binary(), [cliJs(), 'sql', 'SELECT 1 + 1 AS two', '--project', project], {
-    cwd: elsewhere, env: minervaEnv(home, { ELECTRON_RUN_AS_NODE: '1' }), encoding: 'utf-8', timeout: 45_000,
+    cwd: elsewhere, env: minervaEnv(home, { ELECTRON_RUN_AS_NODE: '1' }, { cliMode: true }), encoding: 'utf-8', timeout: 45_000,
   });
   expect(r.status, describeRun(r)).toBe(0);
   expect(r.stdout).toContain('"two"');
@@ -169,7 +169,7 @@ test('packaged binary: ELECTRON_RUN_AS_NODE no longer runs arbitrary JS (RunAsNo
   const r = await runBounded(
     binary(),
     ['-e', `require('fs').writeFileSync(${JSON.stringify(canary)}, 'ran')`],
-    { cwd: elsewhere, env: minervaEnv(home, { ELECTRON_RUN_AS_NODE: '1' }) },
+    { cwd: elsewhere, env: minervaEnv(home, { ELECTRON_RUN_AS_NODE: '1' }, { cliMode: true }) },
     8_000,
   );
   // With the fuse off the binary starts as the app (and is killed by the

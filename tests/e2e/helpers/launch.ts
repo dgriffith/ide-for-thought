@@ -106,10 +106,16 @@ export function isolatedHome(userDataDir: string): string {
  * scrubbed, HOME isolated to `home`, then `extra` on top. Specs build env
  * through this, never `scrubbedEnv()` directly — that leaves the real HOME.
  */
-export function minervaEnv(home: string, extra: Record<string, string> = {}): Record<string, string> {
+export function minervaEnv(home: string, extra: Record<string, string> = {}, opts: { cliMode?: boolean } = {}): Record<string, string> {
   // Windows reads the home folder from USERPROFILE, not HOME (#3023): both,
-  // so `os.homedir()` is the isolated one on every OS.
-  return { ...scrubbedEnv(), HOME: home, USERPROFILE: home, ...extra };
+  // so `os.homedir()` is the isolated one on every OS — except for the
+  // packaged binary in CLI mode on Windows, which crashes (0x80000003) at
+  // startup with USERPROFILE redirected, measured; the app proper copes,
+  // given --user-data-dir, which CLI mode can't take. There USERPROFILE stays
+  // real: a CI runner's profile is empty, so only a developer's local run
+  // could see their own ~/.minerva.
+  const userProfile = opts.cliMode && process.platform === 'win32' ? {} : { USERPROFILE: home };
+  return { ...scrubbedEnv(), HOME: home, ...userProfile, ...extra };
 }
 
 /**

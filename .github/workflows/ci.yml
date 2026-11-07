@@ -1037,19 +1037,6 @@ jobs:
           pnpm exec electron-forge package
           pnpm exec playwright test
 
-      # TEMPORARY (#3023): which environment crashes the packaged CLI
-      # (exit 0x80000003). Removed before this PR leaves draft.
-      - name: Diagnose the packaged CLI's crash
-        if: always()
-        run: |
-          exe=out/Minerva-win32-x64/Minerva.exe
-          tb="$(mktemp -d)"; printf '# Hi\n' > "$tb/a.md"; h="$(mktemp -d)"
-          run() { echo "== $1"; shift; "$@" "$exe" --minerva-cli -- sql 'SELECT 42 AS n' --project "$(cygpath -w "$tb")"; echo "exit=$?"; }
-          run "real env" env
-          run "HOME only" env HOME="$(cygpath -w "$h")"
-          run "USERPROFILE only" env USERPROFILE="$(cygpath -w "$h")"
-          run "both" env HOME="$(cygpath -w "$h")" USERPROFILE="$(cygpath -w "$h")"
-
       # The same report and budget as the other e2e jobs.
       - name: E2E flake report
         if: always()

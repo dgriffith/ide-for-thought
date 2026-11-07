@@ -36,7 +36,7 @@ test.afterAll(() => {
 function minerva(args: string[], ms = 90_000): Promise<{ status: number | null; stdout: string; stderr: string }> {
   return new Promise((resolve) => {
     const child = spawn(app!.binary, ['--minerva-cli', '--', ...args], {
-      cwd: work, env: minervaEnv(home), detached: true, stdio: ['ignore', 'pipe', 'pipe'],
+      cwd: work, env: minervaEnv(home, {}, { cliMode: true }), detached: true, stdio: ['ignore', 'pipe', 'pipe'],
     });
     let stdout = '';
     let stderr = '';
