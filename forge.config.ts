@@ -14,6 +14,7 @@ import { makeCopyFilter, isTypesOnlyPackage } from './scripts/lib/package-prune.
 import { forgeFuseSettings } from './scripts/lib/electron-fuses.mjs';
 import { resolveSigningPolicy, forgeSigningConfig, adhocResignArgs } from './scripts/lib/signing-policy.mjs';
 import { buildAudioTap } from './scripts/lib/audio-tap-build.mjs';
+import { LINUX_EXECUTABLE_NAME } from './scripts/lib/packaged-app.mjs';
 
 // @electron-forge/plugin-vite bundles the main process and ships NO node_modules
 // in the package. That's fine for everything Rollup can bundle — but a few deps
@@ -183,15 +184,21 @@ const config: ForgeConfig = {
     // signed, not whatever a local process later dropped next to it.
     //
     // Native code can't be dlopen()ed out of an archive, so the DuckDB binding
-    // (`duckdb.node` + the `libduckdb.dylib` it links by rpath) is unpacked to
+    // (`duckdb.node` + the shared library it links by rpath: `libduckdb.dylib`,
+    // `libduckdb.so` on Linux, `duckdb.dll` on Windows, #2185) is unpacked to
     // `app.asar.unpacked/`; Electron redirects the `.node` require there
-    // itself. Everything else loads from inside the archive — including
+    // itself, and the OS loader finds the library beside it. Everything else loads from inside the archive — including
     // `cli.js` under ELECTRON_RUN_AS_NODE, the `embed-worker.cjs` worker thread
     // and the ORT / sql.js `.wasm` reads — which the packaged e2e specs
     // (smoke + embeddings) and the CLI shim check in #2366 exercise.
     asar: {
-      unpack: '**/*.{node,dylib}',
+      unpack: '**/*.{node,dylib,so,dll}',
     },
+    // Linux names its binary `minerva` (#2182): the deb and rpm makers look for
+    // package.json's `name`, and a command on Linux is lower-case. macOS keeps
+    // `Minerva.app/Contents/MacOS/Minerva` and Windows `Minerva.exe`.
+    // scripts/lib/packaged-app.mjs is where every reader finds it.
+    ...(process.platform === 'linux' ? { executableName: LINUX_EXECUTABLE_NAME } : {}),
     // Hardened runtime + entitlements + notarization — both undefined unless
     // the release flag is set (see signing-policy.mjs above).
     osxSign: signing.osxSign,

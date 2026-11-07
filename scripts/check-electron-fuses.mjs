@@ -1,16 +1,16 @@
 #!/usr/bin/env node
 /**
- * Read the fuses back off a BUILT Minerva.app and compare them to the policy
- * (#2366).
+ * Read the fuses back off a BUILT Minerva and compare them to the policy for
+ * the platform it was built for (#2366, #2981).
  *
  * `forge.config.ts` asks for the fuses, and the architecture test pins what it
  * asks for — but neither proves the bits in the shipped binary. A plugin that
  * silently no-ops (an @electron/fuses that doesn't know a newer wire, a
  * packaging path that skips the hook) would pass both. This reads the binary.
  *
- *   node scripts/check-electron-fuses.mjs [path/to/Minerva.app]
+ *   node scripts/check-electron-fuses.mjs [path/to/Minerva.app | Minerva.exe | minerva]
  *
- * Defaults to the forge output for this platform/arch. Run by ci.yml's e2e job
+ * Defaults to the forge output for this platform/arch (scripts/lib/packaged-app.mjs). Run by ci.yml's e2e job
  * after `pnpm test:e2e` has packaged the app, and by release.yml against the
  * signed build before it is smoke-booted.
  */
@@ -19,19 +19,19 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getCurrentFuseWire } from '@electron/fuses';
 import { checkFuseWire } from './lib/electron-fuses.mjs';
+import { packagedAppPaths } from './lib/packaged-app.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 async function main() {
-  const app = process.argv[2]
-    ?? path.join(ROOT, 'out', `Minerva-${process.platform}-${process.arch}`, 'Minerva.app');
+  const app = process.argv[2] ?? packagedAppPaths(ROOT).app;
   if (!fs.existsSync(app)) {
     console.error(`::error::no packaged app at ${app} — build it first (pnpm build:e2e / pnpm build)`);
     process.exit(1);
   }
 
   const wire = await getCurrentFuseWire(app);
-  const result = checkFuseWire(wire);
+  const result = checkFuseWire(wire, process.platform);
 
   console.log(`Electron fuses in ${path.relative(ROOT, app) || app}:`);
   for (const line of result.lines) console.log(`  ${line}`);

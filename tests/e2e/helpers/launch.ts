@@ -51,11 +51,24 @@ import os from 'node:os';
 import path from 'node:path';
 import { annotate, captureProcessState, inTest, probeApp, settlesWithin, withinBound } from './bounded';
 import { watchFirstPaint, type FirstPaintSample } from './first-paint';
+import { packagedAppPaths } from '../../../scripts/lib/packaged-app.mjs';
 
 // Playwright transpiles tests as CJS (no `"type": "module"` in package.json),
 // so `__dirname` is available — `import.meta.url` would force ESM and trip
 // Playwright's loader.
 export const projectRoot = path.resolve(__dirname, '..', '..', '..');
+
+/**
+ * The app `pnpm build:e2e` packaged for this machine, or null when it hasn't
+ * been built (#2179). `binary` is what to launch or run in CLI mode,
+ * `resources` the folder `app.asar` sits in. The layout per platform is
+ * scripts/lib/packaged-app.mjs's, shared with the fuse read-back; the
+ * packaged specs used to build the macOS path themselves and skip elsewhere.
+ */
+export function packagedApp(): { binary: string; resources: string } | null {
+  const { binary, resources } = packagedAppPaths(projectRoot);
+  return fs.existsSync(binary) ? { binary, resources } : null;
+}
 
 /**
  * Names that never reach the app under test. Suffix-matched rather than

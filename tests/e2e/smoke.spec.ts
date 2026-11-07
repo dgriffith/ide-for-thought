@@ -30,22 +30,12 @@
 import { test, expect, type ConsoleMessage, type Page } from './helpers/test';
 import path from 'node:path';
 import fs from 'node:fs';
-import { closeMinerva, firstPaintOf, launchMinerva, makeTempDir, projectRoot, seedSession } from './helpers/launch';
+import { closeMinerva, firstPaintOf, launchMinerva, makeTempDir, packagedApp, projectRoot, seedSession } from './helpers/launch';
 import { recordFirstPaint } from './helpers/first-paint';
 
 /** Path to the packaged app binary, or null if it hasn't been built. */
 function packagedBinary(): string | null {
-  if (process.platform !== 'darwin') return null; // only darwin .app layout handled
-  const p = path.join(
-    projectRoot,
-    'out',
-    `Minerva-${process.platform}-${process.arch}`,
-    'Minerva.app',
-    'Contents',
-    'MacOS',
-    'Minerva',
-  );
-  return fs.existsSync(p) ? p : null;
+  return packagedApp()?.binary ?? null;
 }
 
 /**

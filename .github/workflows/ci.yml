@@ -691,10 +691,11 @@ jobs:
   # requires of any job not in the ruleset. Promote it the way
   # lint-and-test-linux was (#2978 → #3001).
   #
-  # What it does NOT cover yet: the packaged-app specs (smoke's packaged boot,
-  # cli-packaged, embeddings, cli-plugin-check-code) skip off darwin until a
-  # Linux package exists (#2182), and so the fuse read-back and first-paint
-  # trend stay on the macOS job (#2981).
+  # `test:e2e` packages the app first, so the packaged-app specs (smoke's
+  # packaged boot and DuckDB project, embeddings, cli-packaged,
+  # cli-plugin-check-code) run against the Linux package too (#2185, #2981):
+  # `out/Minerva-linux-x64/minerva`, laid out per scripts/lib/packaged-app.mjs.
+  # Then the same fuse read-back and first-paint trend as the macOS job.
   e2e-linux:
     name: e2e on Linux (advisory)
     runs-on: ubuntu-latest
@@ -755,11 +756,33 @@ jobs:
       - name: E2E (electron-forge package + Playwright, under Xvfb)
         run: xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" pnpm test:e2e
 
+      # Linux's fuse values differ from macOS's in one place: no asar
+      # integrity, which Electron doesn't check on Linux (#2981). The checker
+      # reads the binary against this platform's policy.
+      - name: Check Electron fuses on the packaged app
+        run: node scripts/check-electron-fuses.mjs
+
+      # DuckDB's binding links a shared library by rpath, which the OS loader
+      # can't open from inside app.asar (#2185). The smoke spec's DuckDB
+      # project fails if it's missing; this names the file instead.
+      - name: DuckDB's native library is unpacked from the asar
+        run: |
+          set -euo pipefail
+          UNPACKED="out/Minerva-linux-x64/resources/app.asar.unpacked"
+          find "$UNPACKED" -name '*.node' -o -name '*.so' | sed "s|^$UNPACKED/||"
+          find "$UNPACKED" -name 'libduckdb.so' | grep -q . \
+            || { echo "::error::no libduckdb.so under $UNPACKED — the asar unpack glob in forge.config.ts misses it"; exit 1; }
+
       # The same report and budget as the macOS job. While the job is
       # advisory, a breach shows here and in the job's own red X, not the run.
       - name: E2E flake report
         if: always()
         run: node scripts/e2e-flake-report.mjs playwright-report.json
+
+      # As on the macOS job: a trend, never a gate (#2384).
+      - name: First-paint time (packaged app)
+        if: always()
+        run: node scripts/first-paint-report.mjs test-results/first-paint.jsonl --label "ci e2e, ${{ runner.os }} ${{ runner.arch }}"
 
       - name: Upload Playwright report
         if: always()

@@ -13,16 +13,10 @@ import { test, expect } from '@playwright/test';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import fs from 'node:fs';
-import { makeTempDir, minervaEnv, projectRoot } from './helpers/launch';
+import { makeTempDir, minervaEnv, packagedApp, projectRoot } from './helpers/launch';
 import type { PluginCheckReport } from '../../src/shared/plugins/check';
 
-function packagedApp(): string | null {
-  if (process.platform !== 'darwin') return null;
-  const p = path.join(projectRoot, 'out', `Minerva-${process.platform}-${process.arch}`, 'Minerva.app');
-  return fs.existsSync(path.join(p, 'Contents', 'MacOS', 'Minerva')) ? p : null;
-}
-
-let app: string | null;
+let app: ReturnType<typeof packagedApp>;
 let home: string;
 let work: string;
 test.beforeAll(() => {
@@ -41,7 +35,7 @@ test.afterAll(() => {
  */
 function minerva(args: string[], ms = 90_000): Promise<{ status: number | null; stdout: string; stderr: string }> {
   return new Promise((resolve) => {
-    const child = spawn(path.join(app!, 'Contents', 'MacOS', 'Minerva'), ['--minerva-cli', '--', ...args], {
+    const child = spawn(app!.binary, ['--minerva-cli', '--', ...args], {
       cwd: work, env: minervaEnv(home), detached: true, stdio: ['ignore', 'pipe', 'pipe'],
     });
     let stdout = '';

@@ -11,11 +11,12 @@ export interface FusePolicyEntry {
   readonly enabled: boolean;
 }
 
-export const FUSE_POLICY: ReadonlyArray<FusePolicyEntry>;
+/** The policy for one platform (default: this one). */
+export function fusePolicy(platform?: string): ReadonlyArray<FusePolicyEntry>;
 
-export function forgeFuseSettings(): Record<number, boolean>;
+export function forgeFuseSettings(platform?: string): Record<number, boolean>;
 
-export function checkFuseWire(wire: Record<string, unknown>): {
+export function checkFuseWire(wire: Record<string, unknown>, platform?: string): {
   ok: boolean;
   lines: string[];
   errors: string[];
