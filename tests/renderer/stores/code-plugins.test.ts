@@ -76,14 +76,14 @@ describe('plugin command keys (#2879)', () => {
   it('resolves which command keeps a key, built-in plugins first, and lists the others', async () => {
     const key = (id: string, k: string) => ({ id, title: id, when: 'project', key: k, run: { handler: id } });
     h.list = async () => ({
-      core: [withCommands('a', [key('one', 'CmdOrCtrl+Alt+J')])],
-      installed: [{ ...withCommands('mine', [key('two', 'CmdOrCtrl+Alt+J'), key('three', 'CmdOrCtrl+Alt+K')]), source: { kind: 'folder' as const, path: '/w' }, capabilities: ['ui'] }],
+      core: [withCommands('a', [key('one', 'CmdOrCtrl+Shift+M')])],
+      installed: [{ ...withCommands('mine', [key('two', 'CmdOrCtrl+Shift+M'), key('three', 'CmdOrCtrl+Shift+N')]), source: { kind: 'folder' as const, path: '/w' }, capabilities: ['ui'] }],
       errors: [], folder: '/p',
     } as never);
     h.changed!();
     await vi.waitFor(() => expect(codePluginsStore.commandKeys().keys.size).toBe(2));
-    expect(codePluginsStore.keyedCommands().map((c) => [c.command.id, c.key])).toEqual([['one', 'CmdOrCtrl+Alt+J'], ['two', undefined], ['three', 'CmdOrCtrl+Alt+K']]);
-    expect(codePluginsStore.commandKeys().conflicts).toEqual([{ pluginId: 'mine', commandId: 'two', title: 'two', key: 'CmdOrCtrl+Alt+J', takenBy: 'A' }]);
+    expect(codePluginsStore.keyedCommands().map((c) => [c.command.id, c.key])).toEqual([['one', 'CmdOrCtrl+Shift+M'], ['two', undefined], ['three', 'CmdOrCtrl+Shift+N']]);
+    expect(codePluginsStore.commandKeys().conflicts).toEqual([{ pluginId: 'mine', commandId: 'two', title: 'two', key: 'CmdOrCtrl+Shift+M', takenBy: 'A' }]);
   });
 });
 

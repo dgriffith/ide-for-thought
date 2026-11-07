@@ -15,7 +15,7 @@ const h = vi.hoisted(() => ({
   list: vi.fn(), setEnabled: vi.fn(), remove: vi.fn(), installFolder: vi.fn(), installZip: vi.fn(), installGit: vi.fn(), reveal: vi.fn(),
   changed: null as null | (() => void),
   skillsList: vi.fn(), registerSkillInfos: vi.fn(), typesRefresh: vi.fn(), showConfirm: vi.fn(), showPrompt: vi.fn(),
-  keyConflicts: [] as unknown[], openExternal: vi.fn(),
+  keyConflicts: [] as unknown[], keyRefusals: [] as unknown[], openExternal: vi.fn(),
 }));
 
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({
@@ -31,7 +31,7 @@ vi.mock('../../../src/renderer/lib/ipc/client', () => ({
 vi.mock('../../../src/renderer/lib/tools/tool-registry', () => ({ registerSkillInfos: h.registerSkillInfos }));
 vi.mock('../../../src/renderer/lib/stores/object-types.svelte', () => ({ objectTypesStore: { refresh: h.typesRefresh } }));
 vi.mock('../../../src/renderer/lib/stores/dialogs.svelte', () => ({ getDialogStore: () => ({ showConfirm: h.showConfirm, showPrompt: h.showPrompt }) }));
-vi.mock('../../../src/renderer/lib/stores/code-plugins.svelte', () => ({ codePluginsStore: { commandKeys: () => ({ keys: new Map(), conflicts: h.keyConflicts }) } }));
+vi.mock('../../../src/renderer/lib/stores/code-plugins.svelte', () => ({ codePluginsStore: { commandKeys: () => ({ keys: new Map(), conflicts: h.keyConflicts, refused: h.keyRefusals }) } }));
 
 import PluginsSettings from '../../../src/renderer/lib/components/PluginsSettings.svelte';
 
@@ -206,6 +206,14 @@ describe('PluginsSettings (#2634)', () => {
     await pick(findByRole, 'Lab Tools');
     expect(await findByText(/"Find" has no shortcut: .* is Book Shelf's\./)).toBeTruthy();
     h.keyConflicts = [];
+  });
+
+  it('says when a plugin command\'s key would catch AltGr typing here (#2986)', async () => {
+    h.keyRefusals = [{ pluginId: 'lab', commandId: 'find', title: 'Find', key: 'CmdOrCtrl+Alt+J' }];
+    const { findByRole, findByText } = render(PluginsSettings);
+    await pick(findByRole, 'Lab Tools');
+    expect(await findByText(/"Find" has no shortcut here: .* is AltGr on this keyboard, which types characters like @ and €\./)).toBeTruthy();
+    h.keyRefusals = [];
   });
 
   it('lists built-in plugins on their own, with a toggle and no Remove or folder (#2820)', async () => {

@@ -448,4 +448,23 @@ describe('commands in the menu bar, on the keyboard, and as MCP tools (#2879)', 
       '"code.commands[5].run.mcpTool" names the server "elsewhere", which isn\'t one of its "mcpServers".',
     ]);
   });
+
+  it('takes a key for Windows and Linux, which may not be AltGr there, nor Minerva\'s, nor taken twice (#2986)', () => {
+    expect(commandsOf(code([{ ...base, key: 'CmdOrCtrl+Alt+F', keyOffMac: 'shift+cmdorctrl+n' }]))).toEqual([
+      { ...base, key: 'CmdOrCtrl+Alt+F', keyOffMac: 'CmdOrCtrl+Shift+N' },
+    ]);
+    expect(problemsOf(code([
+      { ...base, key: 'CmdOrCtrl+Alt+F', keyOffMac: 'CmdOrCtrl+Alt+G' },
+      { ...base, id: 'b', key: 'CmdOrCtrl+Alt+H', keyOffMac: 'CmdOrCtrl+Shift+E' },
+      { ...base, id: 'c', keyOffMac: 'G' },
+      { ...base, id: 'd', key: 'CmdOrCtrl+Alt+J', keyOffMac: 'CmdOrCtrl+Shift+A' },
+      { ...base, id: 'e', key: 'CmdOrCtrl+Alt+K', keyOffMac: 'CmdOrCtrl+Shift+A' },
+    ]), CORE)).toEqual([
+      '"code.commands[0].keyOffMac" is CmdOrCtrl+Alt+G, which on Windows and Linux is AltGr and types characters; use CmdOrCtrl or CmdOrCtrl+Shift with the key.',
+      '"code.commands[1].key" is CmdOrCtrl+Alt+H, which Minerva uses itself.',
+      '"code.commands[1].keyOffMac" is CmdOrCtrl+Shift+E, which Minerva uses itself.',
+      '"code.commands[2].keyOffMac" must be a shortcut with CmdOrCtrl, like "CmdOrCtrl+Shift+L"; got "G".',
+      '"code.commands" gives CmdOrCtrl+Shift+A to two commands on Windows and Linux.',
+    ]);
+  });
 });

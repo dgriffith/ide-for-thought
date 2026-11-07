@@ -12,7 +12,8 @@
  * event isn't `preventDefault`ed, so it falls through to the browser or the
  * editor (⌘G with no tab open, ⌘K with no thoughtbase).
  */
-import { commandDef, type CommandId } from '../../../shared/commands';
+import { commandDef, commandKey, type CommandId } from '../../../shared/commands';
+import { IS_MAC } from '../utils/platform';
 
 export interface KeymapDeps {
   /** Run a registered command. */
@@ -59,7 +60,7 @@ export function matchesAccelerator(e: KeyboardEvent, accelerator: string): boole
 
 export function handleKeydown(e: KeyboardEvent, deps: KeymapDeps): void {
   for (const row of KEYMAP) {
-    const key = commandDef(row.command).key;
+    const key = commandKey(commandDef(row.command), IS_MAC);
     if (!key || !matchesAccelerator(e, key)) continue;
     if (row.when && !deps[row.when]()) return;
     e.preventDefault();

@@ -697,6 +697,15 @@ can't undo it. The handler's scope is still the active note, so one with
   accelerators and the renderer's window keymap. There's no rebinding: that's
   a feature of its own, for core and plugins alike. With ⌥ held, a letter key
   matches by the key pressed, since macOS types `∫` for ⌥B.
+- **Windows and Linux: Ctrl+Alt is AltGr (#2986)**, which types `@`, `€`,
+  `ł`, `{`… on many layouts. So off macOS a key of `CmdOrCtrl+Alt` (with or
+  without Shift) plus a key that types (`shared/altgr.ts`'s `capturesAltGr`)
+  isn't bound, and Settings → Plugins says why; the command still runs from
+  the palette and its menu. Give `"keyOffMac": "CmdOrCtrl+Shift+J"` for
+  Windows and Linux instead. It's checked like `key`, and refused if it is
+  itself such a key. Minerva's own commands do the same (`keyOffMac` in
+  `shared/commands.ts`, read through `commandKey`), and a test holds every
+  key it and the built-in plugins have off macOS to the rule.
 - **Book Shelf** (`tests/fixtures/plugins/book-shelf/`) shows all three: *Find
   Selection on the Book Shelf*, in the Edit menu, on ⌘⌥J, run by its
   server's read-only `find_book`.

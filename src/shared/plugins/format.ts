@@ -164,6 +164,13 @@ export interface PluginCommand {
   menu?: PluginCommandMenu;
   /** Its keyboard shortcut (#2879): an accelerator with `CmdOrCtrl`, refused if Minerva uses it. */
   key?: string;
+  /**
+   * Its shortcut on Windows and Linux, where it differs (#2986). There
+   * Ctrl+Alt is AltGr, which types `@`, `€`, `ł`…, so a `key` with Alt and a
+   * printable key isn't bound off macOS unless this gives another; it may not
+   * be one of those itself.
+   */
+  keyOffMac?: string;
   run: PluginCommandRun;
 }
 

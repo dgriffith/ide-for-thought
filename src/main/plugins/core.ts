@@ -234,7 +234,7 @@ const CORE_PLUGIN_DEFINITIONS: readonly CorePluginDefinition[] = [
       version: '1.0.0',
       minerva: '>=4.0.0',
       description: [
-        `Sort the Markdown list in your selection, from the command palette, the Edit menu, the editor's right-click menu or ${key('CmdOrCtrl+Alt+Shift+S')}. Nested items move with their parent.`,
+        `Sort the Markdown list in your selection, from the command palette, the Edit menu, the editor's right-click menu or ${key(process.platform === 'darwin' ? 'CmdOrCtrl+Alt+Shift+S' : 'CmdOrCtrl+Shift+O')}. Nested items move with their parent.`,
         "",
         "Select a list and run **Sort List in Selection**. Its outermost items sort by their text, ignoring case, checkboxes and list markers, with numbers in numeric order (\"item 2\" before \"item 10\"). Each item keeps its nested items and continuation lines, and an ordered list is renumbered.",
         "",
@@ -252,7 +252,8 @@ const CORE_PLUGIN_DEFINITIONS: readonly CorePluginDefinition[] = [
         capabilities: ['notes:read'],
         api: '^1.10.0',
         worker: 'logic.js',
-        commands: [{ id: 'sort-selection', title: 'Sort List in Selection', when: 'selection', editorMenu: true, menu: 'edit', key: 'CmdOrCtrl+Alt+Shift+S', run: { handler: 'sortSelection' } }],
+        // ⌘⌥⇧S on macOS; Ctrl+Alt is AltGr on Windows and Linux (#2986).
+        commands: [{ id: 'sort-selection', title: 'Sort List in Selection', when: 'selection', editorMenu: true, menu: 'edit', key: 'CmdOrCtrl+Alt+Shift+S', keyOffMac: 'CmdOrCtrl+Shift+O', run: { handler: 'sortSelection' } }],
       },
     },
     defaultEnabled: false,
