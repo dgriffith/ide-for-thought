@@ -28,7 +28,7 @@ import type { PluginCapability } from './capabilities';
  * The API's semver version (#2826), its own and not the app's: the host sends
  * it with the port, and a plugin's `code.api` range must accept it.
  */
-export const PLUGIN_API_VERSION = '1.14.0';
+export const PLUGIN_API_VERSION = '1.15.0';
 
 export const PLUGIN_METHODS = {
   'notes.list': { capability: 'notes:read', describes: 'The notes this view or call was given.' },
@@ -60,6 +60,7 @@ export const PLUGIN_METHODS = {
   'view.reschedule': { capability: 'notes:write-properties', describes: "Move a dated note by whole days: Minerva shifts its start and end, with undo (a calendar's drag)." },
   'view.retime': { capability: 'notes:write-properties', describes: "Move a timed note by whole minutes, a day's worth or more included: Minerva shifts its start and end on the viewer's clock, with undo (a calendar's week or day)." },
   'view.resize': { capability: 'notes:write-properties', describes: "Move a timed note's end by whole minutes, writing an end where there was none: Minerva changes the end only, with undo." },
+  'view.createEvent': { capability: 'notes:write', describes: "Ask for a new note of the view's type dated to a stretch of the calendar: Minerva asks the user for its title (and which subtype), and creates it." },
   'view.setHeight': { capability: 'ui', describes: "Say how tall a live block's frame should be, in CSS pixels; Minerva sizes it, within limits." },
   'llm.propose': { capability: 'llm:propose', describes: "Ask the assistant for changes to notes it was given, or new notes: each one is filed as a proposal the user reviews. Uses the user's model, asked first." },
 } as const satisfies Record<string, { capability: PluginCapability; describes: string }>;
@@ -111,6 +112,11 @@ export interface PluginMethodParams {
   'view.retime': { path: string; minutes: number };
   /** `minutes`: the end's move, as `view.retime`'s. */
   'view.resize': { path: string; minutes: number };
+  /**
+   * `start`: a day (`2026-10-07`) or a time on the viewer's clock, no offset
+   * (`2026-10-07T09:00`); `end`, the same precision and later, or null.
+   */
+  'view.createEvent': { start: string; end: string | null };
   /** `height`: CSS pixels, from PLUGIN_BLOCK_MIN_HEIGHT to PLUGIN_BLOCK_MAX_HEIGHT; outside it is clamped. */
   'view.setHeight': { height: number };
   /**
@@ -155,6 +161,7 @@ export interface PluginMethodResults {
   'view.reschedule': Record<string, never>;
   'view.retime': Record<string, never>;
   'view.resize': Record<string, never>;
+  'view.createEvent': Record<string, never>;
   'view.setHeight': Record<string, never>;
   /**
    * What was filed: one proposal per change, which the user reviews. `leftOut`

@@ -516,6 +516,15 @@ put both patterns together:
   `date-shift.ts`'s `retimeByMinutes` / `resizeByMinutes`, and a note dated
   to a day only is refused, never given a time. The plugin snaps the edge
   that moves to 15 minutes (`plugins/calendar/src/time-drag.ts`).
+- **A new event is the host's too** (#2954, API 1.15.0): `view.createEvent
+  {start, end}` (`notes:write`) names a stretch the user drew on empty grid —
+  a day or a run of days, or a time range on the viewer's clock with no
+  offset (`shared/calendar/create-event.ts`, which the broker checks it by).
+  The plugin writes nothing: the type view runs `lib/app/calendar-create.ts`,
+  which asks which subtype (for a parent's view) and the title, then makes
+  the note the way a typed note is always made — scaffold, template,
+  placeholders — with the *Date by* (and `end`) set, as the user's own save
+  (*Created by Calendar*).
 - **The viewer's week** (its first day, week numbers) is in the view as
   `week`: "automatic" needs the OS region, which only main can read, so the
   host resolves it.

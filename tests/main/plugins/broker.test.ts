@@ -412,6 +412,20 @@ describe('the ui kit (#2827)', () => {
     expect(s.intents).toHaveLength(2);
   });
 
+  it('passes a calendar\'s new event on as an intent, its stretch checked, with notes:write (#2954)', async () => {
+    const s = open();
+    await s.call('view.createEvent', { start: '2026-10-07T09:00', end: '2026-10-07T10:30' });
+    await s.call('view.createEvent', { start: '2026-10-07', end: null });
+    expect(s.intents).toEqual([
+      { kind: 'createEvent', start: '2026-10-07T09:00', end: '2026-10-07T10:30' },
+      { kind: 'createEvent', start: '2026-10-07', end: null },
+    ]);
+    expect((await s.call('view.createEvent', { start: '2026-10-07T09:00Z', end: null })).error?.code).toBe('bad-request');
+    expect((await s.call('view.createEvent', { start: '2026-10-07T10:00', end: '2026-10-07T09:00' })).error?.code).toBe('bad-request');
+    expect((await open({ capabilities: ['notes:read', 'notes:write-properties', 'ui'] }).call('view.createEvent', { start: '2026-10-07', end: null })).error?.code).toBe('capability');
+    expect(s.intents).toHaveLength(2);
+  });
+
   it('none of them without the ui capability', async () => {
     const s = open({ capabilities: ['notes:read'] });
     for (const m of ['ui.revealNote', 'ui.showMenu', 'ui.releaseFocus', 'ui.forwardKey']) {

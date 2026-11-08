@@ -12,7 +12,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, fireEvent, cleanup, waitFor, screen } from '@testing-library/svelte';
 
 const h = vi.hoisted(() => ({
-  instances: vi.fn(), list: vi.fn(), noteTypeMap: vi.fn(), reschedule: vi.fn(), retime: vi.fn(), undo: vi.fn(),
+  instances: vi.fn(), list: vi.fn(), noteTypeMap: vi.fn(), reschedule: vi.fn(), retime: vi.fn(), create: vi.fn(), undo: vi.fn(),
   loop: {} as import('./plugin-loopback').LoopbackState,
 }));
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({
@@ -23,6 +23,7 @@ vi.mock('../../../src/renderer/lib/stores/plugin-sessions.svelte', () => ({ conn
 vi.mock('../../../src/renderer/lib/stores/kanban-moves.svelte', () => ({
   getKanbanMoveStore: () => ({ revision: 0, lastMove: null, canUndo: true, canUndoReschedule: false, moveCards: vi.fn(), rescheduleEvent: h.reschedule, retimeEvent: h.retime, undoLastMove: h.undo }),
 }));
+vi.mock('../../../src/renderer/lib/app/calendar-create', () => ({ createCalendarEvent: (...a: unknown[]) => h.create(...a) }));
 vi.mock('../../../src/renderer/lib/stores/settings-calendar.svelte', () => ({
   getCalendarSettings: () => ({ weekStart: 7, showWeekNumbers: true }),
 }));
@@ -188,6 +189,18 @@ describe('calendar layout (#2701, #2702)', () => {
       expect(endsAt({ start: '2026-10-07T09:00', end: '2026-10-07T11:00' })).toMatch(/^at 11:00/);
     });
 
+    it('view.createEvent asks Minerva to create a note of the view\'s type over the stretch, Created by Calendar (#2954)', async () => {
+      h.instances.mockResolvedValue({ type: JOURNAL, instances: ENTRIES });
+      render(TypeView, props({ typeId: 'journal', layout: 'calendar', month: '2026-10' }));
+      await waitFor(() => expect(h.loop.host?.createEvent).toBeTypeOf('function'));
+      h.loop.host!.createEvent!('2026-10-07', null);
+      expect(h.create).toHaveBeenCalledWith(expect.objectContaining({
+        type: expect.objectContaining({ id: 'journal' }),
+        dates: { dateProperty: 'published', endProperty: null },
+        start: '2026-10-07', end: null, cause: 'Created by Calendar',
+      }));
+    });
+
     it("⌘Z is the calendar's own undo; the view says whether there is one; the week is the viewer's", async () => {
       h.instances.mockResolvedValue({ type: JOURNAL, instances: ENTRIES });
       render(TypeView, props({ typeId: 'journal', layout: 'calendar', month: '2026-10' }));
@@ -204,9 +217,11 @@ describe('calendar layout (#2701, #2702)', () => {
       expect(h.loop.views.at(-1)).toMatchObject({ movable: false, readOnly: true });
       h.loop.host!.reschedule!('j2.md', 3);
       h.loop.host!.retime!('j2.md', 30, 'move');
+      h.loop.host!.createEvent!('2026-10-07', null);
       h.loop.host!.undoMove!();
       expect(h.reschedule).not.toHaveBeenCalled();
       expect(h.retime).not.toHaveBeenCalled();
+      expect(h.create).not.toHaveBeenCalled();
       expect(h.undo).not.toHaveBeenCalled();
     });
   });

@@ -78,6 +78,8 @@ export interface PluginFrameHost {
   reschedule?(path: string, days: number): void;
   /** …and by time (#2953): a move of start and end, or of the end alone, by whole minutes. */
   retime?(path: string, minutes: number, kind: 'move' | 'resize'): void;
+  /** …and a new event drawn on it (#2954): the host asks for a title and creates the note. */
+  createEvent?(start: string, end: string | null): void;
   /** A live block's frame height (#2641), already clamped. */
   setHeight?(height: number): void;
   /** The view's own selection (#2828). */
@@ -179,6 +181,9 @@ function onIntent({ sessionId, pluginId, intent }: PluginIntentEvent): void {
     case 'retime':
     case 'resize':
       hosts.get(sessionId)?.retime?.(intent.path, intent.minutes, intent.kind === 'retime' ? 'move' : 'resize');
+      return;
+    case 'createEvent':
+      hosts.get(sessionId)?.createEvent?.(intent.start, intent.end);
       return;
     case 'setHeight':
       hosts.get(sessionId)?.setHeight?.(intent.height);

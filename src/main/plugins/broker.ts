@@ -67,6 +67,7 @@ import type { RevisionSource } from '../../shared/history';
 import type { GraphQueryResult } from '../../shared/graph-query';
 import type { PluginIntent } from '../../shared/plugins/session';
 import { PLUGIN_HANDLER_NAME } from '../../shared/plugins/format';
+import { createEventRefusal } from '../../shared/calendar/create-event';
 import {
   asParams, menuItems, moveTargetParam, numberParam, recordParam, Refusal, stringParam, stringsParam, viaParam,
 } from './broker-params';
@@ -424,6 +425,14 @@ export function createPluginSession(opts: PluginSessionOptions): PluginSession {
           throw new Refusal('bad-request', `"minutes" is a whole number of minutes, not 0, at most ${PLUGIN_RETIME_MAX_MINUTES} either way.`);
         }
         deps.intent({ kind: method === 'view.retime' ? 'retime' : 'resize', path, minutes });
+        return {};
+      }
+      case 'view.createEvent': {
+        const start = stringParam(params, 'start');
+        const end = params.end === null || params.end === undefined ? null : stringParam(params, 'end');
+        const refusal = createEventRefusal(start, end);
+        if (refusal) throw new Refusal('bad-request', refusal);
+        deps.intent({ kind: 'createEvent', start, end });
         return {};
       }
       case 'view.setHeight': {

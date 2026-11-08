@@ -1,5 +1,5 @@
 {
-  "version": "1.14.0",
+  "version": "1.15.0",
   "errorCodes": [
     "bad-request",
     "busy",
@@ -589,6 +589,26 @@
             "name": "shift",
             "optional": true,
             "type": "boolean"
+          }
+        ]
+      },
+      "result": {
+        "text": "Record<string, never>"
+      }
+    },
+    "view.createEvent": {
+      "capability": "notes:write",
+      "params": {
+        "members": [
+          {
+            "name": "end",
+            "optional": false,
+            "type": "string | null"
+          },
+          {
+            "name": "start",
+            "optional": false,
+            "type": "string"
           }
         ]
       },

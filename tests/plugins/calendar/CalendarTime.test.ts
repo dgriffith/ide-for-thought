@@ -50,8 +50,9 @@ function setup(over: Partial<CalendarProps> = {}) {
     type: EVENT, properties: EVENT.properties, instances: EVENTS, mode: 'week', date: '2026-10-07', locale: 'en-GB', weekStart: 1, ...over,
   });
   const q = (sel: string) => utils.container.querySelector<HTMLElement>(sel);
+  const qa = (sel: string) => [...utils.container.querySelectorAll<HTMLElement>(sel)];
   const ev = (path: string) => q(`.wk-ev[data-note-path="${path}"]`)!;
-  return { ...utils, q, ev };
+  return { ...utils, q, qa, ev };
 }
 
 beforeEach(() => {
@@ -206,5 +207,74 @@ describe('moving by keyboard (#2953)', () => {
     const s = setup({ mode: null, date: null });
     expect(s.q('.wk-ev')).toBeNull();
     expect(s.q('[data-resize-handle]')).toBeNull();
+  });
+});
+
+describe('creating an event (#2954)', () => {
+  const cell = (s: ReturnType<typeof setup>, d: number, slot: number) => s.q(`[role="gridcell"][data-day="${d}"][data-slot="${slot}"]`)!;
+  const THU = day(2026, 10, 8);
+
+  it('a drag across empty hours asks for an event over them, rounded out to 15 minutes, either way up', async () => {
+    const s = setup();
+    await drag(cell(s, WED, 26), at(WED, 13 * 60 + 5), at(WED, 14 * 60 + 20), { release: false });
+    expect(s.qa('[data-create-target]').map((c) => c.dataset['slot'])).toEqual(['26', '27', '28']);
+    await fireEvent.pointerUp(window, { pointerId: 1, ...at(WED, 14 * 60 + 20) });
+    expect(s.qa('[data-create-target]')).toEqual([]);
+    await drag(cell(s, WED, 28), at(WED, 14 * 60 + 20), at(WED, 13 * 60 + 5));
+    expect(s.api.of('view.createEvent')).toEqual([
+      { start: '2026-10-07T13:00', end: '2026-10-07T14:30' },
+      { start: '2026-10-07T13:00', end: '2026-10-07T14:30' },
+    ]);
+  });
+
+  it('a drag along the all-day strip asks for a run of days', async () => {
+    const s = setup();
+    const strip = cell(s, THU, -1);
+    await fireEvent.pointerDown(strip, { button: 0, pointerId: 1, clientX: at(THU, 0).clientX, clientY: 5 });
+    await fireEvent.pointerMove(window, { pointerId: 1, clientX: at(THU, 0).clientX + 20, clientY: 5 });
+    await fireEvent.pointerMove(window, { pointerId: 1, clientX: at(day(2026, 10, 10), 0).clientX, clientY: 5 });
+    expect(s.qa('[data-create-target]').map((c) => Number(c.dataset['day']))).toEqual([THU, day(2026, 10, 9), day(2026, 10, 10)]);
+    await fireEvent.pointerUp(window, { pointerId: 1, clientX: at(day(2026, 10, 10), 0).clientX, clientY: 5 });
+    expect(s.api.of('view.createEvent')).toEqual([{ start: '2026-10-08', end: '2026-10-10' }]);
+  });
+
+  it('a press that doesn\'t travel, Escape, a press on an event, or read-only creates nothing', async () => {
+    let s = setup();
+    await fireEvent.pointerDown(cell(s, WED, 26), { button: 0, pointerId: 1, ...at(WED, 13 * 60) });
+    await fireEvent.pointerUp(window, { pointerId: 1, ...at(WED, 13 * 60) });
+    await drag(cell(s, WED, 26), at(WED, 13 * 60), at(WED, 15 * 60), { release: false });
+    await fireEvent.keyDown(window, { key: 'Escape' });
+    await fireEvent.pointerUp(window, { pointerId: 1, ...at(WED, 15 * 60) });
+    await drag(s.ev('review.md'), at(WED, 9 * 60), at(WED, 9 * 60 + 2)); // under the threshold
+    expect(s.api.of('view.createEvent')).toEqual([]);
+    cleanup();
+    s = setup({ readOnly: true });
+    await drag(cell(s, WED, 26), at(WED, 13 * 60), at(WED, 15 * 60));
+    expect(s.api.of('view.createEvent')).toEqual([]);
+  });
+
+  it('Enter on an empty cell asks for half an hour there, or the day; on a cell with events it opens the day\'s list', async () => {
+    const s = setup();
+    const empty = cell(s, WED, 26);
+    empty.focus();
+    await fireEvent.keyDown(empty, { key: 'Enter' });
+    const allDay = cell(s, THU, -1);
+    allDay.focus();
+    await fireEvent.keyDown(allDay, { key: 'Enter' });
+    expect(s.api.of('view.createEvent')).toEqual([{ start: '2026-10-07T13:00', end: '2026-10-07T13:30' }, { start: '2026-10-08', end: null }]);
+    const busy = cell(s, WED, 19); // inside the review's 9:00–11:00, though it starts in the cell above
+    busy.focus();
+    await fireEvent.keyDown(busy, { key: 'Enter' });
+    expect(document.querySelector('[data-calendar-day-list]')).not.toBeNull();
+    expect(s.api.of('view.createEvent')).toHaveLength(2);
+  });
+
+  it('read-only, Enter on an empty cell opens the day\'s list as before', async () => {
+    const s = setup({ readOnly: true });
+    const empty = cell(s, WED, 26);
+    empty.focus();
+    await fireEvent.keyDown(empty, { key: 'Enter' });
+    expect(s.api.of('view.createEvent')).toEqual([]);
+    expect(document.querySelector('[data-calendar-day-list]')).not.toBeNull();
   });
 });

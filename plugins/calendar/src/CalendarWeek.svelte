@@ -35,6 +35,11 @@
    *   Alt+↑/↓ moves it 15 minutes and Alt+Shift+↑/↓ moves its end; focus
    *   follows the event to where it's drawn next. The write, its undo and its
    *   announcement are the host's.
+   * - **Creating** (#2954, also `timeMoves`): drag across empty hours (one
+   *   day) or the all-day strip (a run of days), or press Enter on an empty
+   *   cell — half an hour from its slot, or that day — and Minerva asks for
+   *   the new note's title. Enter on a cell with events still opens the
+   *   day's list.
    */
   import { tick } from 'svelte';
   import { DAY_MS } from '../../../src/shared/time';
@@ -46,6 +51,7 @@
   import { isMenuKey, openMenuAt } from './drag-keys';
   import { clockLabel, clockRange } from './week-nav';
   import { SNAP_MINUTES, timeDrag, type TimeDragKind, type TimeMoves } from './time-drag';
+  import { DEFAULT_TIMED_MINUTES } from '../../../src/shared/calendar/time-grid';
 
   interface Props {
     page: GridWeek;
@@ -175,6 +181,19 @@
 
   const cellSel = (day: number, slot: number) => `[role="gridcell"][data-day="${day}"][data-slot="${slot}"]`;
 
+  /** Nothing drawn in this cell: no all-day bar over the day (slot −1), or no timed piece over the half hour. */
+  function isEmpty(day: number, slot: number): boolean {
+    const col = page.days.findIndex((d) => d.start === day);
+    if (col < 0) return false;
+    if (slot < 0) return (stripCount[col] ?? 0) === 0;
+    return !(layout.timed[col] ?? []).some((p) => p.startMin < (slot + 1) * 30 && p.endMin > slot * 30);
+  }
+  /** Enter on an empty cell (#2954): half an hour from its slot, or the day. */
+  function createAt(day: number, slot: number): void {
+    if (slot < 0) timeMoves?.create({ firstDay: day, lastDay: day });
+    else timeMoves?.create({ day, startMin: slot * 30, endMin: Math.min(1440, slot * 30 + DEFAULT_TIMED_MINUTES) });
+  }
+
   /** Focus a cell, showing its page first. Called by the calendar for *Move to date…*. */
   export async function focusCell(day: number, slot: number | null = null): Promise<void> {
     const d = dayStart(day);
@@ -213,6 +232,7 @@
       case ' ':
         e.preventDefault();
         if (choosing) onChooseDay(day);
+        else if (timeMoves && e.key === 'Enter' && isEmpty(day, slot)) createAt(day, slot);
         else onDayList(day, cell);
         return;
       case 'Escape':
@@ -322,6 +342,7 @@
     onMove: (key, minutes) => timeMoves?.move(key, minutes),
     onResize: (key, minutes) => timeMoves?.resize(key, minutes),
     onRefused: (_key, text) => timeMoves?.refused(text),
+    onCreate: (range) => timeMoves?.create(range),
     onDragStart: () => { dragging = true; hover.close(); },
     onDragEnd: () => { dragging = false; },
   }}
@@ -531,6 +552,8 @@
   .wk-ev.wk-short { flex-direction: row; align-items: center; white-space: nowrap; padding-top: 0; padding-bottom: 0; }
   .wk-ev:hover, .wk-bar:hover, .wk-ev:focus-visible, .wk-bar:focus-visible { border-color: var(--ev-color, var(--accent)); outline: none; }
   .wk-ev[data-moving], .wk-bar[data-moving] { outline: 2px dashed var(--accent); outline-offset: 1px; }
+  /* Creating (#2954): the stretch being drawn. */
+  .wk-cell[data-create-target] { background: color-mix(in oklch, var(--accent) 22%, var(--bg)); }
   /* Moving by time (#2953): the bottom edge resizes; a dragged event says where it lands. */
   .wk-resize { position: absolute; left: 0; right: 0; bottom: 0; height: 6px; cursor: ns-resize; }
   .wk-ev[data-dragging] { z-index: 3; opacity: 0.85; box-shadow: 0 4px 14px color-mix(in oklch, var(--bg) 50%, transparent); }

@@ -37,6 +37,8 @@ export type PluginIntent =
   /** A calendar's move or resize by time (#2953): the host writes, with its own undo. */
   | { kind: 'retime'; path: string; minutes: number }
   | { kind: 'resize'; path: string; minutes: number }
+  /** A calendar's new event (#2954): the host asks for its title, and creates it. */
+  | { kind: 'createEvent'; start: string; end: string | null }
   /** A live block's frame height (#2641), clamped by the broker. */
   | { kind: 'setHeight'; height: number };
 

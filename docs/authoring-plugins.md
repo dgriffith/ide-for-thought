@@ -496,7 +496,7 @@ works, and why, is [plugin code](plugin-code.md).
 | `code` field | What it is | In [plugin code](plugin-code.md) |
 |---|---|---|
 | `capabilities` | What the code may do, from the table below. Anything outside them is refused when called. | |
-| `api` | The plugin API versions it was written for: a semver range like `"^1.14.0"`. | *Forks and the ABI* |
+| `api` | The plugin API versions it was written for: a semver range like `"^1.15.0"`. | *Forks and the ABI* |
 | `views` | Global views: a panel in a sidebar, or a tab, each a page fed by a query it declares. | *Global views* |
 | `blocks` | Live blocks: a fence or `:::directive` in a note, drawn by a page of its own. | *Live blocks* |
 | `worker` | Its logic: a `.js` module run in a Web Worker, which registers handlers. | *Logic* |
@@ -559,7 +559,7 @@ Minerva's repository, and its test holds this page to it. The manifest:
   "contributes": {},
   "code": {
     "capabilities": ["notes:read", "graph:query", "ui"],
-    "api": "^1.14.0",
+    "api": "^1.15.0",
     "worker": "logic.js",
     "views": [{ "id": "lengths", "title": "Note Lengths", "place": "left-sidebar", "entry": "panel/index.html", "query": "panel/notes.rq" }],
     "commands": [{ "id": "count-selection", "title": "Count Words in Selection", "when": "selection", "editorMenu": true, "menu": "edit", "key": "CmdOrCtrl+Alt+N", "run": { "handler": "countWords" } }]

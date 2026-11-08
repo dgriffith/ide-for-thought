@@ -85,6 +85,10 @@
    *   Alt+↑/↓ and Alt+Shift+↑/↓ do the same from the keyboard. Minerva
    *   writes (`view.retime` / `view.resize`), with undo; an event dated to a
    *   day only, or under a Date by with no end (for a resize), says why.
+   * - **Creating** (#2954, Week and Day): drag across empty hours or the
+   *   all-day strip, or Enter on an empty cell, asks Minerva for a new note
+   *   of the view's type over that stretch (`view.createEvent`); Minerva asks
+   *   for its title (and subtype) and creates it.
    * - **The note menu** (#2929; where the view has one, `view.rowMenu`, never
    *   in an export): a right-click on any event — in the grid, a band, the
    *   Undated tray or a day's list — or the menu key on a focused one, asks
@@ -101,6 +105,8 @@
   import { parseCalendarMode, type CalendarMode } from '../../../src/shared/objects/calendar';
   import { drawnRange, layoutTimeGrid, MIN_TIMED_MINUTES } from '../../../src/shared/calendar/time-grid';
   import { timeRefusalFor } from '../../../src/shared/calendar/reschedule-refusal';
+  import { eventValue } from '../../../src/shared/calendar/create-event';
+  import { DAY_MS } from '../../../src/shared/time';
   import CalendarWeek from './CalendarWeek.svelte';
   import type { TimeMoves } from './time-drag';
   import { clockLabel, monthFromWeek, stepPage, weekFromMonth, weekTitle } from './week-nav';
@@ -443,6 +449,13 @@
     move: (key, minutes) => quietly(connection.view.retime({ path: key, minutes })),
     resize: (key, minutes) => quietly(connection.view.resize({ path: key, minutes })),
     refused: announce,
+    // A new event (#2954): the stretch drawn, on the viewer's clock; Minerva asks for its title.
+    create: (r) => {
+      const req = 'firstDay' in r
+        ? { start: eventValue(r.firstDay), end: r.lastDay > r.firstDay ? eventValue(r.lastDay) : null }
+        : { start: eventValue(r.day, r.startMin), end: r.endMin >= 1440 ? eventValue(r.day + DAY_MS, 0) : eventValue(r.day, r.endMin) };
+      quietly(connection.view.createEvent(req));
+    },
   } : null);
 
   // ── The note menu (#2929): Minerva's, for one event ─────────────────────

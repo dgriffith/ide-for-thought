@@ -48,6 +48,7 @@
 {#if dialogs.typePicker}
   <TypePickerDialog
     types={dialogs.typePicker.types}
+    heading={dialogs.typePicker.heading}
     onPick={(t) => dialogs.pickType(t)}
     onCancel={() => dialogs.cancelTypePicker()}
   />

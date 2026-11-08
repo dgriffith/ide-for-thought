@@ -125,6 +125,8 @@ export interface LayoutView {
   onReschedule: ((path: string, days: number) => void) | undefined;
   /** Calendar's week and day (#2953): move a timed note, or its end, by whole minutes, with undo; absent where onReschedule is. */
   onRetime: ((path: string, minutes: number, kind: 'move' | 'resize') => void) | undefined;
+  /** Calendar's week and day (#2954): create a note of the view's type over a stretch; absent where onReschedule is. */
+  onCreateEvent: ((start: string, end: string | null) => void) | undefined;
   /** Calendar (#2929): a plugin layout hands over how to start choosing a
    *  day for a note (its `moveToDate` event), so the row menu can offer
    *  *Move to date…*; null when it goes. */
