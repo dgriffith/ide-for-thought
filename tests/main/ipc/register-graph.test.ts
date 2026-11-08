@@ -49,6 +49,7 @@ const h = vi.hoisted(() => ({
   searchIndexAllNotes: vi.fn(),
   runQuery: vi.fn(),
   runNoteQuery: vi.fn(),
+  queryViewRows: vi.fn(),
   listTables: vi.fn(),
   registerAllCsvs: vi.fn(),
   registerAllNoteTables: vi.fn(),
@@ -111,6 +112,7 @@ vi.mock('../../../src/main/sources/tables', () => ({
   registerAllCsvs: h.registerAllCsvs,
   registerAllNoteTables: h.registerAllNoteTables,
 }));
+vi.mock('../../../src/main/views/query-rows', () => ({ queryViewRows: h.queryViewRows }));
 vi.mock('../../../src/main/graph/health-checks', () => ({
   getInspections: h.getInspections,
   runAllChecks: h.runAllChecks,
@@ -295,6 +297,24 @@ describe('register-graph — queries and lookups', () => {
     await expect(callAsync(Channels.TABLES_QUERY_NOTE, 'SELECT 1'))
       .resolves.toEqual({ ok: false, error: 'No project open' });
     expect(h.runNoteQuery).not.toHaveBeenCalled();
+  });
+
+  // #2944 — a query view's rows: `queryViewRows` runs SQL through
+  // `runNoteQuery` itself (tests/main/views/query-rows.test.ts drives the guard);
+  // here, that the channel reaches it with the project and a known language.
+  it('QUERY_VIEW_ROWS runs the view query for the project, its language one of the two', async () => {
+    h.queryViewRows.mockResolvedValue({ ok: true, schema: { columns: [], noteColumn: null }, rows: [], truncated: false });
+    await expect(callAsync(Channels.QUERY_VIEW_ROWS, 'SELECT * FROM t', 'sql', { note: 'path' })).resolves.toMatchObject({ ok: true });
+    expect(h.queryViewRows).toHaveBeenLastCalledWith(CTX, 'SELECT * FROM t', 'sql', { note: 'path' });
+    await callAsync(Channels.QUERY_VIEW_ROWS, 'SELECT ?n WHERE { ?n ?p ?o }', 'cypher');
+    expect(h.queryViewRows).toHaveBeenLastCalledWith(CTX, 'SELECT ?n WHERE { ?n ?p ?o }', 'sparql', {});
+    expect(h.runQuery).not.toHaveBeenCalled();
+  });
+
+  it('QUERY_VIEW_ROWS throws with no project open (rule 2)', async () => {
+    openProject = null;
+    await expect(callAsync(Channels.QUERY_VIEW_ROWS, 'SELECT 1', 'sql')).rejects.toThrow('No project open');
+    expect(h.queryViewRows).not.toHaveBeenCalled();
   });
 
   it('TABLES_LIST reports the registered tables', async () => {

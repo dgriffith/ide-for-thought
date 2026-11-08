@@ -51,16 +51,8 @@ export function mapUnavailableReason(err: unknown): string {
   return /webgl/i.test(message) ? MAP_NO_WEBGL : `the map couldn't start (${message})`;
 }
 
-/** Parse a "<lat>,<lng>" geo value; null for missing/malformed (omitted, not
- *  errored — #2066). Shared by the live map and the export fallback. */
-export function parseLatLng(value: string | null | undefined): [number, number] | null {
-  if (!value) return null;
-  const parts = value.split(',').map((s) => Number(s.trim()));
-  if (parts.length !== 2) return null;
-  const [lat, lng] = parts;
-  if (lat === undefined || lng === undefined || !Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-  return [lat, lng];
-}
+/** Parse a "<lat>,<lng>" geo value (`shared/objects/geo-value.ts`, re-exported for the map's callers). */
+export { parseLatLng } from '../../../shared/objects/geo-value';
 
 /** The tile/data providers' attribution, as plain text — required wherever
  *  their tiles appear, an export included. Deduplicated, in source order. */
