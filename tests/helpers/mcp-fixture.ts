@@ -18,6 +18,7 @@
  */
 import { execSync } from 'node:child_process';
 import { describe } from 'vitest';
+import { allowlistedEnv } from '../../src/main/subprocess-env';
 
 /** The legacy-era fixture. */
 export const MCP_FIXTURE_PACKAGE = '@modelcontextprotocol/server-everything@1.0.0';
@@ -30,8 +31,16 @@ export const MCP_MODERN_FIXTURE_PACKAGE = '@modelcontextprotocol/server-everythi
  *  "npx successfully resolved and ran the package" signal. */
 export function mcpFixtureAvailable(): boolean {
   try {
+    // Warmed in the transport's own environment (#2996): a run in the full
+    // one didn't warm the configuration the transport launches `npx` with,
+    // so the suite's first connection on Windows was still a cold start.
+    // Both fixtures, since each suite launches one.
+    execSync(`npx -y ${MCP_MODERN_FIXTURE_PACKAGE} --help`, { stdio: 'pipe', timeout: 90_000, env: allowlistedEnv(process.env) });
+  } catch { /* the banner check below decides; 2.0.0's --help may exit non-zero too */ }
+  try {
     const out = execSync(`npx -y ${MCP_FIXTURE_PACKAGE} --help`, {
       stdio: 'pipe',
+      env: allowlistedEnv(process.env),
       // A cold `npx` on a Windows runner took ~30s on its own, so a 30s limit
       // read as "no fixture" on some runs and not others — a skipped suite
       // locally, a failed gate in CI.
