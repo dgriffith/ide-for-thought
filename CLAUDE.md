@@ -2117,7 +2117,9 @@ touch the tool surface:
   `query_sql` with human wording ("Charts and query blocks in notes can only
   read the tables and views Minerva registered…") — via the
   `tables:queryNote` channel in the preview and directly in
-  `publish/vega-render.ts`. A refusal renders in place; on export it degrades
+  `publish/vega-render.ts` (a `:::query-list` / `:::query-table`, drawn as a
+  query view since #2947, through `queryViews:rows`, whose SQL is
+  `runNoteQuery` too). A refusal renders in place; on export it degrades
   to an error note and the export completes. **New code that auto-runs note
   SQL uses `runNoteQuery` / `api.tables.queryNote`, never `runQuery` /
   `api.tables.query`.** What the user runs deliberately — the Query panel,

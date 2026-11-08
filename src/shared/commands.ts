@@ -101,6 +101,8 @@ export const COMMANDS = [
   { id: 'file.newAudioRecording', title: 'New Audio Recording (Start / Stop)', category: 'File', palette: { when: 'project' },
     menu: { label: 'New Audio Recording', toolTip: 'Record from the microphone into a file in the thoughtbase, embedded in the open note. Choose it again to stop.' } },
   { id: 'edit.transcribeRecording', title: 'Transcribe Audio Recording', category: 'Edit', palette: { when: 'noteTab' } },
+  // A `:::query-list` / `:::query-table` at the cursor as the object-view fence it renders as (#2947).
+  { id: 'edit.convertQueryToView', title: 'Convert Query List to View', category: 'Edit', palette: { when: 'noteTab' } },
   // The mic plus the sound the Mac plays, mixed: both sides of a call (#2731).
   { id: 'file.newMeetingRecording', title: 'New Meeting Recording (Mic + System Audio, Start / Stop)', category: 'File', palette: { when: 'project' } },
   { id: 'edit.summarizeRecording', title: 'Summarize Audio Recording…', category: 'Edit', palette: { when: 'noteTab' } },

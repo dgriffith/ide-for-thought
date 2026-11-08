@@ -16,18 +16,20 @@ SELECT ?title ?path WHERE {
 
 ## Notes by Tag
 
-:::query-table
-title: Tag Index
-columns: tag, title, path
-link: path
----
-SELECT ?tag ?title ?path WHERE {
-  ?note minerva:hasTag ?tagNode .
-  ?tagNode minerva:tagName ?tag .
-  ?note dc:title ?title .
-  ?note minerva:relativePath ?path .
-} ORDER BY ?tag ?title
-:::
+```object-view
+{
+  "query": "SELECT ?tag ?title ?path WHERE {\n  ?note minerva:hasTag ?tagNode .\n  ?tagNode minerva:tagName ?tag .\n  ?note dc:title ?title .\n  ?note minerva:relativePath ?path .\n} ORDER BY ?tag ?title",
+  "language": "sparql",
+  "layout": "table",
+  "title": "Tag Index",
+  "note": "path",
+  "columns": [
+    "tag",
+    "title",
+    "path"
+  ]
+}
+```
 
 ## Notes Over Time
 
@@ -63,19 +65,16 @@ SELECT ?source (COUNT(?target) AS ?links) WHERE {
 
 ## Technology Stack (from Architecture note)
 
-:::query-table
-title: Tech Stack (queried from markdown table)
-columns: layer, tech, purpose
----
-SELECT ?layer ?tech ?purpose WHERE {
-  ?table csvw:inNote ?note .
-  ?note dc:title "Architecture Overview" .
-  ?row csvw:cell ?cellLayer, ?cellTech, ?cellPurpose .
-  ?cellLayer csvw:column/csvw:name "Layer" .
-  ?cellLayer rdf:value ?layer .
-  ?cellTech csvw:column/csvw:name "Technology" .
-  ?cellTech rdf:value ?tech .
-  ?cellPurpose csvw:column/csvw:name "Purpose" .
-  ?cellPurpose rdf:value ?purpose .
+```object-view
+{
+  "query": "SELECT ?layer ?tech ?purpose WHERE {\n  ?table csvw:inNote ?note .\n  ?note dc:title \"Architecture Overview\" .\n  ?row csvw:cell ?cellLayer, ?cellTech, ?cellPurpose .\n  ?cellLayer csvw:column/csvw:name \"Layer\" .\n  ?cellLayer rdf:value ?layer .\n  ?cellTech csvw:column/csvw:name \"Technology\" .\n  ?cellTech rdf:value ?tech .\n  ?cellPurpose csvw:column/csvw:name \"Purpose\" .\n  ?cellPurpose rdf:value ?purpose .\n}",
+  "language": "sparql",
+  "layout": "table",
+  "title": "Tech Stack (queried from markdown table)",
+  "columns": [
+    "layer",
+    "tech",
+    "purpose"
+  ]
 }
-:::
+```

@@ -23,6 +23,8 @@ import { getEditorStore } from '../stores/editor.svelte';
 import { getNavigationStore } from '../stores/navigation.svelte';
 import { getConversationsStore } from '../stores/conversations.svelte';
 import { toggleEditorDictation } from '../editor/dictation';
+import { convertQueryDirectiveToView } from '../editor/query-to-view';
+import { announce } from '../stores/announcer.svelte';
 import { getAudioRecordingStore } from '../voice/audio-recording.svelte';
 import type { EditorView } from '@codemirror/view';
 import type { ThemeMode } from '../theme';
@@ -174,6 +176,7 @@ export function createCommandKeymap(ctx: CommandKeymapCtx): {
     'edit.insertTemplate': ctx.insertTemplate,
     'file.newAudioRecording': () => { void recordings.toggle(focusedView); },
     'edit.transcribeRecording': () => { void recordings.transcribeAtCursor(focusedView); },
+    'edit.convertQueryToView': () => { if (!convertQueryDirectiveToView(focusedView())) announce('No query list or table at the cursor.'); },
     'file.newMeetingRecording': () => { void recordings.toggle(focusedView, { systemAudio: true }); },
     'edit.summarizeRecording': () => { recordings.summarizeAtCursor(focusedView, ctx.invokeTool); },
     'file.clearRecent': () => { void api.notebase.clearRecent(); },

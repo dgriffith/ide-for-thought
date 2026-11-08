@@ -101,7 +101,16 @@
     <p class="lede">A query cell puts a live answer from your knowledge base right inside a note — a list of matching notes, a table, or a chart — and keeps it current on its own. Unlike a runnable code cell that you press a button to compute, a query cell simply shows its results whenever you read the note, and refreshes by itself as your notes change. It only ever reads; it never alters your note.</p>
 
     <h2 id="writing">Writing a query cell</h2>
-    <p>Open a cell with a line that reads <code>:::query-list</code> and close it with a line that reads <code>:::</code>. In between, write your question about the knowledge base. Where the cell sits, Minerva shows the answer as a list of links you can click.</p>
+    <p>The fullest way to show a query's answer in a note is a <a href="notes-object-views.html#from-a-query">view from a query</a>: an <code>object-view</code> block with your query in it, which can be a table, list, gallery, board, map, timeline or calendar, with sorting, filters and the note menu on each result. You can open any query as one from the Query panel, too.</p>
+
+<pre><code>```object-view
+{
+  "query": "SELECT ?note WHERE { ?note minerva:hasTag ?t . ?t minerva:tagName \"open-question\" }",
+  "layout": "list"
+}
+```</code></pre>
+
+    <p>A query cell is the short form. Open a cell with a line that reads <code>:::query-list</code> and close it with a line that reads <code>:::</code>. In between, write your question about the knowledge base. Where the cell sits, Minerva shows the answer as a list of the notes it names, drawn as the same kind of view, so the results can be sorted and right-clicked like any other. The note itself isn't changed, and right-clicking inside the cell offers <b>Convert to View</b> if you'd rather have the longer form to edit.</p>
 
 <pre><code>:::query-list
 SELECT ?title ?path WHERE {
@@ -117,11 +126,11 @@ SELECT ?title ?path WHERE {
     <div class="deflist">
       <div class="row">
         <div class="k"><code>:::query-list</code></div>
-        <div class="v"><b>A list.</b> Each result becomes a clickable link — the simplest way to gather related notes in one place.</div>
+        <div class="v"><b>A list.</b> One line per note the results name — the simplest way to gather related notes in one place. A list view.</div>
       </div>
       <div class="row">
         <div class="k"><code>:::query-table</code></div>
-        <div class="v"><b>A table.</b> One row per result, with a column for each detail you asked for.</div>
+        <div class="v"><b>A table.</b> One row per result, with a column for each detail you asked for. A table view: click a column to sort it.</div>
       </div>
       <div class="row">
         <div class="k"><code>:::query-timeseries</code></div>

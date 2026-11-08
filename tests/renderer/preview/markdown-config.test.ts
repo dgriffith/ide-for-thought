@@ -422,18 +422,23 @@ describe('fence dispatcher — compute output', () => {
 });
 
 describe('query directive :::query-…', () => {
-  it('renders a query block with type + query and no config', () => {
+  it('a list or table renders as a query view: an object-view placeholder sized to its rows, its spec mapped (#2947)', () => {
     const html = render(':::query-list\nSELECT * WHERE {}\n:::');
-    expect(html).toContain('class="query-block"');
-    expect(html).toContain('data-type="list"');
-    expect(html).toContain('data-query="SELECT * WHERE {}"');
-    expect(html).not.toContain('data-config');
-    expect(html).toContain('query-loading');
+    expect(html).toContain('class="object-view-block object-view-fit"');
+    expect(html).not.toContain('class="query-block"');
+    expect(html).toContain('{"query":"SELECT * WHERE {}","language":"sparql","layout":"list"}');
+    const table = render(':::query-table\ntitle: Places\nlink: path\ncolumns: city, rating\nlanguage: sql\n---\nSELECT * FROM places\n:::');
+    expect(table).toContain('<h4 class="query-title">Places</h4>');
+    expect(table).toContain('"layout":"table"');
+    expect(table).toContain('"language":"sql"');
+    expect(table).toContain('"note":"path"');
+    expect(table).toContain('"columns":["city","rating"]');
   });
 
-  it('parses a config block above the --- separator', () => {
-    const html = render(':::query-table\nlimit: 5\nsort: name\n---\nSELECT * WHERE {}\n:::');
-    expect(html).toContain('data-type="table"');
+  it('a chart directive still renders the query block, its config parsed above the --- separator', () => {
+    const html = render(':::query-timeseries\nlimit: 5\nsort: name\n---\nSELECT * WHERE {}\n:::');
+    expect(html).toContain('class="query-block"');
+    expect(html).toContain('data-type="timeseries"');
     expect(html).toContain('data-config=');
     // config JSON is attr-escaped
     expect(html).toContain('limit');

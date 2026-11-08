@@ -12,28 +12,27 @@ See [[notes/architecture]] and [[notes/todo]] for action items.
 
 ## Research Papers
 
-:::query-list
-title: Papers in this thoughtbase
----
-SELECT ?title ?path WHERE {
-  ?note minerva:inFolder ?folder .
-  ?folder minerva:relativePath "research/papers" .
-  ?note dc:title ?title .
-  ?note minerva:relativePath ?path .
-} ORDER BY ?title
-:::
+```object-view
+{
+  "query": "SELECT ?title ?path WHERE {\n  ?note minerva:inFolder ?folder .\n  ?folder minerva:relativePath \"research/papers\" .\n  ?note dc:title ?title .\n  ?note minerva:relativePath ?path .\n} ORDER BY ?title",
+  "language": "sparql",
+  "layout": "list",
+  "title": "Papers in this thoughtbase"
+}
+```
 
 ## Link Map
 
-:::query-table
-title: How notes connect
-columns: source, linkType, target
----
-SELECT ?source ?linkType ?target WHERE {
-  ?s ?pred ?t .
-  ?pred rdfs:subPropertyOf minerva:linksTo .
-  ?s dc:title ?source .
-  ?t dc:title ?target .
-  BIND(REPLACE(STR(?pred), "https://minerva.dev/ontology#", "") AS ?linkType)
-} ORDER BY ?source
-:::
+```object-view
+{
+  "query": "SELECT ?source ?linkType ?target WHERE {\n  ?s ?pred ?t .\n  ?pred rdfs:subPropertyOf minerva:linksTo .\n  ?s dc:title ?source .\n  ?t dc:title ?target .\n  BIND(REPLACE(STR(?pred), \"https://minerva.dev/ontology#\", \"\") AS ?linkType)\n} ORDER BY ?source",
+  "language": "sparql",
+  "layout": "table",
+  "title": "How notes connect",
+  "columns": [
+    "source",
+    "linkType",
+    "target"
+  ]
+}
+```

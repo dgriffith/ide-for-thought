@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { convertQueryDirectiveToView, directiveAt } from '../editor/query-to-view';
   import { onMount, untrack } from 'svelte';
   import EditorContextMenu from './EditorContextMenu.svelte';
   import QuickFixMenu, { type QuickFix } from './QuickFixMenu.svelte';
@@ -710,6 +711,11 @@
 
     onSearchQueryConsumed?.();
   });
+  /** "Convert to View" on a right-click inside a `:::query-list` / `:::query-table` (#2947); undefined elsewhere. */
+  function queryViewActionAt(pos: number | null): (() => void) | undefined {
+    const v = view;
+    return v && pos !== null && directiveAt(v.state.doc, pos) ? () => { convertQueryDirectiveToView(v, pos); } : undefined;
+  }
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -749,6 +755,7 @@
     onDictate={() => void toggleEditorDictation(view)}
     onRecordAudio={() => void recordings.start(() => view)}
     recordingAction={recordings.recordingMenuItemAt(() => view, contextMenu.docPos, menuOps.invokeTool)}
+    queryViewAction={queryViewActionAt(contextMenu.docPos)}
   />
 {/if}
 

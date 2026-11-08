@@ -18,6 +18,8 @@
  *   with it), then this machine's and plugins'. A reference, not a copy:
  *   Save as note keeps the name, so editing the query changes every view of
  *   it.
+ * - **`title`** names a query view (#2947: a `:::query-list`'s `title`);
+ *   absent, it's the query file's name, else "Query view".
  * - **`note` and `columnTypes`** pass to the query source (#2944): the
  *   column naming each row's note, and type overrides (`"due:date, status:enum"`).
  *   `columnTypes`, not `columns`, because `columns` is already the view's
@@ -31,8 +33,8 @@ import type { QueryLanguage } from './query-view';
 
 export type ViewSourceSpec =
   | { kind: 'type'; typeId: string }
-  | { kind: 'query'; query: string; language: QueryLanguage; note?: string; columnTypes?: string }
-  | { kind: 'queryFile'; queryFile: string; note?: string; columnTypes?: string };
+  | { kind: 'query'; query: string; language: QueryLanguage; note?: string; columnTypes?: string; title?: string }
+  | { kind: 'queryFile'; queryFile: string; note?: string; columnTypes?: string; title?: string };
 
 /** A query source's spec (not a type's). */
 export type QuerySourceSpec = Exclude<ViewSourceSpec, { kind: 'type' }>;
@@ -52,11 +54,13 @@ export function parseViewSource(spec: Record<string, unknown>): ViewSourceSpec |
   const given = [typeId, query, queryFile].filter((v) => v !== null).length;
   if (given !== 1) return { error: 'Exactly one of "typeId", "query" or "queryFile" is required' };
   if (typeId !== null) return { kind: 'type', typeId };
-  const extra: { note?: string; columnTypes?: string } = {};
+  const extra: { note?: string; columnTypes?: string; title?: string } = {};
   const note = str(spec.note);
   const columnTypes = str(spec.columnTypes);
+  const title = str(spec.title);
   if (note !== null) extra.note = note;
   if (columnTypes !== null) extra.columnTypes = columnTypes;
+  if (title !== null) extra.title = title.trim();
   if (query !== null) {
     if (spec.language !== undefined && spec.language !== 'sparql' && spec.language !== 'sql') return { error: '"language" must be "sparql" or "sql"' };
     return { kind: 'query', query, language: spec.language === 'sql' ? 'sql' : 'sparql', ...extra };
@@ -70,6 +74,7 @@ export function sourceFields(src: ViewSourceSpec): Record<string, unknown> {
   const out: Record<string, unknown> = src.kind === 'query' ? { query: src.query, language: src.language } : { queryFile: src.queryFile };
   if (src.note) out.note = src.note;
   if (src.columnTypes) out.columnTypes = src.columnTypes;
+  if (src.title) out.title = src.title;
   return out;
 }
 
@@ -97,6 +102,7 @@ export function viewKeyFor(src: ViewSourceSpec): string {
 
 /** The view's title where there's no type to name it: the query file's name, else "Query view". */
 export function queryViewTitle(src: QuerySourceSpec): string {
+  if (src.title) return src.title;
   return src.kind === 'queryFile' ? src.queryFile.replace(/\.(rq|sql)$/i, '') : 'Query view';
 }
 
