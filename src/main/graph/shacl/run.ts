@@ -58,6 +58,12 @@ let timeoutMs = SHACL_CHECK_TIMEOUT_MS;
 export function _setShaclTimeoutForTests(ms: number | null): void {
   timeoutMs = ms ?? SHACL_CHECK_TIMEOUT_MS;
 }
+
+/** How many times each check type has been started, for a test to see a stopped one skipped — a count, not a timing (#2229). */
+const runCounts = new Map<string, number>();
+export function _shaclRunCountsForTests(): ReadonlyMap<string, number> {
+  return runCounts;
+}
 /** The most findings one check reports. */
 export const SHACL_CHECK_MAX_FINDINGS = 200;
 
@@ -145,6 +151,7 @@ interface ValidationResultLike {
 
 /** Validate `dataset` against one check's shape, within the time limit; past it, the check is stopped. */
 async function validateOne(validator: Validator, file: ShapesFile, check: ShaclCheck, dataset: N3.Store): Promise<ValidationResultLike[]> {
+  runCounts.set(check.type, (runCounts.get(check.type) ?? 0) + 1);
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), timeoutMs); });
   try {
