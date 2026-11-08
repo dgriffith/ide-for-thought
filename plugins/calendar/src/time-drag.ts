@@ -26,6 +26,13 @@
  *   asks nothing. The click after a drag is swallowed.
  * - **A refused event** (`refusal(path, kind)` gives the sentence) doesn't
  *   drag: crossing the threshold calls `onRefused` once.
+ * - **Creating** (#2954, `onCreate`): a press on an EMPTY part of an hour
+ *   cell drags out a time range on that day — from the earlier of grab and
+ *   pointer, rounded down to 15 minutes, to the later, rounded up, at least
+ *   15 minutes — and a press on the all-day strip a run of days. The cells
+ *   it covers carry `data-create-target`; release asks `onCreate`, which
+ *   asks Minerva for the note. A press that doesn't travel creates nothing
+ *   (it's a click: the cell takes focus).
  * - **The hover preview goes** while dragging (`onDragStart` / `onDragEnd`).
  *   It's drawn by the app over the frame, so a pointer that reaches it is
  *   the app's, not the frame's: the rest of the drag — the release included
@@ -41,6 +48,9 @@ const SLOT_MINUTES = 30;
 
 export type TimeDragKind = 'move' | 'resize';
 
+/** A stretch drawn on the grid to create an event: minutes on one day, or a run of days. */
+export type CreateRange = { day: number; startMin: number; endMin: number } | { firstDay: number; lastDay: number };
+
 /** What moving by time asks of the calendar (#2953): `Calendar.svelte` gives it to `CalendarWeek`. */
 export interface TimeMoves {
   /** Why this event can't be moved or resized, or null. */
@@ -51,6 +61,8 @@ export interface TimeMoves {
   resize: (key: string, minutes: number) => void;
   /** Speak a refusal. */
   refused: (text: string) => void;
+  /** Ask for a new event over a stretch (#2954). */
+  create: (range: CreateRange) => void;
 }
 
 export interface TimeDragOptions {
@@ -65,6 +77,8 @@ export interface TimeDragOptions {
   onMove: (path: string, minutes: number) => void;
   onResize: (path: string, minutes: number) => void;
   onRefused: (path: string, text: string) => void;
+  /** Create an event over a stretch drawn on empty grid (#2954); absent, a press there does nothing. */
+  onCreate?: (range: CreateRange) => void;
   /** A drag began (past the threshold, not refused), and ended either way. */
   onDragStart?: () => void;
   onDragEnd?: () => void;
@@ -91,6 +105,24 @@ export function snappedMove(edge: number, travel: number): number {
   return snapMinute(edge + travel) - edge;
 }
 
+/** The day whose column is under `x`, read off the hour cells (the strip's columns are the same). */
+export function dayAtX(grid: HTMLElement, x: number): number | null {
+  for (const cell of grid.querySelectorAll<HTMLElement>('[role="gridcell"][data-day][data-slot="0"]')) {
+    const r = cell.getBoundingClientRect();
+    if (r.width > 0 && x >= r.left && x < r.right) return Number(cell.dataset['day']);
+  }
+  return null;
+}
+
+/** A drawn time range on `day`: grab to pointer (minutes, the pointer's carried onto the grab day), rounded out to 15 minutes. */
+export function timeRange(day: number, grabMin: number, pointerMin: number): { day: number; startMin: number; endMin: number } {
+  const lo = Math.max(0, Math.min(grabMin, pointerMin));
+  const hi = Math.min(1440, Math.max(grabMin, pointerMin));
+  const startMin = Math.min(1440 - SNAP_MINUTES, Math.floor(lo / SNAP_MINUTES) * SNAP_MINUTES);
+  const endMin = Math.max(startMin + SNAP_MINUTES, Math.ceil(hi / SNAP_MINUTES) * SNAP_MINUTES);
+  return { day, startMin, endMin };
+}
+
 /** The half-hour cell (`[data-slot]` ≥ 0) of `grid` under the point, and the minute there, by geometry. */
 export function pointAt(grid: HTMLElement, x: number, y: number): (GridPoint & { cell: HTMLElement }) | null {
   for (const cell of grid.querySelectorAll<HTMLElement>('[role="gridcell"][data-day][data-slot]')) {
@@ -102,6 +134,17 @@ export function pointAt(grid: HTMLElement, x: number, y: number): (GridPoint & {
     }
   }
   return null;
+}
+
+interface Create {
+  pointerId: number;
+  /** An hour range on the grab day, or (`days`) a run of days in the strip. */
+  days: boolean;
+  grab: GridPoint;
+  startX: number;
+  startY: number;
+  started: boolean;
+  range: CreateRange | null;
 }
 
 interface Drag {
@@ -123,6 +166,7 @@ interface Drag {
 export const timeDrag: Action<HTMLElement, TimeDragOptions> = (grid, initial) => {
   let opts = initial;
   let drag: Drag | null = null;
+  let create: Create | null = null;
   let swallowClick = false;
   let savedUserSelect = '';
 
@@ -199,12 +243,94 @@ export const timeDrag: Action<HTMLElement, TimeDragOptions> = (grid, initial) =>
     end(false);
   }
 
+  // ── Creating (#2954) ──────────────────────────────────────────────────
+  function clearCreate(): void {
+    for (const el of grid.querySelectorAll('[data-create-target]')) el.removeAttribute('data-create-target');
+  }
+  function drawCreate(c: Create, x: number, y: number): void {
+    if (c.days) {
+      const over = dayAtX(grid, x);
+      if (over === null) return;
+      const first = Math.min(c.grab.day, over);
+      const last = Math.max(c.grab.day, over);
+      c.range = { firstDay: first, lastDay: last };
+      clearCreate();
+      for (const cell of grid.querySelectorAll<HTMLElement>('[role="gridcell"][data-slot="-1"]')) {
+        const d = Number(cell.dataset['day']);
+        if (d >= first && d <= last) cell.setAttribute('data-create-target', '');
+      }
+      return;
+    }
+    const over = pointAt(grid, x, y);
+    if (!over) return;
+    const r = timeRange(c.grab.day, c.grab.minute, over.minute + Math.round((over.day - c.grab.day) / DAY_MS) * 1440);
+    c.range = r;
+    clearCreate();
+    for (const cell of grid.querySelectorAll<HTMLElement>(`[role="gridcell"][data-day="${c.grab.day}"][data-slot]`)) {
+      const slot = Number(cell.dataset['slot']);
+      if (slot >= 0 && slot * SLOT_MINUTES < r.endMin && (slot + 1) * SLOT_MINUTES > r.startMin) cell.setAttribute('data-create-target', '');
+    }
+  }
+  function endCreate(commit: boolean): void {
+    const c = create;
+    if (!c) return;
+    create = null;
+    window.removeEventListener('pointermove', onCreateMove, true);
+    window.removeEventListener('pointerup', onCreateUp, true);
+    window.removeEventListener('pointercancel', onCreateCancel, true);
+    window.removeEventListener('keydown', onCreateKey, true);
+    if (!c.started) return;
+    clearCreate();
+    document.body.style.userSelect = savedUserSelect;
+    opts.onDragEnd?.();
+    if (commit && c.range) opts.onCreate?.(c.range);
+  }
+  function onCreateMove(e: PointerEvent): void {
+    const c = create;
+    if (!c || e.pointerId !== c.pointerId) return;
+    if (!c.started) {
+      if (Math.hypot(e.clientX - c.startX, e.clientY - c.startY) < DRAG_THRESHOLD_PX) return;
+      c.started = true;
+      opts.onDragStart?.();
+      savedUserSelect = document.body.style.userSelect;
+      document.body.style.userSelect = 'none';
+    }
+    e.preventDefault();
+    drawCreate(c, e.clientX, e.clientY);
+  }
+  function onCreateUp(e: PointerEvent): void {
+    if (!create || e.pointerId !== create.pointerId) return;
+    if (create.started) drawCreate(create, e.clientX, e.clientY);
+    endCreate(true);
+  }
+  function onCreateCancel(): void { endCreate(false); }
+  function onCreateKey(e: KeyboardEvent): void {
+    if (e.key !== 'Escape' || !create?.started) return;
+    e.preventDefault();
+    e.stopPropagation();
+    endCreate(false);
+  }
+  /** A press on empty grid: arm a creation, when the calendar creates. */
+  function armCreate(e: PointerEvent, target: HTMLElement | null): void {
+    if (!opts.onCreate || target?.closest('[data-calendar-event], .wk-more')) return;
+    const cell = target?.closest<HTMLElement>('[role="gridcell"][data-day][data-slot]');
+    if (!cell || !grid.contains(cell)) return;
+    const days = Number(cell.dataset['slot']) < 0;
+    const grab = days ? { day: Number(cell.dataset['day']), minute: 0 } : pointAt(grid, e.clientX, e.clientY);
+    if (!grab) return;
+    create = { pointerId: e.pointerId, days, grab, startX: e.clientX, startY: e.clientY, started: false, range: null };
+    window.addEventListener('pointermove', onCreateMove, true);
+    window.addEventListener('pointerup', onCreateUp, true);
+    window.addEventListener('pointercancel', onCreateCancel, true);
+    window.addEventListener('keydown', onCreateKey, true);
+  }
+
   function onDown(e: PointerEvent): void {
-    if (!opts.enabled || drag || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    if (!opts.enabled || drag || create || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     const target = e.target as HTMLElement | null;
     const event = target?.closest<HTMLElement>('.wk-ev[data-calendar-event]');
     const path = event?.dataset['notePath'];
-    if (!event || !path || !grid.contains(event)) return;
+    if (!event || !path || !grid.contains(event)) { armCreate(e, target); return; }
     const grab = pointAt(grid, e.clientX, e.clientY);
     if (!grab) return;
     const kind: TimeDragKind = target?.closest('[data-resize-handle]') ? 'resize' : 'move';
@@ -230,9 +356,10 @@ export const timeDrag: Action<HTMLElement, TimeDragOptions> = (grid, initial) =>
   grid.addEventListener('pointerdown', onDown);
   grid.addEventListener('click', onClick, true);
   return {
-    update(next) { opts = next; if (!next.enabled) end(false); },
+    update(next) { opts = next; if (!next.enabled) { end(false); endCreate(false); } },
     destroy() {
       end(false);
+      endCreate(false);
       grid.removeEventListener('pointerdown', onDown);
       grid.removeEventListener('click', onClick, true);
     },

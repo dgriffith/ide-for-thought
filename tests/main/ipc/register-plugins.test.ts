@@ -158,7 +158,7 @@ const LIST = {
   }, {
     id: 'calendar', name: 'Calendar', version: '1.0.0',
     description: shipped('calendar'),
-    enabled: true, source: { kind: 'core' }, contributes: {}, capabilities: ['notes:read', 'notes:write-properties', 'ui'],
+    enabled: true, source: { kind: 'core' }, contributes: {}, capabilities: ['notes:read', 'notes:write-properties', 'notes:write', 'ui'],
   }, {
     id: 'reading-queue', name: 'Reading Queue', version: '1.0.0',
     description: shipped('reading-queue'),

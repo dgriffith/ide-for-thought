@@ -71,6 +71,8 @@ export interface BulkPropertiesState {
 /** "Treat this note as a…" type picker (#1067). */
 export interface TypePickerState {
   types: TypeInfo[];
+  /** The picker's heading, where it isn't "Treat this note as a type" (#2954: a new event's type). */
+  heading?: { eyebrow: string; title: string; apply: string } | undefined;
   resolve: (value: TypeInfo | null) => void;
 }
 
@@ -163,9 +165,9 @@ export function getDialogStore() {
   function pickSnippet(t: TemplateInfo) { const r = snippet?.resolve; snippet = null; r?.(t); }
   function cancelSnippet() { const r = snippet?.resolve; snippet = null; r?.(null); }
 
-  /** Show the "Treat this as a…" type picker; resolves to the chosen type (#1067). */
-  function showTypePicker(types: TypeInfo[]): Promise<TypeInfo | null> {
-    return new Promise((resolve) => { typePicker = { types, resolve }; });
+  /** Show the "Treat this as a…" type picker (#1067), or with another `heading`; resolves to the chosen type. */
+  function showTypePicker(types: TypeInfo[], heading?: TypePickerState['heading']): Promise<TypeInfo | null> {
+    return new Promise((resolve) => { typePicker = { types, heading, resolve }; });
   }
   function pickType(t: TypeInfo) { const r = typePicker?.resolve; typePicker = null; r?.(t); }
   function cancelTypePicker() { const r = typePicker?.resolve; typePicker = null; r?.(null); }

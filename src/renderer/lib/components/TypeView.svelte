@@ -44,7 +44,8 @@
   import TypeViewRowMenu from './TypeViewRowMenu.svelte';
   import { getKanbanMoveStore } from '../stores/kanban-moves.svelte';
   import { getCalendarSettings } from '../stores/settings-calendar.svelte';
-  import { moveToDateRefusal, rescheduleInView, retimeInView } from './type-view/calendar-reschedule';
+  import { moveToDateRefusal } from './type-view/calendar-reschedule';
+  import { calendarHost } from './type-view/calendar-host';
   import { announce } from '../stores/announcer.svelte';
   import { moveTargets, sharedColumnValue, type MoveTarget } from '../../../shared/objects/kanban-move';
   import type { PropertyDef, TypeInfo, TypeInstanceRow } from '../../../shared/objects/type-def';
@@ -347,10 +348,8 @@
   const board = $derived(groupProp ? boardColumns(sorted, groupProp, viewFilters, { columnOrder, showEmptyColumns, cardOrder: sortColumn ? [] : cardOrder }) : []);
   // A board a plugin draws (#2828): its moves are the host's (decision 2), and
   // Local History says which plugin they came from.
-  const moveCause = $derived.by(() => {
-    const plugin = layoutPlugin(shown);
-    return plugin ? `Moved by ${codePluginsStore.name(plugin)}` : undefined;
-  });
+  const layoutPluginName = $derived.by(() => { const p = layoutPlugin(shown); return p ? codePluginsStore.name(p) : undefined; });
+  const moveCause = $derived(layoutPluginName ? `Moved by ${layoutPluginName}` : undefined);
   function moveTo(paths: string[], target: MoveTarget): void {
     sel.closeMenu();
     const cards = paths.map((p) => ({ path: p, title: instances.find((i) => i.path === p)?.title ?? p }));
@@ -360,14 +359,11 @@
   const onCalendar = $derived(layoutDef(shown).moves === 'calendar');
   const movesHere = $derived(onCalendar ? !chromeless && !exportMode : selectable);
   const calendarSettings = getCalendarSettings();
-  function reschedule(path: string, days: number): void {
-    const inst = instances.find((i) => i.path === path);
-    if (inst) rescheduleInView(moves, inst, { properties: allColumns, dateBy: calendarSpec.dateBy, cause: moveCause }, days);
-  }
-  function retime(path: string, minutes: number, kind: 'move' | 'resize'): void {
-    const inst = instances.find((i) => i.path === path);
-    if (inst) retimeInView(moves, inst, { properties: allColumns, dateBy: calendarSpec.dateBy, cause: moveCause }, minutes, kind);
-  }
+  // The calendar plugin's moves and new events, Minerva's half (#2829, #2953, #2954).
+  const calendar = calendarHost(moves, () => ({
+    instances, properties: allColumns, dateBy: calendarSpec.dateBy, type, catalog: catalog ?? objectTypesStore.types,
+    moveCause, createCause: layoutPluginName ? `Created by ${layoutPluginName}` : undefined,
+  }));
   // *Move to date…* (#2929): one event, where the calendar moves notes; the
   // plugin chooses the day. A refused event's item stays, disabled, and says why.
   let startMoveToDate = $state<((path: string) => void) | null>(null);
@@ -439,8 +435,9 @@
     get onMoveCard() { return selectable ? (p: string, t: MoveTarget) => moveTo([p], t) : undefined; },
     get onUndoMove() { return movesHere ? () => void moves.undoLastMove(onCalendar ? 'calendar' : 'board', moveCause ? { cause: moveCause } : {}) : undefined; },
     get canUndoMove() { return onCalendar ? moves.canUndoReschedule : moves.canUndo; },
-    get onReschedule() { return onCalendar && movesHere ? reschedule : undefined; },
-    get onRetime() { return onCalendar && movesHere ? retime : undefined; },
+    get onReschedule() { return onCalendar && movesHere ? calendar.reschedule : undefined; },
+    get onRetime() { return onCalendar && movesHere ? calendar.retime : undefined; },
+    get onCreateEvent() { return onCalendar && movesHere ? calendar.createEvent : undefined; },
     provideMoveToDate: (start) => { startMoveToDate = start; },
     get week() { return { start: calendarSettings.weekStart, numbers: calendarSettings.showWeekNumbers }; },
     get lastMove() { return moves.lastMove; },

@@ -16,11 +16,13 @@
 
   interface Props {
     types: TypeInfo[];
+    /** Absent: "Treat this note as a type" (#1067). */
+    heading?: { eyebrow: string; title: string; apply: string } | undefined;
     onPick: (type: TypeInfo) => void;
     onCancel: () => void;
   }
 
-  let { types, onPick, onCancel }: Props = $props();
+  let { types, heading, onPick, onCancel }: Props = $props();
 
   let query = $state('');
   let selectedIndex = $state(0);
@@ -52,8 +54,8 @@
 </script>
 
 <Dialog width={440} zIndex="var(--z-spawned)" onClose={onCancel} titleId="type-picker-title">
-  {#snippet eyebrow()}Treat as{/snippet}
-  {#snippet title()}Treat this note as a type{/snippet}
+  {#snippet eyebrow()}{heading?.eyebrow ?? 'Treat as'}{/snippet}
+  {#snippet title()}{heading?.title ?? 'Treat this note as a type'}{/snippet}
   {#snippet body()}
     <input bind:this={inputEl} bind:value={query} onkeydown={handleKeydown} type="text" class="input" placeholder="Filter types…" autocomplete="off" />
 
@@ -82,7 +84,7 @@
       </div>
     {/if}
   {/snippet}
-  {#snippet footerLeft()}<span class="kbd-hint">esc · cancel · ↑↓ · ↵ apply</span>{/snippet}
+  {#snippet footerLeft()}<span class="kbd-hint">esc · cancel · ↑↓ · ↵ {heading?.apply ?? 'apply'}</span>{/snippet}
 </Dialog>
 
 <style>
