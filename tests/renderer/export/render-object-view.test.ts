@@ -351,13 +351,14 @@ describe('a query view in an export (#2945)', () => {
     queriesMock.mockResolvedValue([{ id: 'x', name: 'overdue', description: '', query: Q, language: 'sparql', scope: 'project', filePath: '/tb/.minerva/queries/overdue.rq', group: null, order: null }]);
   });
 
-  it('a table: the query run, its notes linked, its rows that name no note left out for now', async () => {
+  it('a table: the query run, its notes linked, a row that names no note drawn but not linked (#2946)', async () => {
     const html = await renderObjectViewForExport(JSON.stringify({ query: Q, language: 'sparql', layout: 'table', note: 'note' }));
     expect(rowsMock).toHaveBeenCalledWith(Q, 'sparql', { note: 'note', columns: undefined });
     expect(instancesMock).not.toHaveBeenCalled();
     expect(html).toContain('data-note-link="tasks/Mow.md"');
     expect(html).toContain('Paint the shed');
-    expect(html).not.toContain('not a note');
+    expect(html).toContain('not a note');
+    expect(html).not.toContain('data-note-link="#row-');
     expect(html).not.toContain('Loading…');
   });
 

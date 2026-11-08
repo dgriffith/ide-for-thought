@@ -61,6 +61,10 @@ export interface ViewLayoutDef {
    * layout moves nothing.
    */
   moves?: 'board' | 'calendar';
+  /** Draws every row of a query view, a note in several (#2946). Absent: one card per note, rows merged. */
+  everyRow?: true;
+  /** What a query's columns must have for it (#2946), for the line a query view shows when its data stops having it. */
+  needs?: string;
 }
 
 const always = (): boolean => true;
@@ -68,17 +72,17 @@ const datedRule = (ctx: LayoutContext): boolean => hasDateProperty(ctx.typeId, c
 
 export const VIEW_LAYOUTS = [
   { id: 'list', label: 'List', noteName: 'list', appliesTo: always, dated: false, grouped: false, specFields: [] },
-  { id: 'table', label: 'Table', noteName: 'table', appliesTo: always, dated: false, grouped: false, specFields: [], exportsCsv: true },
+  { id: 'table', label: 'Table', noteName: 'table', appliesTo: always, dated: false, grouped: false, specFields: [], exportsCsv: true, everyRow: true },
   { id: 'gallery', label: 'Gallery', noteName: 'gallery', appliesTo: always, dated: false, grouped: false, specFields: [] },
   // A location-shaped property (#2066) — not offered for Book/Person/etc.
-  { id: 'map', label: 'Map', noteName: 'map', appliesTo: (ctx) => ctx.properties.some((p) => p.type === 'geo'), dated: false, grouped: false, specFields: ['mapStyle'] },
+  { id: 'map', label: 'Map', noteName: 'map', appliesTo: (ctx) => ctx.properties.some((p) => p.type === 'geo'), dated: false, grouped: false, specFields: ['mapStyle'], needs: 'a location column' },
   // A board's columns are an enum's options (#2601).
   // Drawn by the built-in Kanban plugin (#2828), in a plugin frame.
-  { id: 'kanban', label: 'Kanban', noteName: 'board', appliesTo: (ctx) => canShowKanban(ctx.properties), dated: false, grouped: true, specFields: ['groupBy', 'columnOrder', 'showEmptyColumns', 'cardOrder'], plugin: 'kanban', moves: 'board' },
+  { id: 'kanban', label: 'Kanban', noteName: 'board', appliesTo: (ctx) => canShowKanban(ctx.properties), dated: false, grouped: true, specFields: ['groupBy', 'columnOrder', 'showEmptyColumns', 'cardOrder'], plugin: 'kanban', moves: 'board', needs: 'a column with a few values to group by' },
   // A date or datetime property, own or inherited (#2715).
-  { id: 'timeline', label: 'Timeline', noteName: 'timeline', appliesTo: datedRule, dated: true, grouped: false, specFields: ['from', 'to', 'dateBy'], plugin: 'timeline' },
+  { id: 'timeline', label: 'Timeline', noteName: 'timeline', appliesTo: datedRule, dated: true, grouped: false, specFields: ['from', 'to', 'dateBy'], plugin: 'timeline', needs: 'a date column' },
   // The same rule as Timeline (#2702).
-  { id: 'calendar', label: 'Calendar', noteName: 'calendar', appliesTo: datedRule, dated: true, grouped: false, specFields: ['month', 'mode', 'date', 'dateBy'], plugin: 'calendar', moves: 'calendar' },
+  { id: 'calendar', label: 'Calendar', noteName: 'calendar', appliesTo: datedRule, dated: true, grouped: false, specFields: ['month', 'mode', 'date', 'dateBy'], plugin: 'calendar', moves: 'calendar', needs: 'a date column' },
 ] as const satisfies readonly ViewLayoutDef[];
 
 /** A layout id — derived from the registry, so adding one is one entry. */

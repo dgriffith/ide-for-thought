@@ -205,6 +205,12 @@ export interface TypeInstanceRow {
   cover: string | null;
   /** The note's tags, frontmatter and inline, as written (#2768). Absent → none known. */
   tags?: readonly string[];
+  /** A query view's row (#2946): its key where the path isn't unique — a note in
+   *  several of a table's rows. Absent → the path is the key. */
+  key?: string;
+  /** A row that names no note (#2946): `path` is a synthetic key (`#row-N`),
+   *  never opened, selected, menued or previewed. */
+  noNote?: true;
 }
 
 /** A type plus all its instances, for the list/table/gallery multi-view (#1070). */

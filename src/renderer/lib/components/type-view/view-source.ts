@@ -19,13 +19,15 @@
  *   guard) — inline, or a saved query by file name — and its schema is made
  *   from the inferred columns, titled by the query file or "Query view". A
  *   query that fails, or a file that isn't there, is `error`, which the view
- *   shows in its place. Only rows that name a note are shown until #2946
- *   draws the others. A run that a newer one superseded is dropped by the
- *   view, never shown over it.
+ *   shows in its place. Every row comes back, rows that name no note
+ *   included (`shared/views/view-rows.ts`, #2946); a card layout merges them
+ *   by note. A run that a newer one superseded is dropped by the view,
+ *   never shown over it.
  */
 import { api } from '../../ipc/client';
 import { objectTypesStore } from '../../stores/object-types.svelte';
 import type { TypeInfo, TypeInstanceRow } from '../../../../shared/objects/type-def';
+import { toViewRows } from '../../../../shared/views/view-rows';
 import { queryFileLanguage, queryViewTitle, type QuerySourceSpec } from '../../../../shared/views/view-source-spec';
 
 export interface ViewSourceData {
@@ -100,12 +102,7 @@ export function querySource(spec: QuerySourceSpec, key: string): ViewSource {
       const result = await api.queryViews.rows(query, language, { note: spec.note, columns: spec.columnTypes });
       if (!result.ok) return { schema: null, rows: [], error: result.error };
       const schema: TypeInfo = { id: key, label: queryViewTitle(spec), classLocalName: '', icon: '⌕', source: 'user', properties: result.schema.columns };
-      const rows: TypeInstanceRow[] = [];
-      for (const r of result.rows) {
-        if (r.path === null) continue;
-        rows.push({ path: r.path, title: r.title, values: r.values, cover: null, ...(r.tags ? { tags: r.tags } : {}) });
-      }
-      return { schema, rows };
+      return { schema, rows: toViewRows(result.rows) };
     },
   };
 }

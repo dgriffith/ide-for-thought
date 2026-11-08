@@ -64,7 +64,8 @@
 
   const cards = $derived(view.sorted.map((inst) => ({ inst, ...card(inst) })));
   // The view's notes, and the notes their link fields name — for those notes' menus.
-  const scope = $derived([...new Set([...cards.map((c) => c.inst.path), ...cards.flatMap((c) => c.fields.flatMap((f) => (f.ref ? [f.ref] : [])))])]);
+  // A query row with no note (#2946) is drawn, but its synthetic path is never in the plugin's scope.
+  const scope = $derived([...new Set([...cards.filter((c) => !c.inst.noNote).map((c) => c.inst.path), ...cards.flatMap((c) => c.fields.flatMap((f) => (f.ref ? [f.ref] : [])))])]);
 
   /** The view as the plugin sees it: plain data, nothing reactive. */
   const viewState = $derived<PluginViewState>({
@@ -142,7 +143,7 @@
   /** The app's properties strip for a card's preview: the view's own row. */
   function hoverInstance(path: string, also: readonly string[]): HoverInstance | null {
     const inst = view.instances.find((i) => i.path === path);
-    if (!inst) return null;
+    if (!inst || inst.noNote) return null;
     // As the card: a board's grouping property is its column, so the strip leaves it out.
     return { type: view.type, properties: view.properties, inst, display: view.display, rowType: view.rowType(inst), visible: view.visible, omit: [...omit, ...also] };
   }

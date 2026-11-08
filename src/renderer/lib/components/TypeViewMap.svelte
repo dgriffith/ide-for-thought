@@ -153,8 +153,10 @@
         : new gl.Marker(color ? { color } : undefined)
       ).setLngLat([lng, lat]).addTo(map);
       const pin = marker.getElement();
-      pin.style.cursor = 'pointer';
       pin.setAttribute('aria-label', inst.title);
+      // A query row that names no note (#2946) is a pin to look at: no open, menu or preview.
+      if (inst.noNote) { markers.push(marker); bounds.extend([lng, lat]); continue; }
+      pin.style.cursor = 'pointer';
       pin.addEventListener('click', () => onOpenNote(inst.path));
       if (!exportHooks) {
         // The menu for THIS pin's note (#2930) — not the map's, nor, in an
