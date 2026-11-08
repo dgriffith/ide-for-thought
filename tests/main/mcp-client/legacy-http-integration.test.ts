@@ -9,6 +9,7 @@ import { spawnSync, type ChildProcess } from 'node:child_process';
 import spawn from 'cross-spawn';
 import { LegacyHttpTransport } from '../../../src/main/mcp-client/http/legacy-http-transport';
 import { skipIfNoMcpFixture, MCP_FIXTURE_PACKAGE } from '../../helpers/mcp-fixture';
+import { allowlistedEnv } from '../../../src/main/subprocess-env';
 
 const PORT = 41823; // arbitrary, unlikely to collide with a dev server
 const URL_ = `http://127.0.0.1:${PORT}/mcp`;
@@ -50,8 +51,11 @@ skipIfNoMcpFixture('legacy Streamable HTTP transport vs. a real legacy MCP serve
   it('connects, resolves legacy era, session round-trips, lists/calls real tools', async () => {
     // cross-spawn, as the app's own stdio transport (#2980): `npx` is a `.cmd`
     // shim on Windows, which plain spawn can't run (ENOENT).
+    // In the environment the fixture gate warmed npx in (`allowlistedEnv`, #2996), as the
+    // app launches servers: the full `process.env` is another npm configuration, so on
+    // Windows it was still a cold start, past the 45s ready wait.
     serverProcess = spawn('npx', ['-y', MCP_FIXTURE_PACKAGE, 'streamableHttp'], {
-      env: { ...process.env, PORT: String(PORT) },
+      env: { ...allowlistedEnv(process.env), PORT: String(PORT) },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     await waitForServerReady(serverProcess);
