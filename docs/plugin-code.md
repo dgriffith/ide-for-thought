@@ -508,6 +508,14 @@ put both patterns together:
   *Moved by Calendar* as the history cause. ⌘Z is `view.undoMove`, which the
   host sends to the surface the layout's registry entry names (`moves:
   'board' | 'calendar'`), so a calendar never undoes a board's move.
+- **By time, too** (#2953, API 1.14.0): in Week and Day, `view.retime
+  {path, minutes}` moves a timed note's start and end by whole minutes on
+  the viewer's clock (another day adds 1440 a day), and `view.resize {path,
+  minutes}` its end alone, writing one where there was none. Same capability,
+  same move store (`retimeEvent`), same undo; the rule is
+  `date-shift.ts`'s `retimeByMinutes` / `resizeByMinutes`, and a note dated
+  to a day only is refused, never given a time. The plugin snaps the edge
+  that moves to 15 minutes (`plugins/calendar/src/time-drag.ts`).
 - **The viewer's week** (its first day, week numbers) is in the view as
   `week`: "automatic" needs the OS region, which only main can read, so the
   host resolves it.

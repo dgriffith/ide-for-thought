@@ -12,7 +12,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, fireEvent, cleanup, waitFor, screen } from '@testing-library/svelte';
 
 const h = vi.hoisted(() => ({
-  instances: vi.fn(), list: vi.fn(), noteTypeMap: vi.fn(), reschedule: vi.fn(), undo: vi.fn(),
+  instances: vi.fn(), list: vi.fn(), noteTypeMap: vi.fn(), reschedule: vi.fn(), retime: vi.fn(), undo: vi.fn(),
   loop: {} as import('./plugin-loopback').LoopbackState,
 }));
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({
@@ -21,7 +21,7 @@ vi.mock('../../../src/renderer/lib/ipc/client', () => ({
 vi.mock('../../../src/renderer/lib/stores/plugin-sessions.svelte', () => ({ connectPluginFrame: (...a: unknown[]) => h.loop.connect(...a) }));
 // The move store's own test covers the write; here, what the view asks of it.
 vi.mock('../../../src/renderer/lib/stores/kanban-moves.svelte', () => ({
-  getKanbanMoveStore: () => ({ revision: 0, lastMove: null, canUndo: true, canUndoReschedule: false, moveCards: vi.fn(), rescheduleEvent: h.reschedule, undoLastMove: h.undo }),
+  getKanbanMoveStore: () => ({ revision: 0, lastMove: null, canUndo: true, canUndoReschedule: false, moveCards: vi.fn(), rescheduleEvent: h.reschedule, retimeEvent: h.retime, undoLastMove: h.undo }),
 }));
 vi.mock('../../../src/renderer/lib/stores/settings-calendar.svelte', () => ({
   getCalendarSettings: () => ({ weekStart: 7, showWeekNumbers: true }),
@@ -171,6 +171,23 @@ describe('calendar layout (#2701, #2702)', () => {
       );
     });
 
+    it('view.retime and view.resize go to the move store by minutes, on the Date by, and History says the Calendar did (#2953)', async () => {
+      const timed = [{ path: 'j3.md', title: 'Launch', values: { published: null, revised: '2026-10-07T09:00', editor: null }, cover: null }];
+      h.instances.mockResolvedValue({ type: JOURNAL, instances: timed });
+      render(TypeView, props({ typeId: 'journal', layout: 'calendar', month: '2026-10', dateBy: 'revised' }));
+      await waitFor(() => expect(h.loop.host?.retime).toBeTypeOf('function'));
+      h.loop.host!.retime!('j3.md', 90, 'move');
+      h.loop.host!.retime!('j3.md', 30, 'resize');
+      const labels = { to: expect.any(Function), back: expect.any(String) };
+      expect(h.retime).toHaveBeenNthCalledWith(1, { path: 'j3.md', title: 'Launch' }, { start: 'revised', end: null }, 90, 'move', labels, { cause: 'Moved by Calendar' });
+      expect(h.retime).toHaveBeenNthCalledWith(2, { path: 'j3.md', title: 'Launch' }, { start: 'revised', end: null }, 30, 'resize', labels, { cause: 'Moved by Calendar' });
+      // The spoken landing time, from what was written (in the runner's locale, as the host's other labels).
+      const to = h.retime.mock.calls[0]![4].to as (w: { start: string; end: string | null }) => string;
+      expect(to({ start: '2026-10-07T10:30', end: null })).toMatch(/Wednesday.*October.*2026.*10:30/);
+      const endsAt = h.retime.mock.calls[1]![4].to as (w: { start: string; end: string | null }) => string;
+      expect(endsAt({ start: '2026-10-07T09:00', end: '2026-10-07T11:00' })).toMatch(/^at 11:00/);
+    });
+
     it("⌘Z is the calendar's own undo; the view says whether there is one; the week is the viewer's", async () => {
       h.instances.mockResolvedValue({ type: JOURNAL, instances: ENTRIES });
       render(TypeView, props({ typeId: 'journal', layout: 'calendar', month: '2026-10' }));
@@ -186,8 +203,10 @@ describe('calendar layout (#2701, #2702)', () => {
       await waitFor(() => expect(h.loop.views.length).toBeGreaterThan(0));
       expect(h.loop.views.at(-1)).toMatchObject({ movable: false, readOnly: true });
       h.loop.host!.reschedule!('j2.md', 3);
+      h.loop.host!.retime!('j2.md', 30, 'move');
       h.loop.host!.undoMove!();
       expect(h.reschedule).not.toHaveBeenCalled();
+      expect(h.retime).not.toHaveBeenCalled();
       expect(h.undo).not.toHaveBeenCalled();
     });
   });

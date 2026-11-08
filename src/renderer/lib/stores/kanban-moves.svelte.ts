@@ -20,6 +20,9 @@
  *   kept; an offset time corrected around the viewer's DST change). It
  *   refuses — announcing why, writing nothing — an event whose start or end
  *   is only a month or a year (decision 5 on #2699: open it to edit).
+ * - **Retime** (`retimeEvent`, #2953): the same, by minutes on the viewer's
+ *   clock (`retimeByMinutes`), or the end alone (`resizeByMinutes`, which
+ *   writes an end where there was none); a start that is only a day refuses.
  * - **Open tabs** follow through `syncOpenTabsToDisk`: a clean tab reloads, a
  *   tab with unsaved edits gets the external-change conflict prompt.
  * - **Undo.** Each move is pushed on a small session stack, tagged with the
@@ -44,8 +47,8 @@ import { announce } from './announcer.svelte';
 import { getToastStore } from './toasts.svelte';
 import { syncOpenTabsToDisk } from './open-tab-sync';
 import { groupValueOf, setFieldValues, type FieldValue, type MoveTarget } from '../../../shared/objects/kanban-move';
-import { rescheduleByDays } from '../../../shared/objects/date-shift';
-import { rescheduleRefusalText } from '../../../shared/objects/reschedule-text';
+import { rescheduleByDays, resizeByMinutes, retimeByMinutes, type RescheduleRefusal } from '../../../shared/objects/date-shift';
+import { noEndText, rescheduleRefusalText } from '../../../shared/objects/reschedule-text';
 import { logger } from '../../../shared/logger';
 
 /** A card the board asks to move: its note and the title it shows. */
@@ -195,6 +198,46 @@ async function rescheduleEvent(
   labels: { to: string; back: string },
   opts: { cause?: string } = {},
 ): Promise<RescheduleOutcome> {
+  return changeDates(event, fields, (start, end) => rescheduleByDays(start, end, days), () => `Moved ${event.title} to ${labels.to}.`, labels.back, opts);
+}
+
+/**
+ * Move a timed event by `minutes` on the viewer's clock (#2953; a drop on
+ * another day included), or — `kind: 'resize'` — its end alone, written where
+ * there was none. `labels.to` names, from the values written, where it landed
+ * (a move: its start) or where it now ends (a resize), for the announcement;
+ * `back` where it was, for the undo's.
+ */
+async function retimeEvent(
+  event: MoveCard,
+  fields: RescheduleFields,
+  minutes: number,
+  kind: 'move' | 'resize',
+  labels: { to: (written: { start: string; end: string | null }) => string; back: string },
+  opts: { cause?: string } = {},
+): Promise<RescheduleOutcome> {
+  if (kind === 'resize' && fields.end === null) {
+    // The view's Date by has no end (`timelineProperties`): the plugin doesn't offer a resize there.
+    const refusal = noEndText(event.title);
+    announce(refusal);
+    return { ok: false, refusal };
+  }
+  const plan = kind === 'move' ? retimeByMinutes : resizeByMinutes;
+  const spoken = (w: { start: string; end: string | null }) => kind === 'move' ? `Moved ${event.title} to ${labels.to(w)}.` : `${event.title} now ends ${labels.to(w)}.`;
+  return changeDates(event, fields, (start, end) => plan(start, end, minutes), spoken, labels.back, opts);
+}
+
+type DatePlan = (start: string, end: string | null) => { ok: true; start: string; end: string | null } | { ok: false; reason: RescheduleRefusal };
+
+/** The one write path for a calendar's moves: read as written, plan, refuse aloud or write in one save. */
+async function changeDates(
+  event: MoveCard,
+  fields: RescheduleFields,
+  plan: DatePlan,
+  movedText: (written: { start: string; end: string | null }) => string,
+  back: string,
+  opts: { cause?: string },
+): Promise<RescheduleOutcome> {
   let before: string;
   try {
     before = await api.notebase.readFile(event.path);
@@ -209,17 +252,18 @@ async function rescheduleEvent(
     return { ok: false, refusal: null };
   }
   const end = fields.end === null ? null : groupValueOf(before, fields.end) ?? null;
-  const r = rescheduleByDays(start ?? '', end, days);
+  const r = plan(start ?? '', end);
   if (!r.ok) {
     const refusal = rescheduleRefusalText(r.reason, { title: event.title, start: start ?? '', end });
     announce(refusal);
     return { ok: false, refusal };
   }
-  const planned: FieldValue[] = [{ key: fields.start, value: r.start }];
+  const planned: FieldValue[] = [];
+  if (r.start !== (start ?? '').trim()) planned.push({ key: fields.start, value: r.start });
   if (fields.end !== null && r.end !== null) planned.push({ key: fields.end, value: r.end });
   try {
-    const note = await writeFields(event, before, { fields: planned, backLabel: labels.back }, opts.cause);
-    const paths = await finishMove('calendar', note ? [note] : [], `Moved ${event.title} to ${labels.to}.`);
+    const note = await writeFields(event, before, { fields: planned, backLabel: back }, opts.cause);
+    const paths = await finishMove('calendar', note ? [note] : [], movedText({ start: r.start, end: r.end }));
     return paths.length > 0 ? { ok: true, paths } : { ok: false, refusal: null };
   } catch (err) {
     if (!(err instanceof Error && err.message === YAML_ERROR)) logger('objects').warn('calendar reschedule failed for', event.path, err);
@@ -286,6 +330,7 @@ export function getKanbanMoveStore() {
     get canUndoReschedule(): boolean { return undoStack.some((r) => r.surface === 'calendar'); },
     moveCards,
     rescheduleEvent,
+    retimeEvent,
     undoLastMove,
   };
 }

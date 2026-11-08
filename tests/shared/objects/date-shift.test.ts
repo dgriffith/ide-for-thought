@@ -6,7 +6,8 @@
  * ("Calendar").
  */
 import { describe, it, expect } from 'vitest';
-import { rescheduleByDays, rescheduleRefusal, shiftDateValue, startDayOf } from '../../../src/shared/objects/date-shift';
+import { rescheduleByDays, rescheduleRefusal, resizeByMinutes, retimeByMinutes, retimeRefusal, shiftDateValue, startDayOf } from '../../../src/shared/objects/date-shift';
+import { rescheduleRefusalText } from '../../../src/shared/objects/reschedule-text';
 import { civilMs, dateRange, dateSpan, type SpanOptions } from '../../../src/shared/objects/date-precision';
 import { coveredDays } from '../../../src/shared/objects/calendar-grid';
 
@@ -272,5 +273,82 @@ describe('startDayOf', () => {
     expect(startDayOf('1969-07')).toBeNull();
     expect(startDayOf('1969')).toBeNull();
     expect(startDayOf('x')).toBeNull();
+  });
+});
+
+/** Where a value shows for a viewer in `opts`, as `YYYY-MM-DDTHH:MM`. */
+function shown(raw: string, opts: SpanOptions): string {
+  const d = new Date(dateSpan(raw, opts)!.start);
+  return `${iso(d.getTime())}T${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
+}
+
+describe('retimeByMinutes (#2953)', () => {
+  it('moves a floating start and end by wall-clock minutes, across midnight and days', () => {
+    expect(retimeByMinutes('2026-10-07T09:00', '2026-10-07T10:30', 60)).toEqual({ ok: true, start: '2026-10-07T10:00', end: '2026-10-07T11:30' });
+    expect(retimeByMinutes('2026-10-07T23:30', '2026-10-08T00:15', 45)).toEqual({ ok: true, start: '2026-10-08T00:15', end: '2026-10-08T01:00' });
+    // A drop two days on and an hour earlier.
+    expect(retimeByMinutes('2026-10-07T09:00', null, 2 * 1440 - 60)).toEqual({ ok: true, start: '2026-10-09T08:00', end: null });
+  });
+
+  it('keeps seconds, a fraction and the year\'s written form', () => {
+    expect(retimeByMinutes('2026-10-07T09:00:30', null, 15)).toMatchObject({ start: '2026-10-07T09:15:30' });
+    expect(retimeByMinutes('2026-10-07T09:00:30.250', null, -15)).toMatchObject({ start: '2026-10-07T08:45:30.250' });
+    expect(retimeByMinutes('+02026-12-31T23:30', null, 60)).toMatchObject({ start: '+02027-01-01T00:30' });
+  });
+
+  it('a floating time keeps its wall clock across a DST change', () => {
+    // London springs forward on 29 March 2026; a floating 00:30 + 3h is 03:30 as written.
+    expect(retimeByMinutes('2026-03-29T00:30', null, 180, LONDON)).toMatchObject({ start: '2026-03-29T03:30' });
+  });
+
+  it('an offset value keeps its offset and lands at the wall-clock time dropped on, across DST', () => {
+    // 09:00 London on Saturday 24 October 2026 (BST, +01:00) is 08:00Z; moved a day and 1h later, to
+    // Sunday 10:00 London — now GMT — that instant is 10:00Z.
+    const r = retimeByMinutes('2026-10-24T08:00Z', '2026-10-24T09:00Z', 1440 + 60, LONDON);
+    expect(r).toEqual({ ok: true, start: '2026-10-25T10:00Z', end: '2026-10-25T11:00Z' });
+    expect(shown('2026-10-25T10:00Z', LONDON)).toBe('2026-10-25T10:00');
+    expect(retimeByMinutes('2026-10-07T09:00-07:00', null, 30, NY)).toMatchObject({ start: '2026-10-07T09:30-07:00' });
+  });
+
+  it('a day end moves by the days the start\'s date moved', () => {
+    expect(retimeByMinutes('2026-10-07T23:00', '2026-10-09', 120)).toEqual({ ok: true, start: '2026-10-08T01:00', end: '2026-10-10' });
+    expect(retimeByMinutes('2026-10-07T09:00', '2026-10-09', 60)).toEqual({ ok: true, start: '2026-10-07T10:00', end: '2026-10-09' });
+  });
+
+  it('leaves an unreadable end as it is', () => {
+    expect(retimeByMinutes('2026-10-07T09:00', 'TBD', 30)).toEqual({ ok: true, start: '2026-10-07T09:30', end: null });
+  });
+
+  it('refuses a day start (no time), a partial start or end, and a zero or fractional move', () => {
+    expect(retimeByMinutes('2026-10-07', null, 30)).toEqual({ ok: false, reason: 'no-time' });
+    expect(retimeByMinutes('2026-10', null, 30)).toEqual({ ok: false, reason: 'not-a-day' });
+    expect(retimeByMinutes('2026-10-07T09:00', '2026-11', 30)).toEqual({ ok: false, reason: 'end-not-a-day' });
+    expect(retimeByMinutes('soon', null, 30)).toEqual({ ok: false, reason: 'invalid' });
+    expect(retimeByMinutes('2026-10-07T09:00', null, 0)).toEqual({ ok: false, reason: 'invalid' });
+    expect(retimeByMinutes('2026-10-07T09:00', null, 1.5)).toEqual({ ok: false, reason: 'invalid' });
+    expect(retimeRefusal('2026-10-07', null)).toBe('no-time');
+    expect(rescheduleRefusalText('no-time', { title: 'Holiday', start: '2026-10-07', end: null })).toBe('2026-10-07 has no time to move; open it to edit.');
+  });
+});
+
+describe('resizeByMinutes (#2953)', () => {
+  it('moves a clock end only, keeping its form', () => {
+    expect(resizeByMinutes('2026-10-07T09:00', '2026-10-07T10:00', 30)).toEqual({ ok: true, start: '2026-10-07T09:00', end: '2026-10-07T10:30' });
+    // 09:00Z–11:00+01:00 is an hour (10:00–11:00 in London); 15 minutes off its end, in the end's own offset.
+    expect(resizeByMinutes('2026-10-07T09:00Z', '2026-10-07T11:00+01:00', -15, LONDON)).toEqual({ ok: true, start: '2026-10-07T09:00Z', end: '2026-10-07T10:45+01:00' });
+  });
+
+  it('creates an end never written, from the drawn half hour, in the start\'s form', () => {
+    expect(resizeByMinutes('2026-10-07T09:00', null, 30)).toEqual({ ok: true, start: '2026-10-07T09:00', end: '2026-10-07T10:00' });
+    expect(resizeByMinutes('2026-10-07T09:00:00-07:00', null, 60, NY)).toMatchObject({ end: '2026-10-07T10:30:00-07:00' });
+    // A day end on the start's day was drawn as the half hour too: it becomes a time.
+    expect(resizeByMinutes('2026-10-07T09:00', '2026-10-07', 90)).toMatchObject({ end: '2026-10-07T11:00' });
+  });
+
+  it('refuses an end at or before the start, and a start with no time', () => {
+    expect(resizeByMinutes('2026-10-07T09:00', '2026-10-07T10:00', -60)).toEqual({ ok: false, reason: 'end-before-start' });
+    expect(resizeByMinutes('2026-10-07T09:00', null, -45)).toEqual({ ok: false, reason: 'end-before-start' });
+    expect(resizeByMinutes('2026-10-07', null, 30)).toEqual({ ok: false, reason: 'no-time' });
+    expect(rescheduleRefusalText('end-before-start', { title: 'Call', start: '', end: null })).toBe('Call can’t end before it starts.');
   });
 });

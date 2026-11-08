@@ -76,6 +76,8 @@ export interface PluginFrameHost {
   reorderCard?(path: string, target: string, side: 'before' | 'after'): void;
   /** A calendar's reschedule (#2829): the host moves the note's dates by whole days, with its own undo. */
   reschedule?(path: string, days: number): void;
+  /** …and by time (#2953): a move of start and end, or of the end alone, by whole minutes. */
+  retime?(path: string, minutes: number, kind: 'move' | 'resize'): void;
   /** A live block's frame height (#2641), already clamped. */
   setHeight?(height: number): void;
   /** The view's own selection (#2828). */
@@ -173,6 +175,10 @@ function onIntent({ sessionId, pluginId, intent }: PluginIntentEvent): void {
       return;
     case 'reschedule':
       hosts.get(sessionId)?.reschedule?.(intent.path, intent.days);
+      return;
+    case 'retime':
+    case 'resize':
+      hosts.get(sessionId)?.retime?.(intent.path, intent.minutes, intent.kind === 'retime' ? 'move' : 'resize');
       return;
     case 'setHeight':
       hosts.get(sessionId)?.setHeight?.(intent.height);

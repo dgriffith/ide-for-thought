@@ -48,6 +48,7 @@ import {
   PLUGIN_MENU_MAX_LABEL,
   PLUGIN_PREVIEW_MAX_EXTRA,
   PLUGIN_RESCHEDULE_MAX_DAYS,
+  PLUGIN_RETIME_MAX_MINUTES,
   PLUGIN_PREVIEW_MAX_EXTRA_CHARS,
   PLUGIN_BLOCK_MAX_HEIGHT,
   PLUGIN_BLOCK_MIN_HEIGHT,
@@ -413,6 +414,16 @@ export function createPluginSession(opts: PluginSessionOptions): PluginSession {
           throw new Refusal('bad-request', `"days" is a whole number of days, not 0, at most ${PLUGIN_RESCHEDULE_MAX_DAYS} either way.`);
         }
         deps.intent({ kind: 'reschedule', path, days });
+        return {};
+      }
+      case 'view.retime':
+      case 'view.resize': {
+        const path = scoped(stringParam(params, 'path'));
+        const minutes = params.minutes;
+        if (typeof minutes !== 'number' || !Number.isInteger(minutes) || minutes === 0 || Math.abs(minutes) > PLUGIN_RETIME_MAX_MINUTES) {
+          throw new Refusal('bad-request', `"minutes" is a whole number of minutes, not 0, at most ${PLUGIN_RETIME_MAX_MINUTES} either way.`);
+        }
+        deps.intent({ kind: method === 'view.retime' ? 'retime' : 'resize', path, minutes });
         return {};
       }
       case 'view.setHeight': {

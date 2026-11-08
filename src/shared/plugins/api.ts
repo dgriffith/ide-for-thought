@@ -28,7 +28,7 @@ import type { PluginCapability } from './capabilities';
  * The API's semver version (#2826), its own and not the app's: the host sends
  * it with the port, and a plugin's `code.api` range must accept it.
  */
-export const PLUGIN_API_VERSION = '1.13.0';
+export const PLUGIN_API_VERSION = '1.14.0';
 
 export const PLUGIN_METHODS = {
   'notes.list': { capability: 'notes:read', describes: 'The notes this view or call was given.' },
@@ -58,6 +58,8 @@ export const PLUGIN_METHODS = {
   'view.moveColumn': { capability: 'ui', describes: "Move one of the view's groups before or after another; the order stays with the view." },
   'view.reorderCard': { capability: 'ui', describes: "Put a note just before or after another in the view's order; the order stays with the view, and no note is written." },
   'view.reschedule': { capability: 'notes:write-properties', describes: "Move a dated note by whole days: Minerva shifts its start and end, with undo (a calendar's drag)." },
+  'view.retime': { capability: 'notes:write-properties', describes: "Move a timed note by whole minutes, a day's worth or more included: Minerva shifts its start and end on the viewer's clock, with undo (a calendar's week or day)." },
+  'view.resize': { capability: 'notes:write-properties', describes: "Move a timed note's end by whole minutes, writing an end where there was none: Minerva changes the end only, with undo." },
   'view.setHeight': { capability: 'ui', describes: "Say how tall a live block's frame should be, in CSS pixels; Minerva sizes it, within limits." },
   'llm.propose': { capability: 'llm:propose', describes: "Ask the assistant for changes to notes it was given, or new notes: each one is filed as a proposal the user reviews. Uses the user's model, asked first." },
 } as const satisfies Record<string, { capability: PluginCapability; describes: string }>;
@@ -105,6 +107,10 @@ export interface PluginMethodParams {
   'view.reorderCard': { path: string; target: string; side: 'before' | 'after' };
   /** `days`: a whole number, not 0, at most PLUGIN_RESCHEDULE_MAX_DAYS either way. */
   'view.reschedule': { path: string; days: number };
+  /** `minutes`: a whole number, not 0, at most PLUGIN_RETIME_MAX_MINUTES either way — a drop on another day adds 1440 a day. */
+  'view.retime': { path: string; minutes: number };
+  /** `minutes`: the end's move, as `view.retime`'s. */
+  'view.resize': { path: string; minutes: number };
   /** `height`: CSS pixels, from PLUGIN_BLOCK_MIN_HEIGHT to PLUGIN_BLOCK_MAX_HEIGHT; outside it is clamped. */
   'view.setHeight': { height: number };
   /**
@@ -147,6 +153,8 @@ export interface PluginMethodResults {
   'view.moveColumn': Record<string, never>;
   'view.reorderCard': Record<string, never>;
   'view.reschedule': Record<string, never>;
+  'view.retime': Record<string, never>;
+  'view.resize': Record<string, never>;
   'view.setHeight': Record<string, never>;
   /**
    * What was filed: one proposal per change, which the user reviews. `leftOut`
@@ -344,6 +352,8 @@ export const PLUGIN_LLM_MAX_NOTES = 20;
 
 /** How far one `view.reschedule` may move a note, in days either way (about 270 years). */
 export const PLUGIN_RESCHEDULE_MAX_DAYS = 100_000;
+/** How far one `view.retime` or `view.resize` may move a note, in minutes either way (the same reach). */
+export const PLUGIN_RETIME_MAX_MINUTES = PLUGIN_RESCHEDULE_MAX_DAYS * 1440;
 
 /** A preview's extra lines (`ui.previewNote`): how many, and how long. */
 export const PLUGIN_PREVIEW_MAX_EXTRA = 8;

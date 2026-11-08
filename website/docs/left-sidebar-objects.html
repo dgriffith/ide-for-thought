@@ -301,6 +301,7 @@
     <h3 id="calendar-week-day">Week and day</h3>
     <p>The <b>Month</b>, <b>Week</b> and <b>Day</b> buttons at the right of the toolbar change what a page holds. A week is seven columns, starting on <a href="#week-start">your week's first day</a>, with the hours of the day down the side. Events with a time sit at that time, as tall as they last, and events that overlap share the column side by side. All-day events, and anything lasting a day or more, are bars in a strip above the hours. A line marks the time now on today's column. The <b>‹</b>, <b>Today</b> and <b>›</b> buttons go back or forward a week, or a day.</p>
     <p>A day is the same grid with one column, so there's room for more of each event: under its title it shows its first field after the dates, such as the room it's in. In a wide enough panel, an <b>Agenda</b> beside the grid lists the day's events in order. To open one day from a month or a week, double-click its number, or press <kbd>⌥</kbd><kbd>⏎</kbd> on it. Going from Week to Day keeps the day you're on, and going back to Month opens that day's month. The week or day you're on is kept with the tab, like the month.</p>
+    <p>In a week or a day, drag an event with a time to move it to another time, or in a week to another day. Drag its bottom edge to change when it ends. Both snap to the quarter hour, and the time it will land on shows on the event as you drag. Without a pointer, focus the event and press <kbd>⌥</kbd><kbd>↓</kbd> or <kbd>⌥</kbd><kbd>↑</kbd> to move it fifteen minutes later or earlier, or add <kbd>⇧</kbd> to move its end. The note keeps the way its times were written, including a time zone if it has one. An event whose date has no time, such as a holiday, moves by whole days only (drag it in the month), since a drop on the hours would write a time you never gave it. An event with no end gets one when you drag its edge. Its end can only be changed when the calendar is dated by the Event's <i>date</i>, since only then does it have an <i>end</i>. As with any move, <kbd>⌘</kbd><kbd>Z</kbd> takes it back.</p>
 
     <h3>Events on their days</h3>
     <p>An event with only a day sits in that day's cell. One with a time of day (<code>2026-10-06T09:30</code>) sits there too, with the time in front of its title, and a day's events come in order: anything that began on an earlier day first, then by time, then by title.</p>
@@ -354,6 +355,10 @@
       <div class="row">
         <div class="k"><kbd>⌥</kbd><kbd>⏎</kbd></div>
         <div class="v">Opens the day on its own, in Day.</div>
+      </div>
+      <div class="row">
+        <div class="k"><kbd>⌥</kbd><kbd>↑</kbd> <kbd>⌥</kbd><kbd>↓</kbd></div>
+        <div class="v">In a week or a day, on an event with a time, moves it fifteen minutes earlier or later. With <kbd>⇧</kbd>, moves its end.</div>
       </div>
       <div class="row">
         <div class="k"><kbd>⇧</kbd><kbd>F10</kbd></div>

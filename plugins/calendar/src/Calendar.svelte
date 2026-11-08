@@ -80,6 +80,11 @@
    *   Week ↔ Day keeps `date`. Double-clicking a day's number, or Alt+Enter
    *   on a day, in Month or Week opens that day. At wide widths the day's
    *   events are listed beside the grid too (`CalendarAgenda`).
+   * - **By time** (#2953, Week and Day): a timed event drags to another time
+   *   or day, and its bottom edge to another end, snapping to 15 minutes;
+   *   Alt+↑/↓ and Alt+Shift+↑/↓ do the same from the keyboard. Minerva
+   *   writes (`view.retime` / `view.resize`), with undo; an event dated to a
+   *   day only, or under a Date by with no end (for a resize), says why.
    * - **The note menu** (#2929; where the view has one, `view.rowMenu`, never
    *   in an export): a right-click on any event — in the grid, a band, the
    *   Undated tray or a day's list — or the menu key on a focused one, asks
@@ -90,13 +95,15 @@
   import type { MinervaPlugin, PluginViewState } from '/@minerva/plugin-api.js';
   import type { PropertyDef } from '../../../src/shared/objects/type-def';
   import {
-    addDays, addMonths, addMonthsClamped, coveredDays, formatDayAnchor, formatMonthAnchor, layoutMonth, monthOf, monthWeeks, overflowRow,
+    addDays, addMonths, addMonthsClamped, coveredDays, dayStart, formatDayAnchor, formatMonthAnchor, layoutMonth, monthOf, monthWeeks, overflowRow,
     parseDayAnchor, parseMonthAnchor, rowWeekNumber, timePage, weekEdge, type CalendarMonth, type PlacedSegment, type Weekday,
   } from '../../../src/shared/objects/calendar-grid';
   import { parseCalendarMode, type CalendarMode } from '../../../src/shared/objects/calendar';
-  import { layoutTimeGrid, MIN_TIMED_MINUTES } from '../../../src/shared/calendar/time-grid';
+  import { drawnRange, layoutTimeGrid, MIN_TIMED_MINUTES } from '../../../src/shared/calendar/time-grid';
+  import { timeRefusalFor } from '../../../src/shared/calendar/reschedule-refusal';
   import CalendarWeek from './CalendarWeek.svelte';
-  import { monthFromWeek, stepPage, weekFromMonth, weekTitle } from './week-nav';
+  import type { TimeMoves } from './time-drag';
+  import { clockLabel, monthFromWeek, stepPage, weekFromMonth, weekTitle } from './week-nav';
   import CalendarAgenda from './CalendarAgenda.svelte';
   import { civilMs } from '../../../src/shared/objects/date-precision';
   import CalendarDayList from './CalendarDayList.svelte';
@@ -418,6 +425,26 @@
   });
   const moveBarId = `${uid}-move`;
 
+  // ── By time (#2953): the Week and Day grids' moves ─────────────────────
+  /** "10:15", or "Thu 10:15" when it lands on another day than it starts. */
+  function landing(at: number, from: number): string {
+    const minuteOfDay = Math.round((at - dayStart(at)) / 60_000);
+    const time = clockLabel(minuteOfDay, locale);
+    return dayStart(at) === dayStart(from) ? time : `${weekdayNames(new Date(dayStart(at)).getUTCDay() || 7, locale).short} ${time}`;
+  }
+  const timeMoves = $derived<TimeMoves | null>(interactive && weekView ? {
+    refusal: (key, kind) => { const ev = model.byKey.get(key); return ev ? timeRefusalFor(ev, dates, kind) : null; },
+    previewText: (key, kind, minutes) => {
+      const ev = model.byKey.get(key);
+      if (!ev) return null;
+      const edge = kind === 'move' ? ev.start : drawnRange(ev).end;
+      return landing(edge + minutes * 60_000, ev.start);
+    },
+    move: (key, minutes) => quietly(connection.view.retime({ path: key, minutes })),
+    resize: (key, minutes) => quietly(connection.view.resize({ path: key, minutes })),
+    refused: announce,
+  } : null);
+
   // ── The note menu (#2929): Minerva's, for one event ─────────────────────
   const noteMenu = $derived(view.rowMenu && !exportMode);
   function onNoteMenu(e: MouseEvent, key: string): void {
@@ -502,6 +529,7 @@
       onGoToDay={(day) => goToWeek(day)}
       onOpenDay={mode === 'week' ? openDay : null}
       detailOf={mode === 'day' ? detailOf : null}
+      {timeMoves}
     />
     {#if mode === 'day'}
       <CalendarAgenda

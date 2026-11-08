@@ -29,6 +29,12 @@
    *   double-click on a day's number, asks for that day (`onOpenDay`).
    * - **One column** (the Day view): an event tall enough shows a second
    *   line, `detailOf`'s (the note's first card field).
+   * - **Moving by time** (#2953, `timeMoves`; absent read-only): drag a timed
+   *   event's body to move it, or its bottom edge to resize it, snapping to
+   *   15 minutes, across days in a week (`time-drag.ts`). On a focused event,
+   *   Alt+↑/↓ moves it 15 minutes and Alt+Shift+↑/↓ moves its end; focus
+   *   follows the event to where it's drawn next. The write, its undo and its
+   *   announcement are the host's.
    */
   import { tick } from 'svelte';
   import { DAY_MS } from '../../../src/shared/time';
@@ -39,6 +45,7 @@
   import type { NoteHover } from './hover.svelte';
   import { isMenuKey, openMenuAt } from './drag-keys';
   import { clockLabel, clockRange } from './week-nav';
+  import { SNAP_MINUTES, timeDrag, type TimeDragKind, type TimeMoves } from './time-drag';
 
   interface Props {
     page: GridWeek;
@@ -71,11 +78,13 @@
     onOpenDay?: ((day: number) => void) | null;
     /** An event's second line (the Day view); null for none. */
     detailOf?: ((key: string) => string | null) | null;
+    /** Moving and resizing by time; null where nothing moves. */
+    timeMoves?: TimeMoves | null;
   }
   let {
     page, layout, eventFor, colorOf, today, now, locale, labelledBy, movingKey, moveBarId,
     hover, cardId, cardKey, onOpen, onMenu, onDayList, onChooseDay, onCancelChoose, onGoToDay,
-    onOpenDay = null, detailOf = null,
+    onOpenDay = null, detailOf = null, timeMoves = null,
   }: Props = $props();
   const uid = $props.id();
 
@@ -221,10 +230,43 @@
     }
   }
 
+  // ── Moving by time (#2953) ────────────────────────────────────────────
+  /** A drag is under way: no hover previews, which the app draws over the frame (`time-drag.ts`). */
+  let dragging = false;
+  /** An event moved by the keyboard: focus it again where it's drawn next. */
+  let refocusKey: string | null = null;
+  $effect(() => {
+    void layout;
+    const key = refocusKey;
+    if (key === null) return;
+    void tick().then(() => {
+      const el = hours?.querySelector<HTMLElement>(`.wk-ev[data-note-path="${CSS.escape(key)}"]`);
+      if (el && el !== document.activeElement) { el.focus(); el.scrollIntoView?.({ block: 'nearest' }); }
+    });
+  });
+
+  /** Alt+↑/↓ moves a timed event 15 minutes; with Shift, its end. */
+  function timeKey(e: KeyboardEvent, el: HTMLElement): boolean {
+    if (!timeMoves || !e.altKey || e.metaKey || e.ctrlKey || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return false;
+    if (!el.classList.contains('wk-ev')) return false;
+    e.preventDefault();
+    e.stopPropagation();
+    const key = el.dataset['notePath']!;
+    const kind: TimeDragKind = e.shiftKey ? 'resize' : 'move';
+    const refusal = timeMoves.refusal(key, kind);
+    if (refusal !== null) { timeMoves.refused(refusal); return true; }
+    const minutes = e.key === 'ArrowUp' ? -SNAP_MINUTES : SNAP_MINUTES;
+    refocusKey = key;
+    if (kind === 'move') timeMoves.move(key, minutes);
+    else timeMoves.resize(key, minutes);
+    return true;
+  }
+
   /** Keys on an event: Tab / Shift+Tab through its cell's events, Escape back to the cell, the menu key. */
   function onEventKeydown(e: KeyboardEvent): void {
     const el = e.currentTarget as HTMLElement;
     const cell = el.closest<HTMLElement>('[role="gridcell"]')!;
+    if (timeKey(e, el)) return;
     if (onMenu && isMenuKey(e)) {
       e.preventDefault();
       e.stopPropagation();
@@ -248,7 +290,7 @@
   const eventHandlers = (key: string, ev: TimelineEvent) => ({
     onclick: (e: MouseEvent) => { e.stopPropagation(); onOpen(key); },
     oncontextmenu: (e: MouseEvent) => onMenu?.(e, key),
-    onpointerenter: (e: PointerEvent) => hover.pointerEnter({ key, target: key, anchor: e.currentTarget as Element, fallbackTitle: ev.title }),
+    onpointerenter: (e: PointerEvent) => { if (!dragging) hover.pointerEnter({ key, target: key, anchor: e.currentTarget as Element, fallbackTitle: ev.title }); },
     onpointerleave: () => hover.pointerLeave(key),
     onfocus: (e: FocusEvent) => hover.focus({ key, target: key, anchor: e.currentTarget as Element, fallbackTitle: ev.title }),
     onblur: () => hover.blur(key),
@@ -272,6 +314,17 @@
   data-week-start={page.start}
   style:--cols={page.days.length}
   onkeydown={onGridKeydown}
+  use:timeDrag={{
+    enabled: timeMoves !== null && !choosing,
+    pxPerMinute: PX_PER_MIN,
+    refusal: (key, kind) => timeMoves?.refusal(key, kind) ?? null,
+    previewText: (key, kind, minutes) => timeMoves?.previewText(key, kind, minutes) ?? null,
+    onMove: (key, minutes) => timeMoves?.move(key, minutes),
+    onResize: (key, minutes) => timeMoves?.resize(key, minutes),
+    onRefused: (_key, text) => timeMoves?.refused(text),
+    onDragStart: () => { dragging = true; hover.close(); },
+    onDragEnd: () => { dragging = false; },
+  }}
 >
   <div class="wk-top" role="rowgroup">
     <div class="wk-row wk-head" role="row">
@@ -395,6 +448,7 @@
                 data-lanes={p.lanes}
                 data-moving={movingKey === p.key || undefined}
                 aria-describedby={describe(p.key)}
+                aria-keyshortcuts={timeMoves ? 'Alt+ArrowUp Alt+ArrowDown Alt+Shift+ArrowUp Alt+Shift+ArrowDown' : undefined}
                 {...eventHandlers(p.key, ev)}
               >
                 {#if p.continuesBefore}<span class="wk-mark" aria-hidden="true">‹</span>{/if}
@@ -402,6 +456,7 @@
                 <span class="wk-title">{ev.title}</span>
                 {#if detail}<span class="wk-detail">{detail}</span>{/if}
                 {#if p.continuesAfter}<span class="wk-mark wk-mark-after" aria-hidden="true">›</span>{/if}
+                {#if timeMoves && !p.continuesAfter}<span class="wk-resize" data-resize-handle aria-hidden="true"></span>{/if}
               </button>
             {/each}
           </div>
@@ -476,6 +531,16 @@
   .wk-ev.wk-short { flex-direction: row; align-items: center; white-space: nowrap; padding-top: 0; padding-bottom: 0; }
   .wk-ev:hover, .wk-bar:hover, .wk-ev:focus-visible, .wk-bar:focus-visible { border-color: var(--ev-color, var(--accent)); outline: none; }
   .wk-ev[data-moving], .wk-bar[data-moving] { outline: 2px dashed var(--accent); outline-offset: 1px; }
+  /* Moving by time (#2953): the bottom edge resizes; a dragged event says where it lands. */
+  .wk-resize { position: absolute; left: 0; right: 0; bottom: 0; height: 6px; cursor: ns-resize; }
+  .wk-ev[data-dragging] { z-index: 3; opacity: 0.85; box-shadow: 0 4px 14px color-mix(in oklch, var(--bg) 50%, transparent); }
+  .wk-ev[data-drop-time]::after {
+    content: attr(data-drop-time);
+    position: absolute; right: 2px; top: 1px;
+    padding: 0 4px; border-radius: 3px;
+    background: var(--text); color: var(--bg);
+    font-size: 10.5px; font-weight: 600; font-variant-numeric: tabular-nums;
+  }
   /* An invented end (none written, or a coarse one): hatched, the month grid's approximate style. */
   .wk-ev.wk-approx {
     border-bottom: 1px dashed var(--ev-color, var(--accent));
