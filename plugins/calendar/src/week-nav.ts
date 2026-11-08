@@ -1,5 +1,5 @@
 /**
- * The Week mode's page rules (#2951, epic #2949): which week a switch from
+ * The Week and Day modes' page rules (#2951, #2952, epic #2949): which page a switch from
  * the month grid opens and which month a switch back opens, stepping, and the
  * week's title. Pure, so it tests without a DOM.
  *
@@ -15,7 +15,7 @@ import {
 } from '../../../src/shared/objects/calendar-grid';
 import { DAY_MS } from '../../../src/shared/time';
 
-/** The day a month page opens its week on, and the `date` to write (null: today). */
+/** The day a month page opens its week (or, `mode: 'day'`, its day) on, and the `date` to write (null: today). */
 export function weekFromMonth(opts: {
   page: CalendarMonth;
   /** The page follows today (`month` unwritten). */
@@ -24,12 +24,15 @@ export function weekFromMonth(opts: {
   focused: number | null;
   today: number;
   weekStart: Weekday;
+  /** Week (the default) or Day (#2952): which page must hold today for it to follow today. */
+  mode?: 'week' | 'day';
 }): { anchor: number; date: string | null } {
   const { start, end } = monthBounds(opts.page);
   const inPage = (d: number | null): d is number => d !== null && d >= start && d < end;
   const anchor = inPage(opts.focused) ? dayStart(opts.focused) : inPage(opts.today) ? opts.today : start;
-  const sameWeek = timePage(anchor, 'week', opts.weekStart).start === timePage(opts.today, 'week', opts.weekStart).start;
-  return { anchor, date: opts.followsToday && sameWeek ? null : formatDayAnchor(anchor) };
+  const mode = opts.mode ?? 'week';
+  const samePage = timePage(anchor, mode, opts.weekStart).start === timePage(opts.today, mode, opts.weekStart).start;
+  return { anchor, date: opts.followsToday && samePage ? null : formatDayAnchor(anchor) };
 }
 
 /** The `month` a week page opens on the month grid (null: the current month). */
@@ -40,6 +43,11 @@ export function monthFromWeek(opts: { anchor: number; followsToday: boolean }): 
 /** The same weekday `n` weeks on. */
 export function stepWeek(anchor: number, n: number): number {
   return addDays(anchor, 7 * n);
+}
+
+/** `n` pages on from `anchor`: weeks, or days (#2952). */
+export function stepPage(anchor: number, unit: 'week' | 'day', n: number): number {
+  return unit === 'day' ? addDays(anchor, n) : stepWeek(anchor, n);
 }
 
 const fmtCache = new Map<string, Intl.DateTimeFormat>();

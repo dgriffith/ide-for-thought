@@ -116,10 +116,6 @@ describe('paging a week (#2951)', () => {
     expect(s.qa('[role="columnheader"]').slice(1).map((h) => h.getAttribute('aria-label'))[0]).toBe('Sunday, 4 October 2026');
   });
 
-  it('a `day` spec shows its week until the Day view lands', () => {
-    expect(setup({ mode: 'day', date: '2026-10-09' }).title()).toBe('5 – 11 October 2026');
-  });
-
   it('read-only (an embed) pages and switches on screen, and writes nothing', async () => {
     const s = setup({ readOnly: true, date: '2026-12-02' });
     await fireEvent.click(screen.getByRole('button', { name: 'Next week' }));

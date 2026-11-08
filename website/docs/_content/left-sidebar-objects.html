@@ -202,7 +202,7 @@ description: The Objects panel — your project browsed by kind rather than by f
 
     <div class="box">
       <span class="label">Timeline or calendar</span>
-      <p>A timeline is for seeing how things fall across time, whether that's hours, years or centuries, and how they overlap. A <a href="#calendar">calendar</a> is for seeing what happens on which day, a month at a time. Both read the same dates in the same way, so you can switch between them freely. The calendar shows months only: there's no week or day view with the hours down the side yet, and no repeating events. Each note is one event, on the dates it gives.</p>
+      <p>A timeline is for seeing how things fall across time, whether that's hours, years or centuries, and how they overlap. A <a href="#calendar">calendar</a> is for seeing what happens on which day, a month at a time. Both read the same dates in the same way, so you can switch between them freely. The calendar shows a month, a week or a single day, with the hours down the side in the week and day; there are no repeating events yet. Each note is one event, on the dates it gives.</p>
     </div>
 
     <h2 id="calendar">The calendar</h2>
@@ -215,6 +215,10 @@ description: The Objects panel — your project browsed by kind rather than by f
     <h3>The month</h3>
     <p>The calendar opens on the current month. The <b>‹</b> and <b>›</b> buttons beside the month's name go back or forward a month, and <b>Today</b> comes back to this one. Today's date is ringed, with its number in bold. A month takes four, five or six rows, as many as its weeks need, and the days of the months either side that fill out the first and last rows are dimmed. Their events are still shown.</p>
     <p>The month you're on belongs to the view. It's kept with the tab, so switching to the table and back, or going <a href="navigation-back-forward.html">Back</a> to it, brings you to the same month.</p>
+
+    <h3 id="calendar-week-day">Week and day</h3>
+    <p>The <b>Month</b>, <b>Week</b> and <b>Day</b> buttons at the right of the toolbar change what a page holds. A week is seven columns, starting on <a href="#week-start">your week's first day</a>, with the hours of the day down the side. Events with a time sit at that time, as tall as they last, and events that overlap share the column side by side. All-day events, and anything lasting a day or more, are bars in a strip above the hours. A line marks the time now on today's column. The <b>‹</b>, <b>Today</b> and <b>›</b> buttons go back or forward a week, or a day.</p>
+    <p>A day is the same grid with one column, so there's room for more of each event: under its title it shows its first field after the dates, such as the room it's in. In a wide enough panel, an <b>Agenda</b> beside the grid lists the day's events in order. To open one day from a month or a week, double-click its number, or press <kbd>⌥</kbd><kbd>⏎</kbd> on it. Going from Week to Day keeps the day you're on, and going back to Month opens that day's month. The week or day you're on is kept with the tab, like the month.</p>
 
     <h3>Events on their days</h3>
     <p>An event with only a day sits in that day's cell. One with a time of day (<code>2026-10-06T09:30</code>) sits there too, with the time in front of its title, and a day's events come in order: anything that began on an earlier day first, then by time, then by title.</p>
@@ -264,6 +268,10 @@ description: The Objects panel — your project browsed by kind rather than by f
       <div class="row">
         <div class="k"><kbd>⏎</kbd> or <kbd>Space</kbd></div>
         <div class="v">Opens the day's list. While you're moving an event, moves it to this day.</div>
+      </div>
+      <div class="row">
+        <div class="k"><kbd>⌥</kbd><kbd>⏎</kbd></div>
+        <div class="v">Opens the day on its own, in Day.</div>
       </div>
       <div class="row">
         <div class="k"><kbd>⇧</kbd><kbd>F10</kbd></div>
