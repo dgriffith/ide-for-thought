@@ -1,6 +1,6 @@
 /**
  * A view whose notes come from a query (#2944, epic #2936): the shape main
- * hands back for `views:queryRows`, and the pure rules that make one from a
+ * hands back for `queryViews:rows`, and the pure rules that make one from a
  * query's raw result — which column names the notes, and what type each
  * column is. Main runs the query (`main/views/query-rows.ts`); the view
  * draws the schema and rows like a type's (#2943).

@@ -261,7 +261,7 @@ exports[`preload behaviour: surface-wide invariants (#2367) > the full method â†
   "queries.save": "invoke queries:save",
   "queries.setGroup": "invoke queries:setGroup",
   "queries.setOrder": "invoke queries:setOrder",
-  "queryViews.rows": "invoke views:queryRows",
+  "queryViews.rows": "invoke queryViews:rows",
   "refactor.applySuggestedLink": "invoke refactor:applySuggestedLink",
   "refactor.autoLinkApply": "invoke refactor:autoLinkApply",
   "refactor.autoLinkInboundApply": "invoke refactor:autoLinkInboundApply",

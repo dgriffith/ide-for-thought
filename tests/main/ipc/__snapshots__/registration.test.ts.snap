@@ -215,6 +215,7 @@ exports[`IPC registration contract (#997) > matches the known set of registered 
   "queries:save",
   "queries:setGroup",
   "queries:setOrder",
+  "queryViews:rows",
   "recent:clear",
   "refactor:applySuggestedLink",
   "refactor:autoLinkApply",
@@ -296,7 +297,6 @@ exports[`IPC registration contract (#997) > matches the known set of registered 
   "types:noteTypeMap",
   "types:rename",
   "types:save",
-  "views:queryRows",
   "youtube:thumbnail",
 ]
 `;

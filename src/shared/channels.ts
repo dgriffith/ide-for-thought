@@ -452,7 +452,7 @@ export const Channels = {
    *  registered-relations allowlist first: no file functions, no path-as-table. */
   TABLES_QUERY_NOTE: 'tables:queryNote',
   /** A query view's rows (#2944): SPARQL, or SQL through the note guard, as a typed schema and rows naming notes. */
-  QUERY_VIEW_ROWS: 'views:queryRows',
+  QUERY_VIEW_ROWS: 'queryViews:rows',
   /** List every registered CSV table with its columns + row count (#234, for autocomplete). */
   TABLES_LIST: 'tables:list',
   /** Broadcast from main when the set of registered DuckDB tables changes (#235). */

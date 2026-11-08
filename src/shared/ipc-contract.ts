@@ -329,7 +329,7 @@ export interface ChannelMap {
     | { ok: true; columns: string[]; rows: Record<string, unknown>[] }
     | { ok: false; error: string };
   /** A query view's rows (#2944): a malformed query is the `ok: false` arm, rendered in place. */
-  'views:queryRows': (query: string, language: QueryLanguage, opts?: QueryRowsOptions) => QueryRowsResult;
+  'queryViews:rows': (query: string, language: QueryLanguage, opts?: QueryRowsOptions) => QueryRowsResult;
   'tables:list': () => Array<{
     name: string;
     relativePath: string;
