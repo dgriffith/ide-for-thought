@@ -22,6 +22,7 @@
  * methods (#2452): `sql_query` → `agentSql` (registered relations only, the
  * #2442 allowlist) and `read_note` → `agentRead` (nothing under `.minerva/`).
  */
+import { cliStdin } from './stdin';
 import * as readline from 'node:readline';
 import { type Engine, type EngineOptions, type ExecResult } from './engine';
 import { createRoutedEngine } from './routed-engine';
@@ -533,7 +534,8 @@ export async function runMcpServer(
     engine?: Engine;
   } = {},
 ): Promise<void> {
-  const input = opts.input ?? process.stdin;
+  // fd 0 itself on Windows under Electron, whose process.stdin is empty (#3026).
+  const input = opts.input ?? cliStdin();
   const output = opts.output ?? process.stdout;
   const disposeGuards = (opts.processGuards ?? output === process.stdout) ? installStdioGuards() : null;
 

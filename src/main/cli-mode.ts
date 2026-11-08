@@ -26,6 +26,7 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import { registerAppScheme } from './app-protocol';
 import { PLUGIN_CODE_STAGE_GLOBAL, type PluginCodeStage } from '../shared/plugins/check';
+import { isCliCommand } from '../shared/cli-commands';
 
 export const CLI_MODE_FLAG = '--minerva-cli';
 
@@ -37,17 +38,27 @@ export function bundledCliPath(): string {
 /**
  * The CLI arguments if this process was started as the CLI, else null.
  *
- *  - `<exe> --minerva-cli [--] <args>` — the current shim.
+ *  - `<exe> --minerva-cli [--] <args>` — the current shim. The flag may come
+ *    after other leading switches (`--no-sandbox`, which a Linux launcher can
+ *    prepend, #1440), but not after a non-switch argument.
+ *  - `<exe> <command> <args>` where `<command>` is one of the CLI's
+ *    (`shared/cli-commands.ts`, #1440): Linux packages install this binary on
+ *    PATH as `minerva`, so `minerva sql …` arrives here with no flag. An app
+ *    launch never starts with a bare command word.
  *  - `<exe> <…/.vite/build/cli.js> <args>` with `ELECTRON_RUN_AS_NODE=1` in
  *    the environment — a shim installed before #2565, running against a binary
  *    whose RunAsNode fuse is now off.
  */
 export function cliModeArgs(argv: readonly string[], env: NodeJS.ProcessEnv): string[] | null {
-  const flagAt = argv.indexOf(CLI_MODE_FLAG);
-  if (flagAt === 1) {
-    const rest = argv.slice(flagAt + 1);
-    return rest[0] === '--' ? rest.slice(1) : rest;
+  for (let i = 1; i < argv.length; i++) {
+    const arg = argv[i]!;
+    if (arg === CLI_MODE_FLAG) {
+      const rest = argv.slice(i + 1);
+      return rest[0] === '--' ? rest.slice(1) : rest;
+    }
+    if (!arg.startsWith('--')) break;
   }
+  if (isCliCommand(argv[1])) return argv.slice(1);
   const first = argv[1] ?? '';
   const legacy = env.ELECTRON_RUN_AS_NODE === '1' && /[/\\]\.vite[/\\]build[/\\]cli\.js$/.test(first);
   return legacy ? argv.slice(2) : null;
