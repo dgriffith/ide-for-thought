@@ -11,10 +11,10 @@
 </script>
 
 <div class="tv-gallery">
-  {#each view.instances as inst (inst.path)}
+  {#each view.instances as inst (inst.key ?? inst.path)}
     {@const rt = view.rowType(inst)}
     {@const summary = view.summary(inst)}
-    <button class="tv-card" class:selected={view.isSelected(inst.path)} aria-pressed={view.selectable ? view.isSelected(inst.path) : undefined} onclick={(e) => view.onRowClick(e, inst.path)} oncontextmenu={(e) => view.onRowContextMenu(e, inst.path)} title={inst.path} onkeydown={(e) => { if (view.rowMenu && isMenuKey(e)) { e.preventDefault(); openMenuAt(e.currentTarget); } }} data-note-path={inst.path}>
+    <button class="tv-card" class:selected={view.isSelected(inst.path)} aria-pressed={view.selectable ? view.isSelected(inst.path) : undefined} onclick={(e) => view.onRowClick(e, inst.path)} oncontextmenu={(e) => view.onRowContextMenu(e, inst.path)} title={inst.noNote ? undefined : inst.path} onkeydown={(e) => { if (view.rowMenu && isMenuKey(e)) { e.preventDefault(); openMenuAt(e.currentTarget); } }} data-note-path={inst.noNote ? undefined : inst.path}>
       <div class="tv-card-cover">
         {#snippet icon()}<span class="tv-card-icon" style={rt?.color ? `color:${rt.color}` : undefined}>{rt?.icon ?? '◆'}</span>{/snippet}
         {#if isImageUrl(inst.cover)}

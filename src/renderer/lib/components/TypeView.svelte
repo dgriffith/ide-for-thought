@@ -48,6 +48,8 @@
   import { calendarHost } from './type-view/calendar-host';
   import { typeSource, type ViewSource } from './type-view/view-source';
   import { createViewLoader } from './type-view/view-loader.svelte';
+  import { mergeRowsByNote } from '../../../shared/views/view-rows';
+  import { emptyScopedMessage, lostLayoutLine } from './type-view/view-messages';
   import { announce } from '../stores/announcer.svelte';
   import { moveTargets, sharedColumnValue, type MoveTarget } from '../../../shared/objects/kanban-move';
   import type { PropertyDef, TypeInfo, TypeInstanceRow } from '../../../shared/objects/type-def';
@@ -129,7 +131,6 @@
   // The source's last schema and rows (`view-loader.svelte.ts`): Loading… only for a new source.
   const data = createViewLoader({ needCatalog: () => untrack(() => filters.some(isTypeFilter)), onLoaded: () => onLoaded });
   const type = $derived(data.schema);
-  const instances = $derived(data.rows);
   const loading = $derived(data.loading);
   const loadError = $derived(data.error);
   let columnsMenuOpen = $state(false);
@@ -157,7 +158,12 @@
   // (#2828); the view keeps its layout, so turning the plugin on brings it back.
   const wanted = $derived<Layout>(calendarSpec.layout);
   const offPlugin = $derived(layoutAvailable(wanted, (id) => codePluginsStore.isOn(id)) ? null : layoutPlugin(wanted));
-  const shown = $derived<Layout>(offPlugin ? DEFAULT_VIEW_LAYOUT : wanted);
+  // A query's columns decide its layouts (#2946): one its data no longer supports shows the table, saying why.
+  const lost = $derived(typeId === null && type !== null && !layoutDef(wanted).appliesTo({ typeId: schemaId, properties: allColumns, catalog: catalog ?? [] }) ? wanted : null);
+  const shown = $derived<Layout>(lost ? 'table' : offPlugin ? DEFAULT_VIEW_LAYOUT : wanted);
+  // A query's rows (#2946, `view-rows.ts`): a table keeps every one, a card layout one per note; a row naming no note never opens, selects or menus.
+  const instances = $derived(typeId === null && !layoutDef(shown).everyRow ? mergeRowsByNote(data.rows) : data.rows);
+  const noNote = $derived(new Set(data.rows.filter((r) => r.noNote).map((r) => r.path)));
   // The layouts this type can show, from the registry (#2623).
   const available = $derived(layoutsFor({ typeId: schemaId, properties: allColumns, catalog: catalog ?? objectTypesStore.types, pluginOn: (id) => codePluginsStore.isOn(id) }));
   // Visible columns (table): null on the tab means "all". Order follows the
@@ -212,12 +218,6 @@
   const subtypes = $derived(typeId !== null && typeLookup && catalog && !chromeless
     ? subtypeChoices(typeId, catalog, applyViewSpec(instances, { folder, filters: viewFilters.filter((f) => !isTypeFilter(f)) }, propertyTypes), typeLookup.typeOf) : []);
   const scoped = $derived<TypeInstanceRow[]>(applyViewSpec(instances, { folder, filters: viewFilters }, propertyTypes, typeLookup));
-
-  function emptyScopedMessage(label: string): string {
-    const what = label.toLowerCase();
-    if (viewFilters.length > 0) return folder ? `No ${what} in ${folder} match these filters.` : `No ${what} match these filters.`;
-    return `No ${what} in ${folder}.`;
-  }
 
   const sorted = $derived.by<TypeInstanceRow[]>(() => {
     if (!sortColumn) return scoped;
@@ -294,7 +294,7 @@
   // and no Move to ▸, since an embedded board stays read-only (#2604).
   const menuOnly = $derived(!!noteActions && chromeless && !exportMode);
   const sel = createTypeViewSelection({
-    order: () => layoutOrder(shown, view).map((i) => i.path),
+    order: () => layoutOrder(shown, view).filter((i) => !i.noNote).map((i) => i.path),
     enabled: () => selectable,
     menuOnly: () => menuOnly,
     onOpen: (p) => onOpenNote(p),
@@ -404,12 +404,13 @@
     summary,
     get selectable() { return selectable; },
     get rowMenu() { return selectable || menuOnly; },
-    isSelected: (p) => sel.has(p),
-    onRowClick: (e, p) => sel.click(e, p),
-    onRowContextMenu: (e, p) => sel.contextMenu(e, p),
+    isSelected: (p) => !noNote.has(p) && sel.has(p),
+    onRowClick: (e, p) => { if (!noNote.has(p)) sel.click(e, p); },
+    onRowContextMenu: (e, p) => { if (noNote.has(p)) e.preventDefault(); else sel.contextMenu(e, p); },
     refPath: (prop, value) => (noteActions && prop.type === 'link-to-type' && value ? notePathForIri(value, knownNotePaths) : null),
     onRefContextMenu: (e, p, label) => { refLabel = label; sel.contextMenuFor(e, p); },
-    openRowMenu: (paths, x, y, opts) => {
+    openRowMenu: (all, x, y, opts) => {
+      const paths = all.filter((p) => !noNote.has(p)); if (paths.length === 0) return;
       if (opts?.target && paths[0]) {
         refLabel = opts.label ?? '';
         sel.openMenuForTarget(paths[0], x, y);
@@ -417,7 +418,7 @@
     },
     selectAll: () => sel.selectAll(),
     clearSelection: () => sel.clear(),
-    onOpenNote: (p) => onOpenNote(p),
+    onOpenNote: (p) => { if (!noNote.has(p)) onOpenNote(p); },
     onStateChange: (p) => onStateChange(p),
     get readOnly() { return chromeless; },
     get exportMode() { return exportMode; },
@@ -509,9 +510,11 @@
   {:else if instances.length === 0}
     <p class="tv-empty">No {type.label.toLowerCase()} instances yet.</p>
   {:else if scoped.length === 0}
-    <p class="tv-empty">{emptyScopedMessage(type.label)}</p>
+    <p class="tv-empty">{emptyScopedMessage(type.label, folder, viewFilters.length > 0)}</p>
   {:else}
-    {#if offPlugin}
+    {#if lost}
+      <p class="tv-layout-off">{lostLayoutLine(lost)}</p>
+    {:else if offPlugin}
       <p class="tv-layout-off">{layoutDef(wanted).label} is turned off on this machine. Turn on {codePluginsStore.name(offPlugin)} in Settings → Plugins to see this view that way.</p>
     {/if}
     <renderer.component {view} />
