@@ -560,6 +560,16 @@ mark.hl-orange { background: color-mix(in oklch, var(--hl-orange) 30%, transpare
   border: 1px solid var(--border);
   background: var(--bg-inset);
 }
+/* A `:::query-list` / `:::query-table` drawn as a query view (#2947): as tall
+   as its rows, as a query list always was, up to a cap past which it scrolls —
+   not an embed's fixed box. */
+.object-view-block.object-view-fit[data-object-view-rendered="ok"] {
+  height: auto;
+  max-height: 640px;
+  overflow: auto;
+}
+.query-view-directive { margin: 0 0 12px; }
+.query-view-directive > .object-view-block { margin-bottom: 0; }
 .object-view-error {
   width: 100%;
   padding: 8px 12px;

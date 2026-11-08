@@ -7,6 +7,10 @@
  * #2448), the same list / table / chart / backlinks / search / semantic
  * builders — then snapshotted in the light theme.
  *
+ * A `:::query-list` / `:::query-table` exports as the query view it is
+ * (#2947, `directiveViewSpec`): the object-view export's table or list, each
+ * note linked, under the directive's title. The rest keep this path.
+ *
  * Two export-only differences, both about the medium rather than the result:
  * a chart draws its final frame at once (no animation to catch mid-way) in a
  * light palette, and it's kept as an image of what it drew.
@@ -15,7 +19,9 @@ import { executeQueryBlock, type QueryBlockDeps } from '../preview/query-blocks'
 import { parseQueryDirectiveSource, queryBlockPlaceholderHtml } from '../preview/query-directive';
 import { QUERY_PREFIXES } from '../preview/query-prefixes';
 import { snapshotLiveBlock } from './live-block-snapshot';
-import { EXPORT_BLOCK_WIDTH_PX } from './render-object-view';
+import { EXPORT_BLOCK_WIDTH_PX, renderObjectViewForExport } from './render-object-view';
+import { directiveViewSpec } from '../../../shared/views/directive-view';
+import { escapeHtml } from '../../../shared/text-escape';
 import type { ChartHandle } from '../charts';
 
 /** Light text/grid for a chart on a white page. */
@@ -24,6 +30,11 @@ const EXPORT_CHART_PALETTE = { text: '#2b2a28', tick: '#5f5c56', grid: '#0000001
 export async function renderQueryBlockForExport(source: string, notePath: string): Promise<string> {
   const directive = parseQueryDirectiveSource(source);
   if (!directive) throw new Error('not a query block');
+  const view = directiveViewSpec(directive.type, directive.query, directive.config);
+  if (view) {
+    const title = typeof view.title === 'string' ? `<h4 class="query-title">${escapeHtml(view.title)}</h4>` : '';
+    return `${title}${await renderObjectViewForExport(JSON.stringify(view))}`;
+  }
 
   const host = document.createElement('div');
   host.setAttribute('aria-hidden', 'true');

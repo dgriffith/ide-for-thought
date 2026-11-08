@@ -3,8 +3,10 @@
  *
  * A note holding a SPARQL list, a SPARQL table, a backlinks block and a SQL
  * timeseries chart: opened in the real preview, exported through the real
- * `publish.runExport`, and compared — the same result rows in the same order,
- * the chart kept as an image of what it drew, and no raw directive text.
+ * `publish.runExport`, and compared — the same notes linked by each block,
+ * the chart kept as an image of what it drew, and no raw directive text. The
+ * list and table are query views since #2947 (the directive unedited), so
+ * their rows are the view's, each naming its note.
  */
 import { test, expect, type Page } from './helpers/test';
 import fs from 'node:fs';
@@ -32,14 +34,20 @@ function seed(dir: string): void {
   ].join('\n'));
 }
 
-/** Result link texts per query block, in order, from a container. */
-async function blockLinks(win: Page, rootSelector: string): Promise<string[][]> {
-  return win.evaluate((sel) => {
+/**
+ * The note titles each query block lists, in block order, from a container:
+ * a view's row titles (#2947) and the other blocks' links — the same
+ * selectors in the preview and in an export, whatever its link policy makes
+ * of the anchors.
+ */
+async function blockLinks(win: Page, rootSelector: string, blockSelector: string): Promise<string[][]> {
+  return win.evaluate(([sel, blockSel]) => {
     const root = document.querySelector(sel)!;
     const scope = (root as HTMLElement).shadowRoot ?? root;
-    const blocks = Array.from(scope.querySelectorAll('.query-block')).filter((b) => b.querySelector('a, canvas, img, table'));
-    return blocks.map((b) => Array.from(b.querySelectorAll('a')).map((a) => a.textContent.trim()));
-  }, rootSelector);
+    const blocks = Array.from(scope.querySelectorAll(blockSel)).filter((b) => b.querySelector('a, canvas, img, table, .tv-list'));
+    return blocks.map((b) => Array.from(b.querySelectorAll('.tv-list-title, .tv-cell-title-inner > span:last-child, a.wiki-link'))
+      .map((e) => e.textContent.trim()).sort());
+  }, [rootSelector, blockSelector] as const);
 }
 
 test('query blocks export with the rows the preview shows, and charts as images (#2512)', async () => {
@@ -59,14 +67,16 @@ test('query blocks export with the rows the preview shows, and charts as images 
       await win.locator('[data-relative-path="trip"]').first().click();
       await win.locator('[data-relative-path="trip/plan.md"]').first().click();
       await app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0]!.webContents.send('menu:command', 'view.togglePreview'); });
-      await expect(win.locator('.preview .query-result-list a').first()).toBeVisible({ timeout: 15_000 });
+      await expect(win.locator('.preview .query-view-directive .tv-list-row').first()).toBeVisible({ timeout: 15_000 });
+      await expect(win.locator('.preview .query-view-directive .tv-table tbody tr')).toHaveCount(3, { timeout: 15_000 });
       await expect(win.locator('.preview .query-block canvas')).toHaveCount(1, { timeout: 15_000 });
-      await expect.poll(async () => (await blockLinks(win, '.preview')).length, { timeout: 15_000 }).toBe(4);
-      return blockLinks(win, '.preview');
+      await expect.poll(async () => (await blockLinks(win, '.preview', '.query-view-directive, .query-block')).length, { timeout: 15_000 }).toBe(4);
+      return blockLinks(win, '.preview', '.query-view-directive, .query-block');
     });
-    // The list links titles; the table links its `path` column (the preview
-    // shows the path itself); backlinks name the three notes; the chart has none.
-    expect(preview).toEqual([TAGGED, TAGGED.map((t) => `trip/places/${t}.md`), TAGGED, []]);
+    // The list and the table (query views) link the three notes; backlinks name them too; the chart has none.
+    expect(preview).toEqual([TAGGED, TAGGED, TAGGED, []]);
+    // The list's title is the heading it always was.
+    await expect(win.locator('.preview .query-view-directive .query-title')).toHaveText('Museums');
     await win.locator('.preview').screenshot({ path: 'test-results/export-query-preview.png' });
 
     const html = await test.step('export through the real pipeline', async () => {
@@ -92,7 +102,7 @@ test('query blocks export with the rows the preview shows, and charts as images 
         host.attachShadow({ mode: 'open' }).innerHTML = styles + body;
         document.body.appendChild(host);
       }, html);
-      return blockLinks(win, '#export-under-test');
+      return blockLinks(win, '#export-under-test', '.minerva-live-block');
     });
     expect(exported).toEqual(preview);
     await win.locator('#export-under-test').screenshot({ path: 'test-results/export-query-export.png' });

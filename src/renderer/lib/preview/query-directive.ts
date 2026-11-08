@@ -6,7 +6,7 @@
  * placeholder that `executeQueryBlock` fills. Pulled out of
  * `markdown-config.ts`, which used to do this inline.
  */
-import { escapeAttr } from './text';
+import { escapeAttr, escapeHtml } from './text';
 
 export interface QueryDirective {
   query: string;
@@ -33,6 +33,18 @@ export function splitQueryDirective(body: string): QueryDirective {
 export function queryBlockPlaceholderHtml(type: string, query: string, config: Record<string, unknown>): string {
   const configJson = Object.keys(config).length > 0 ? escapeAttr(JSON.stringify(config)) : '';
   return `<div class="query-block" data-type="${escapeAttr(type)}" data-query="${escapeAttr(query)}"${configJson ? ` data-config="${configJson}"` : ''}><span class="query-loading">Loading...</span></div>`;
+}
+
+/**
+ * A `:::query-list` / `:::query-table` as a query view (#2947): an object-view
+ * placeholder the object-view hydrator mounts, sized to its rows
+ * (`object-view-fit`) rather than an embed's fixed box, under the directive's
+ * title as the heading a query list always drew — an embed has no header.
+ */
+export function queryViewDirectiveHtml(spec: Record<string, unknown>): string {
+  const title = typeof spec.title === 'string' ? `<h4 class="query-title">${escapeHtml(spec.title)}</h4>` : '';
+  const json = JSON.stringify(spec).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return `<div class="query-view-directive">${title}<div class="object-view-block object-view-fit" data-object-view-pending="1">${json}</div></div>`;
 }
 
 /**

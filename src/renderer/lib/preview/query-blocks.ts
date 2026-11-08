@@ -237,6 +237,9 @@ function renderQueryResults(deps: QueryBlockDeps, el: HTMLElement, type: string,
   const title = config.title;
   const titleHtml = title ? `<h4 class="query-title">${escapeHtml(title)}</h4>` : '';
 
+  // A `:::query-list` / `:::query-table` renders as a query view since #2947
+  // (`directiveViewSpec`), in the preview and the export alike, so these two
+  // builders only answer a `.query-block` placeholder made by hand.
   if (type === 'list') {
     renderAsList(el, config, results, titleHtml);
   } else if (type === 'table') {

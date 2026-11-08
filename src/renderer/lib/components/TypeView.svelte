@@ -334,7 +334,7 @@
    * header. Falls back to the view's type if the map hasn't loaded yet.
    */
   function rowType(inst: TypeInstanceRow): TypeInfo | null {
-    return objectTypesStore.typeForNote(inst.path) ?? type;
+    return objectTypesStore.typeForNote(inst.path) ?? (typeId === null ? null : type); // a query's schema isn't the note's type (#2947)
   }
 
   // The switcher offers Map / Kanban only where they can draw (#2066, #2602).
