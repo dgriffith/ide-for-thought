@@ -24,5 +24,11 @@ const full = Object.fromEntries(Object.entries(process.env).filter(([, v]) => v 
 const allowed = allowlistedEnv(process.env);
 const dropped = Object.keys(full).filter((k) => !(k in allowed)).sort();
 console.log(`allowlist drops ${dropped.length} vars: ${dropped.join(' ')}`);
-await attempt('as the app spawns it (allowlisted env)', undefined);
-await attempt('with the full environment', full);
+const pick = (names: string[]) => Object.fromEntries(Object.entries(full).filter(([k]) => names.some((n) => n.toUpperCase() === k.toUpperCase())));
+const SYSTEM = ['ALLUSERSPROFILE', 'PROGRAMDATA', 'PROGRAMFILES(X86)', 'PROGRAMW6432', 'COMMONPROGRAMFILES', 'COMMONPROGRAMFILES(X86)', 'COMMONPROGRAMW6432', 'PUBLIC', 'OS', 'NUMBER_OF_PROCESSORS', 'PROCESSOR_IDENTIFIER', 'PROCESSOR_LEVEL', 'PROCESSOR_REVISION', 'COMPUTERNAME', 'USERDOMAIN', 'USERDOMAIN_ROAMINGPROFILE', 'LOGONSERVER'];
+await attempt('base + Windows system vars', { ...allowed, ...pick(SYSTEM) } as Record<string, string>);
+await attempt('base + npm_config_prefix', { ...allowed, ...pick(['npm_config_prefix']) } as Record<string, string>);
+for (const v of SYSTEM) {
+  if (!(v.toUpperCase() in Object.fromEntries(Object.keys(full).map((k) => [k.toUpperCase(), 1])))) continue;
+  await attempt(`base + ${v}`, { ...allowed, ...pick([v]) } as Record<string, string>);
+}
