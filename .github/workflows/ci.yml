@@ -1083,7 +1083,7 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Probe each way of reading piped stdin
         run: |
-          e=node_modules/electron/dist/electron.exe
+          e="$(node -p "require('electron')")"; echo "electron at $e"; ls -la "$e"
           for m in process-stdin readsync readstream; do
             echo "=== $m (bash pipe)"; echo hello-from-pipe | "$e" scripts/probe/stdin-probe.cjs "$m"; echo "exit=$?"
           done
