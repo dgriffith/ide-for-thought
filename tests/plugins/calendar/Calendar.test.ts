@@ -510,6 +510,18 @@ describe('keyboard (the WAI-ARIA date grid)', () => {
     await waitFor(() => expect(document.activeElement).toBe(cell(day(2026, 10, 12))));
   });
 
+  // The keydown can reach a cell before its focus event does, when the frame's
+  // document is only just taking focus (#3025): the key acts on that cell, not
+  // on the day the grid last saw focused.
+  it('Enter on a cell whose focus event never arrived opens that cell\'s day', async () => {
+    const { cell } = setup();
+    await fireEvent.keyDown(cell(day(2026, 10, 12)), { key: 'Enter' });
+    await tick();
+    await tick();
+    const dlg = await screen.findByRole('dialog');
+    expect([...dlg.querySelectorAll<HTMLElement>('[data-day-event]')].map((i) => i.dataset['notePath'])).toEqual(['trip.md']);
+  });
+
   it('Enter on an empty day says so', async () => {
     const { cell } = setup();
     cell(day(2026, 10, 2)).focus();
