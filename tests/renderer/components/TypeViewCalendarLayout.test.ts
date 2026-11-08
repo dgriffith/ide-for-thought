@@ -138,6 +138,17 @@ describe('calendar layout (#2701, #2702)', () => {
     expect((await copied()).spec).toMatchObject({ month: '2026-10', mode: 'week', date: '2026-10-06' });
   });
 
+  it('a saved week view opens on its week, and its switch writes back through onStateChange (#2951)', async () => {
+    h.instances.mockResolvedValue({ type: JOURNAL, instances: ENTRIES });
+    const onStateChange = vi.fn();
+    const { container } = render(TypeView, props({ typeId: 'journal', layout: 'calendar', mode: 'week', date: '2026-09-30', onStateChange }));
+    await waitFor(() => expect(container.querySelector('[role="grid"][data-week-start]')).toBeTruthy());
+    expect(container.querySelector('.cal-title')!.textContent.replace(/\s+/g, ' ')).toBe('Week 40 · September 27 – October 3, 2026'); // the viewer's Sunday start, week numbers on
+    expect(drawn(container)).toEqual(['j2.md']); // 1 October, all day
+    await fireEvent.click(screen.getByRole('button', { name: 'Month' }));
+    expect(onStateChange).toHaveBeenLastCalledWith({ mode: null, month: '2026-09' });
+  });
+
   it('a mode or date the plugin sent malformed reads as the month grid and today (#2950)', async () => {
     h.instances.mockResolvedValue({ type: JOURNAL, instances: ENTRIES });
     render(TypeView, props({ typeId: 'journal', layout: 'calendar', month: '2026-10', mode: 'month', date: '6 Oct' }));
