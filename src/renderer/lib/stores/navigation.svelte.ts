@@ -24,6 +24,8 @@ export interface TypeViewNavPosition {
   /** The view as it was, to reopen it that way if its tab has since closed.
    *  Not part of the position's identity — a re-sorted view is the same place. */
   view?: Omit<import('../editor/tab-types').TypeViewState, 'folder'> | undefined;
+  /** A query view's source (#2945), to reopen it as one if its tab has closed. */
+  source?: import('../../../shared/views/view-source-spec').QuerySourceSpec | undefined;
 }
 
 export type NavPosition = NoteNavPosition | QueryNavPosition | SourceNavPosition | TypeViewNavPosition;

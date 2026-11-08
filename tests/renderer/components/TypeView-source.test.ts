@@ -11,16 +11,18 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, within, fireEvent, cleanup, waitFor, screen } from '@testing-library/svelte';
 
-const { instancesMock } = vi.hoisted(() => ({ instancesMock: vi.fn() }));
+const { instancesMock, rowsMock } = vi.hoisted(() => ({ instancesMock: vi.fn(), rowsMock: vi.fn() }));
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({
   api: {
     types: { instances: instancesMock, list: async () => ({ types: [], errors: [] }), noteTypeMap: async () => ({}) },
     export: { csv: vi.fn() }, app: { getSystemLocale: async () => 'en-GB' },
+    queryViews: { rows: rowsMock }, queries: { list: async () => [] },
   },
 }));
 
 import TypeView from '../../../src/renderer/lib/components/TypeView.svelte';
-import { rowsSource, typeSource } from '../../../src/renderer/lib/components/type-view/view-source';
+import { querySource, rowsSource, typeSource } from '../../../src/renderer/lib/components/type-view/view-source';
+import { viewKeyFor } from '../../../src/shared/views/view-source-spec';
 import type { TypeInfo } from '../../../src/shared/objects/type-def';
 
 const SCHEMA: TypeInfo = {
@@ -106,5 +108,29 @@ describe('the type source (#2943)', () => {
     expect(src).toMatchObject({ key: 'type:task', typeId: 'task' });
     expect(await src.load({ needCatalog: false })).toEqual({ schema: SCHEMA, rows: ROWS });
     expect(instancesMock).toHaveBeenCalledWith('task');
+  });
+});
+
+describe('a query view (#2945)', () => {
+  const Q = 'SELECT ?note ?due WHERE { ?note minerva:meta-due ?due }';
+  const spec = { kind: 'query' as const, query: Q, language: 'sparql' as const };
+  const key = viewKeyFor(spec);
+
+  it('Copy as markdown writes the query form, not a typeId', async () => {
+    rowsMock.mockResolvedValue({ ok: true, schema: { columns: [{ name: 'due', type: 'date' }], noteColumn: 'note' }, rows: [{ path: 'Mow.md', title: 'Mow', values: { due: '2026-11-01' } }], truncated: false });
+    const writeText = vi.fn(async () => undefined);
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    render(TypeView, props({ source: querySource(spec, key), typeId: key }));
+    await fireEvent.click(await screen.findByRole('button', { name: 'Copy as markdown' }));
+    await waitFor(() => expect(writeText).toHaveBeenCalled());
+    const body = JSON.parse(/```object-view\n([\s\S]*)\n```/.exec(writeText.mock.calls[0]![0] as string)![1]!) as Record<string, unknown>;
+    expect(body).toEqual({ query: Q, language: 'sparql', layout: 'table' });
+    expect(screen.getByText('Query view')).toBeTruthy();
+  });
+
+  it('a failing query shows its error in place of the view', async () => {
+    rowsMock.mockResolvedValue({ ok: false, error: 'Parse error on line 1' });
+    render(TypeView, props({ source: querySource(spec, key), typeId: key }));
+    expect((await screen.findByRole('alert')).textContent).toBe("The query couldn't run: Parse error on line 1");
   });
 });

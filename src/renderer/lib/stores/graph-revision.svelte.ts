@@ -14,6 +14,7 @@
  * subscription (main→renderer subscriptions live in stores, per the renderer
  * data-flow rule). Saves index through the same path, so they need no bump of
  * their own: one would only make every open view query twice per autosave.
+ * The tables' change signal moves it too (#2945), for views over SQL.
  */
 import { api } from '../ipc/client';
 
@@ -25,6 +26,10 @@ export function getGraphRevisionStore() {
     subscribed = true;
     // Session-lived, like the other store subscriptions — never torn down.
     api.graph.onChanged(() => { revision += 1; });
+    // A SQL query view (#2945) reads the registered tables, which change on
+    // their own signal (a CSV registered, re-read or removed). Rare, so every
+    // view re-projecting on it costs nothing worth a second number.
+    api.tables.onChanged(() => { revision += 1; });
   }
   return {
     /** Bumped whenever the graph changes. Read it to refresh a projection. */

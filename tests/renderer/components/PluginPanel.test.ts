@@ -16,7 +16,7 @@ const h = vi.hoisted(() => ({
 }));
 vi.mock('../../../src/renderer/lib/stores/plugin-sessions.svelte', () => ({ connectPluginFrame: h.connect }));
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({
-  api: { graph: { onChanged: (fn: () => void) => { h.graphChanged = fn; return () => {}; } } },
+  api: { graph: { onChanged: (fn: () => void) => { h.graphChanged = fn; return () => {}; } }, tables: { onChanged: () => () => {} } },
 }));
 
 import PluginPanel from '../../../src/renderer/lib/components/plugins/PluginPanel.svelte';

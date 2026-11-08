@@ -6,8 +6,8 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-const { instancesMock, listMock, noteTypeMapMock, plugin, timeline, calendar } = vi.hoisted(() => ({
-  instancesMock: vi.fn(), listMock: vi.fn(), noteTypeMapMock: vi.fn(),
+const { instancesMock, listMock, noteTypeMapMock, plugin, timeline, calendar, rowsMock, queriesMock } = vi.hoisted(() => ({
+  instancesMock: vi.fn(), listMock: vi.fn(), noteTypeMapMock: vi.fn(), rowsMock: vi.fn(), queriesMock: vi.fn(),
   plugin: {} as import('../components/kanban-host').KanbanHostState,
   timeline: {} as import('../components/plugin-loopback').LoopbackState,
   calendar: {} as import('../components/plugin-loopback').LoopbackState,
@@ -17,7 +17,10 @@ const { instancesMock, listMock, noteTypeMapMock, plugin, timeline, calendar } =
 vi.mock('../../../src/renderer/lib/stores/plugin-sessions.svelte', () => ({ connectPluginFrame: (...a: unknown[]) => plugin.connect(...a) }));
 vi.mock('../../../src/renderer/lib/stores/code-plugins.svelte', () => ({ codePluginsStore: { isOn: () => true, name: () => 'Kanban' } }));
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({
-  api: { types: { instances: instancesMock, list: listMock, noteTypeMap: noteTypeMapMock }, app: { getSystemLocale: async () => 'en-GB' } },
+  api: {
+    types: { instances: instancesMock, list: listMock, noteTypeMap: noteTypeMapMock }, app: { getSystemLocale: async () => 'en-GB' },
+    queryViews: { rows: rowsMock }, queries: { list: queriesMock },
+  },
 }));
 vi.mock('../../../src/renderer/lib/map/load-maplibre', () => ({ loadMapLibre: vi.fn(() => new Promise(() => {})) }));
 
@@ -299,7 +302,7 @@ describe('renderObjectViewForExport', () => {
   });
 
   it('reports a bad spec in the preview\'s own words', async () => {
-    await expect(renderObjectViewForExport('{"layout":"list"}')).rejects.toThrow('"typeId" is required');
+    await expect(renderObjectViewForExport('{"layout":"list"}')).rejects.toThrow('Exactly one of "typeId", "query" or "queryFile" is required');
   });
 
   it('gives up on a view that never loads, cleaning up', async () => {
@@ -331,5 +334,45 @@ describe('a Type-filtered embed exports only the chosen subtypes (#2716)', () =>
     expect(html).toContain('data-note-link="p/Luigi.md"');
     expect(html).not.toContain('p/Louvre.md');
     expect(html).not.toContain('p/Park.md');
+  });
+});
+
+describe('a query view in an export (#2945)', () => {
+  const SCHEMA = { columns: [{ name: 'due', type: 'date' as const }], noteColumn: 'note' };
+  const ROWS = [
+    { path: 'tasks/Mow.md', title: 'Mow', values: { due: '1969-07-20' } },
+    { path: 'tasks/Paint.md', title: 'Paint the shed', values: { due: '1969-07-24' } },
+    { path: null, title: 'not a note', values: { due: '1969-07-22' } },
+  ];
+  const Q = 'SELECT ?note ?due WHERE { ?note minerva:meta-due ?due }';
+  beforeEach(() => {
+    rowsMock.mockReset();
+    rowsMock.mockResolvedValue({ ok: true, schema: SCHEMA, rows: ROWS, truncated: false });
+    queriesMock.mockResolvedValue([{ id: 'x', name: 'overdue', description: '', query: Q, language: 'sparql', scope: 'project', filePath: '/tb/.minerva/queries/overdue.rq', group: null, order: null }]);
+  });
+
+  it('a table: the query run, its notes linked, its rows that name no note left out for now', async () => {
+    const html = await renderObjectViewForExport(JSON.stringify({ query: Q, language: 'sparql', layout: 'table', note: 'note' }));
+    expect(rowsMock).toHaveBeenCalledWith(Q, 'sparql', { note: 'note', columns: undefined });
+    expect(instancesMock).not.toHaveBeenCalled();
+    expect(html).toContain('data-note-link="tasks/Mow.md"');
+    expect(html).toContain('Paint the shed');
+    expect(html).not.toContain('not a note');
+    expect(html).not.toContain('Loading…');
+  });
+
+  it('a timeline, over a saved query named by its file', async () => {
+    const html = await renderObjectViewForExport(JSON.stringify({ queryFile: 'overdue.rq', layout: 'timeline', from: '1969-07', to: '1969-08' }));
+    expect(rowsMock).toHaveBeenCalledWith(Q, 'sparql', { note: undefined, columns: undefined });
+    expect(html).toContain('tl-plot');
+    expect(html).toContain('data-note-link="tasks/Paint.md"');
+  });
+
+  it('a failing query, or a query file that isn\'t there, says so in place of the view', async () => {
+    rowsMock.mockResolvedValue({ ok: false, error: 'Parse error on line 1' });
+    const bad = await renderObjectViewForExport(JSON.stringify({ query: 'SELECT WHERE {', layout: 'table' }));
+    expect(bad).toContain("The query couldn't run: Parse error on line 1");
+    const missing = await renderObjectViewForExport(JSON.stringify({ queryFile: 'gone.rq', layout: 'table' }));
+    expect(missing).toContain('No saved query named gone.rq.');
   });
 });

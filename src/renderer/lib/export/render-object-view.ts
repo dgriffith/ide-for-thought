@@ -47,6 +47,7 @@ import { mount, tick, unmount } from 'svelte';
 import TypeView from '../components/TypeView.svelte';
 import { LAYOUT_RENDERERS } from '../components/type-view/layout-renderers';
 import { parseObjectViewSpec } from '../markdown/object-view-renderer';
+import { querySource } from '../components/type-view/view-source';
 import { snapshotLiveBlock } from './live-block-snapshot';
 import { LIVE_BLOCK_CLASS, LIVE_FRAME_CLASS, NOTE_LINK_ATTR } from '../../../shared/live-blocks';
 import { MAP_EXPORT_TIMEOUT_MS, mapCaptureHtml, type MapCapture } from '../map/map-export';
@@ -124,6 +125,8 @@ async function renderAtWidth(spec: ReturnType<typeof parseObjectViewSpec>, width
         target: block,
         props: {
           typeId: spec.typeId,
+          // A query view (#2945) runs its query here too, through the same guard as in the preview.
+          ...(spec.source ? { source: querySource(spec.source, spec.typeId) } : {}),
           layout: spec.layout,
           sortColumn: spec.sortColumn,
           sortDir: spec.sortDir,

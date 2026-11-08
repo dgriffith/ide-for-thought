@@ -12,18 +12,28 @@
  *   controls only a type has — the Type filter and subtype choices, moves
  *   (a board's, a calendar's), Save / Copy as markdown.
  * - **A rows source** (`rowsSource`) hands back a schema and rows it was
- *   given: a test's, and a query's once #2944's results arrive (#2945). No
- *   `typeId`, so none of the type's own controls; the layouts judge it by
- *   its columns, as they judge a type by its properties.
+ *   given: a test's. No `typeId`, so none of the type's own controls; the
+ *   layouts judge it by its columns, as they judge a type by its properties.
+ * - **A query source** (`querySource`, #2945) runs a query through main
+ *   (`api.queryViews.rows`, #2944: SPARQL read-only, SQL through the note
+ *   guard) — inline, or a saved query by file name — and its schema is made
+ *   from the inferred columns, titled by the query file or "Query view". A
+ *   query that fails, or a file that isn't there, is `error`, which the view
+ *   shows in its place. Only rows that name a note are shown until #2946
+ *   draws the others. A run that a newer one superseded is dropped by the
+ *   view, never shown over it.
  */
 import { api } from '../../ipc/client';
 import { objectTypesStore } from '../../stores/object-types.svelte';
 import type { TypeInfo, TypeInstanceRow } from '../../../../shared/objects/type-def';
+import { queryFileLanguage, queryViewTitle, type QuerySourceSpec } from '../../../../shared/views/view-source-spec';
 
 export interface ViewSourceData {
   /** Null when the source has nothing to show (a type id that matches no type). */
   schema: TypeInfo | null;
   rows: TypeInstanceRow[];
+  /** Why there's nothing to show (a query that failed), for the view to say in place. */
+  error?: string;
 }
 
 export interface ViewSource {
@@ -31,6 +41,8 @@ export interface ViewSource {
   readonly key: string;
   /** The type behind the view, for a type source; null for any other. */
   readonly typeId: string | null;
+  /** A query source's spec (#2945), so Save / Copy as markdown can write it; absent otherwise. */
+  readonly query?: QuerySourceSpec;
   /** The schema and rows. `needCatalog`: a Type filter will match against the type catalog. */
   load(opts: { needCatalog: boolean }): Promise<ViewSourceData>;
 }
@@ -55,5 +67,45 @@ export function rowsSource(key: string, data: ViewSourceData | (() => Promise<Vi
     key,
     typeId: null,
     load: () => (typeof data === 'function' ? data() : Promise.resolve(data)),
+  };
+}
+
+/** The text of a saved query named by its file name: the thoughtbase's own first, then this machine's and plugins'. */
+async function savedQueryText(name: string): Promise<{ query: string; language: 'sparql' | 'sql' } | null> {
+  const all = await api.queries.list();
+  const base = (p: string) => p.replace(/\\/g, '/').split('/').pop() ?? p;
+  const order = ['project', 'global', 'plugin'] as const;
+  const match = [...all].sort((a, b) => order.indexOf(a.scope) - order.indexOf(b.scope)).find((q) => base(q.filePath) === name);
+  return match ? { query: match.query, language: match.language } : null;
+}
+
+/** A query view's source (see the header); `key` is its `viewKeyFor`. */
+export function querySource(spec: QuerySourceSpec, key: string): ViewSource {
+  return {
+    key,
+    typeId: null,
+    query: spec,
+    async load() {
+      let query: string;
+      let language: 'sparql' | 'sql';
+      if (spec.kind === 'queryFile') {
+        const saved = await savedQueryText(spec.queryFile);
+        if (!saved) return { schema: null, rows: [], error: `No saved query named ${spec.queryFile}.` };
+        query = saved.query;
+        language = saved.language ?? queryFileLanguage(spec.queryFile);
+      } else {
+        query = spec.query;
+        language = spec.language;
+      }
+      const result = await api.queryViews.rows(query, language, { note: spec.note, columns: spec.columnTypes });
+      if (!result.ok) return { schema: null, rows: [], error: result.error };
+      const schema: TypeInfo = { id: key, label: queryViewTitle(spec), classLocalName: '', icon: '⌕', source: 'user', properties: result.schema.columns };
+      const rows: TypeInstanceRow[] = [];
+      for (const r of result.rows) {
+        if (r.path === null) continue;
+        rows.push({ path: r.path, title: r.title, values: r.values, cover: null, ...(r.tags ? { tags: r.tags } : {}) });
+      }
+      return { schema, rows };
+    },
   };
 }

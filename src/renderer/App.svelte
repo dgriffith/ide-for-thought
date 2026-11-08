@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { queryViewTitle } from '../shared/views/view-source-spec';
+  import { querySource } from './lib/components/type-view/view-source';
   import TitleBar from './lib/components/TitleBar.svelte';
   import TabBar from './lib/components/TabBar.svelte';
   import PluginRecommendations from './lib/components/PluginRecommendations.svelte';
@@ -411,13 +413,13 @@
    *  note was written — `false` for a cancelled prompt — so TypeView's toolbar
    *  button only flashes "Saved" on a real save. */
   async function handleSaveView(tab: TypeViewTab): Promise<boolean> {
-    const label = objectTypesStore.types.find((t) => t.id === tab.typeId)?.label ?? tab.typeId;
+    const label = tab.source ? queryViewTitle(tab.source) : objectTypesStore.types.find((t) => t.id === tab.typeId)?.label ?? tab.typeId;
     const timeline = timelineSpecForType(tab, tab.typeId, objectTypesStore.types); // dateless `timeline` → default; dateBy checked (#2607, #2715)
     const calendar = calendarSpecForType({ ...tab, layout: timeline.layout }, tab.typeId, objectTypesStore.types); // dateless `calendar` → default; dateBy checked (#2701)
     const name = await showPrompt('Save view as a note:', suggestViewNoteName(label, calendar.layout));
     if (!name?.trim()) return false;
     await saveViewAsNote(name, {
-      typeId: tab.typeId,
+      typeId: tab.typeId, source: tab.source, // a query view writes its query, a queryFile by name (#2945)
       ...timeline, ...calendar,
       sortColumn: tab.sortColumn,
       sortDir: tab.sortDir,
@@ -1429,6 +1431,7 @@
                 {#key `${active.typeId}:${active.folder ?? ''}`}
                   <TypeView
                     typeId={active.typeId}
+                    {...(active.source ? { source: querySource(active.source, active.typeId) } : {})}
                     layout={active.layout}
                     sortColumn={active.sortColumn}
                     sortDir={active.sortDir}

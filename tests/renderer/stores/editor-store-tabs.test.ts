@@ -765,6 +765,19 @@ describe('persistTabs — structured-clone safety', () => {
       sortColumn: 'rating', sortDir: 'desc', columns: ['author'],
     });
   });
+  it('opens a query view as a tab keyed by its query, refocuses it on reopening, and persists its source (#2945)', async () => {
+    const source = { kind: 'query' as const, query: 'SELECT ?note WHERE { ?note a minerva:Note }', language: 'sparql' as const };
+    editor.openQueryView(source, { layout: 'table' });
+    editor.openQueryView(source);
+    const tabs = editor.groups.flatMap((g) => g.tabs).filter((t) => t.type === 'type-view');
+    expect(tabs).toHaveLength(1);
+    expect(tabs[0]).toMatchObject({ typeId: expect.stringMatching(/^query:/), source, layout: 'table' });
+    editor.persistTabs();
+    const session = h.tabsSave.mock.calls.at(-1)![0] as LayoutSession;
+    expect(() => structuredClone(session)).not.toThrow();
+    expect(session.groups.flatMap((g) => g.tabs).find((t) => t.type === 'type-view')).toMatchObject({ source: { query: source.query, language: 'sparql' } });
+  });
+
   it('round-trips a folder scope and filters, as clone-safe plain data (#2531)', async () => {
     const filters = [{ property: 'city', values: ['Prague'] }, { property: 'rating', min: '4', max: null }];
     editor.openTypeView('place', { layout: 'map', folder: '/trip/prague/', filters });

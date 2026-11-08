@@ -20,8 +20,12 @@ const { instancesMock, listMock, noteTypeMapMock, plugin } = vi.hoisted(() => ({
 vi.mock('../../../src/renderer/lib/stores/plugin-sessions.svelte', () => ({ connectPluginFrame: (...a: unknown[]) => plugin.connect(...a) }));
 vi.mock('../../../src/renderer/lib/stores/code-plugins.svelte', () => ({ codePluginsStore: { isOn: () => true, name: () => 'Kanban' } }));
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({
-  api: { types: { instances: instancesMock, list: listMock, noteTypeMap: noteTypeMapMock }, app: { getSystemLocale: async () => 'en-GB' } },
+  api: {
+    types: { instances: instancesMock, list: listMock, noteTypeMap: noteTypeMapMock }, app: { getSystemLocale: async () => 'en-GB' },
+    queryViews: { rows: (...a: unknown[]) => rowsMock(...a) },
+  },
 }));
+const rowsMock = vi.fn();
 
 import { hydrateObjectViewBlocks, parseObjectViewSpec } from '../../../src/renderer/lib/markdown/object-view-renderer';
 import { objectTypesStore } from '../../../src/renderer/lib/stores/object-types.svelte';
@@ -434,5 +438,47 @@ describe('hydrateObjectViewBlocks (#2067)', () => {
     expect(resized.style.height).toBe('520px');
     expect(resized.textContent).toContain('Dune');
     expect(instancesMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('a query view in a note (#2945)', () => {
+  const Q = 'SELECT ?note ?due WHERE { ?note minerva:meta-due ?due }';
+  const spec = JSON.stringify({ query: Q, layout: 'table' });
+  beforeEach(() => {
+    rowsMock.mockReset();
+    rowsMock.mockResolvedValue({ ok: true, schema: { columns: [{ name: 'due', type: 'date' }], noteColumn: 'note' }, rows: [
+      { path: 'tasks/Mow.md', title: 'Mow', values: { due: '2026-11-01' } },
+    ], truncated: false });
+  });
+
+  it('parses the query form: a key for the view, the query as its source', () => {
+    const parsed = parseObjectViewSpec(spec);
+    expect(parsed.typeId).toMatch(/^query:[0-9a-f]{8}$/);
+    expect(parsed.source).toEqual({ kind: 'query', query: Q, language: 'sparql' });
+    expect(() => parseObjectViewSpec(JSON.stringify({ typeId: 'book', query: Q, layout: 'table' }))).toThrow('Exactly one of');
+  });
+
+  it('renders the query\'s rows, and runs it again when the graph changes', async () => {
+    const root = previewWith(spec);
+    hydrateObjectViewBlocks(root, deps());
+    await waitFor(() => expect(root.textContent).toContain('Mow'));
+    expect(rowsMock).toHaveBeenCalledTimes(1);
+    expect(instancesMock).not.toHaveBeenCalled();
+    // The preview re-renders after a graph change: a fresh placeholder, the live mount moved in, a new revision.
+    root.querySelector('.object-view-block')!.replaceWith(Object.assign(document.createElement('div'), { className: 'object-view-block', textContent: spec }));
+    rowsMock.mockResolvedValue({ ok: true, schema: { columns: [{ name: 'due', type: 'date' }], noteColumn: 'note' }, rows: [
+      { path: 'tasks/Mow.md', title: 'Mow', values: { due: '2026-11-01' } },
+      { path: 'tasks/Rake.md', title: 'Rake leaves', values: { due: '2026-11-02' } },
+    ], truncated: false });
+    hydrateObjectViewBlocks(root, deps({ revision: 1 }));
+    await waitFor(() => expect(root.textContent).toContain('Rake leaves'));
+    expect(rowsMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('a query that fails says why, in place of the view', async () => {
+    rowsMock.mockResolvedValue({ ok: false, error: 'Parse error on line 1' });
+    const root = previewWith(JSON.stringify({ query: 'SELECT WHERE {', layout: 'table' }));
+    hydrateObjectViewBlocks(root, deps());
+    await waitFor(() => expect(root.textContent).toContain("The query couldn't run: Parse error on line 1"));
   });
 });

@@ -95,12 +95,17 @@ import { parseViewWidth } from '../../../shared/objects/view-width';
 import { adoptWrapper, blockCacheFor, blockKey, createContentWrapper, HYDRATED_CONTENT_CLASS } from './hydrated-block-cache';
 import { reactiveProps } from './mounted-props.svelte';
 import type { TypeViewNoteActions } from '../components/type-view/note-actions';
+import { parseViewSource, viewKeyFor, type QuerySourceSpec } from '../../../shared/views/view-source-spec';
+import { querySource, type ViewSource } from '../components/type-view/view-source';
 
 /** Cache slot for mounted object-view wrappers — see `hydrated-block-cache.ts`. */
 const SLOT = 'object-view';
 
 export interface ObjectViewSpec {
+  /** The type, or a query view's key (`viewKeyFor`) when `source` is set. */
   typeId: string;
+  /** A query view's source (#2945): `query` or `queryFile`; absent for a type's view. */
+  source?: QuerySourceSpec;
   layout: ViewLayout;
   sortColumn: string | null;
   sortDir: 'asc' | 'desc';
@@ -151,14 +156,15 @@ export function parseObjectViewSpec(raw: string): ObjectViewSpec {
     throw new Error('Spec must be a JSON object');
   }
   const spec = parsed as Record<string, unknown>;
-  if (typeof spec.typeId !== 'string' || !spec.typeId) {
-    throw new Error('"typeId" is required and must be a non-empty string');
-  }
+  // A type or a query (#2945): exactly one of `typeId`, `query`, `queryFile`.
+  const src = parseViewSource(spec);
+  if ('error' in src) throw new Error(src.error);
   if (!isViewLayout(spec.layout)) {
     throw new Error(`"layout" must be one of ${layoutIdList()}`);
   }
   return {
-    typeId: spec.typeId,
+    typeId: viewKeyFor(src),
+    ...(src.kind === 'type' ? {} : { source: src }),
     layout: spec.layout,
     sortColumn: typeof spec.sortColumn === 'string' ? spec.sortColumn : null,
     sortDir: spec.sortDir === 'desc' ? 'desc' : 'asc',
@@ -195,6 +201,7 @@ export interface ObjectViewDeps {
 /** The props a mounted `TypeView` embed is driven through, kept reactive. */
 type ViewProps = {
   typeId: string;
+  source?: ViewSource;
   layout: ViewLayout;
   sortColumn: string | null;
   sortDir: 'asc' | 'desc';
@@ -290,6 +297,7 @@ export function hydrateObjectViewBlocks(root: HTMLElement, deps: ObjectViewDeps)
     el.appendChild(wrapper);
     const props = reactiveProps<ViewProps>({
       typeId: spec.typeId,
+      ...(spec.source ? { source: querySource(spec.source, spec.typeId) } : {}),
       layout: spec.layout,
       sortColumn: spec.sortColumn,
       sortDir: spec.sortDir,

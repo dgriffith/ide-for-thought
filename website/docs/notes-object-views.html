@@ -219,6 +219,21 @@
 
     <p>In the note, the calendar is for looking at. The <b>‹</b>, <b>Today</b> and <b>›</b> buttons still page through the months (or weeks, or days), and the keyboard still moves from day to day and opens a day's list, but paging changes only what you see, not the <code>"month"</code> in the note. Clicking an event opens it, and right-clicking one tags it or sets its fields. Events don't drag or resize and have no <b>Move to date…</b>, nothing new can be dragged out, and <kbd>⌘</kbd><kbd>Z</kbd> undoes nothing there; open the type's calendar to reschedule. To save a different month, page to it there and save again.</p>
 
+    <h2 id="from-a-query">A view from a query</h2>
+    <p>A view's notes can come from a query instead of a type: any SPARQL question about your knowledge graph, or SQL over your <a href="notes-query.html">tables</a>. Put the query where the <code>"typeId"</code> would go, and the view shows the notes its rows name, with the same layouts, sorting and filters:</p>
+
+<pre><code>```object-view
+{
+  "query": "SELECT ?note ?due WHERE { ?note minerva:meta-due ?due }",
+  "language": "sparql",
+  "layout": "table"
+}
+```</code></pre>
+
+    <p><code>"language"</code> is <code>"sparql"</code>, the default, or <code>"sql"</code>. To use a query you've saved, name its file instead with <code>"queryFile"</code>, such as <code>"overdue.rq"</code>. The view then follows the saved query: change the query and every view of it changes. Minerva looks for the file among the thoughtbase's own saved queries first, so a view shared with the thoughtbase finds it. A spec names exactly one of <code>"typeId"</code>, <code>"query"</code> or <code>"queryFile"</code>.</p>
+    <p>Minerva works out which column names the notes: the first whose every value is a note. To choose it, give its name as <code>"note"</code>. It also works out what kind of value each column holds, such as dates, numbers or a short list of choices, so a column of dates can be sorted as dates and filtered by a range. If it guesses wrong, say what a column is with <code>"columnTypes"</code>, such as <code>"due:date, status:enum"</code>. Each note shows its own title, unless the query has a <code>title</code> column. For now, rows that don't name a note aren't shown.</p>
+    <p>A query view only reads. SPARQL can't change the graph, and SQL a view runs on its own can only read the tables Minerva registered, never other files, because whoever wrote the note isn't necessarily you. If the query has a mistake, the view says what went wrong where it would be. <b>Copy as markdown</b> and <b>Save as note</b> write the query (or the file's name) back, and a query view opened as a tab comes back with it when you restart. It refreshes when your notes change, and an SQL view also when its tables do.</p>
+
     <h2 id="kept-current">It stays current</h2>
     <p>Add a place, fill in a location, or change a field, and the view in your note shows it the next time you look. Renaming or moving a folder doesn't break a view that was limited to it — the view follows the folder to its new name.</p>
 
