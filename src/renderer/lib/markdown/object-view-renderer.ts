@@ -30,8 +30,10 @@
  * values like `"1960"` or `"1969-07-20"`; absent, it fits all events.
  * A `"layout": "calendar"` spec (#2701, `shared/objects/calendar.ts`; any type
  * with a date property) may pin its page with `"month"` (`"2026-10"`; absent,
- * the current month) and name `"dateBy"`, the date property it places notes
- * by (`shared/objects/date-by.ts`; absent, `date`, else the first one).
+ * the current month), show a week or day with `"mode"` (`"week"` / `"day"`,
+ * #2950) anchored on `"date"` (`"2026-10-06"`; absent, today), and name
+ * `"dateBy"`, the date property it places notes by (`shared/objects/date-by.ts`;
+ * absent, `date`, else the first one).
  *
  * Mirrors `vega-renderer.ts`'s shape: the fence rule emits a placeholder
  * `<div class="object-view-block">` carrying the raw JSON spec as text
@@ -86,7 +88,7 @@ import { escapeHtml } from '../../../shared/text-escape';
 import { parseMapStyle, type MapStyle } from '../../../shared/objects/map-style';
 import { parseColumnOrder, parseCardOrder, parseGroupBy, parseShowEmptyColumns } from '../../../shared/objects/kanban';
 import { parseTimelineRange } from '../../../shared/objects/timeline';
-import { parseCalendarMonth } from '../../../shared/objects/calendar';
+import { parseCalendarDate, parseCalendarMode, parseCalendarMonth } from '../../../shared/objects/calendar';
 import { parseDateBy } from '../../../shared/objects/date-by';
 import { parseViewHeight } from '../../../shared/objects/view-height';
 import { parseViewWidth } from '../../../shared/objects/view-width';
@@ -132,6 +134,11 @@ export interface ObjectViewSpec {
   /** Calendar's month page (#2701); anything but a month (`"2026-10"`) is
    *  dropped, null meaning the current month. */
   month: string | null;
+  /** Calendar's week or day page (#2950); anything else is the month grid (null). */
+  mode: 'week' | 'day' | null;
+  /** The week or day page's anchor (#2950); anything but a day is dropped,
+   *  null meaning today. */
+  date: string | null;
   /** The date property the view places notes by (#2701); only its shape is
    *  checked here — `TypeView` checks it against the type, as with `groupBy`. */
   dateBy: string | null;
@@ -169,6 +176,8 @@ export function parseObjectViewSpec(raw: string): ObjectViewSpec {
     cardOrder: parseCardOrder(spec.cardOrder),
     ...parseTimelineRange(spec.from, spec.to),
     month: parseCalendarMonth(spec.month),
+    mode: parseCalendarMode(spec.mode),
+    date: parseCalendarDate(spec.date),
     dateBy: parseDateBy(spec.dateBy),
   };
 }
@@ -200,6 +209,8 @@ type ViewProps = {
   from: string | null;
   to: string | null;
   month: string | null;
+  mode: 'week' | 'day' | null;
+  date: string | null;
   dateBy: string | null;
   revision: number;
   chromeless: boolean;
@@ -293,6 +304,8 @@ export function hydrateObjectViewBlocks(root: HTMLElement, deps: ObjectViewDeps)
       from: spec.from,
       to: spec.to,
       month: spec.month,
+      mode: spec.mode,
+      date: spec.date,
       dateBy: spec.dateBy,
       revision: deps.revision,
       chromeless: true,

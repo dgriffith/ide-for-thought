@@ -340,6 +340,9 @@ export interface SavedTypeViewTab {
   /** Calendar's month page (#2701), `"2026-10"`; absent = the current month.
    *  Read leniently on restore (`parseCalendarMonth`). */
   month?: string;
+  /** Calendar's week/day page and its anchor (#2950); absent = the month grid, today. Read leniently. */
+  mode?: string;
+  date?: string;
   /** The date property the view places notes by (#2701, `date-by.ts`);
    *  absent = the type's default. Read leniently on restore. */
   dateBy?: string;

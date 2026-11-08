@@ -74,7 +74,7 @@ export interface GridWeek {
   /** Civil ms: the row's first day, and the day after its last. */
   start: number;
   end: number;
-  /** Seven days, in column order. */
+  /** Seven days, in column order (one, for a day page — `timePage`). */
   days: GridDay[];
 }
 
@@ -142,6 +142,22 @@ export function formatMonthAnchor(m: CalendarMonth): string {
   return `${y}-${String(m.month).padStart(2, '0')}`;
 }
 
+/** A day anchor as a view spec writes it (`date: "2026-10-06"`, #2950): the
+ *  date grammar's day precision, with `parseMonthAnchor`'s year forms. Civil
+ *  ms at the day's start, or null for anything that isn't a day. Never throws. */
+export function parseDayAnchor(raw: unknown): number | null {
+  if (typeof raw !== 'string') return null;
+  const p = parseDateValue(raw);
+  return p && p.precision === 'day' ? civilMs(p.year, p.month! - 1, p.day!) : null;
+}
+
+/** The anchor text for the civil day containing `ms`: `2026-10-06`, `-0043-03-15`. */
+export function formatDayAnchor(ms: number): string {
+  const d = new Date(dayStart(ms));
+  const month = formatMonthAnchor({ year: d.getUTCFullYear(), month: d.getUTCMonth() + 1 });
+  return `${month}-${String(d.getUTCDate()).padStart(2, '0')}`;
+}
+
 /**
  * The week rows of a month page: every week that holds a day of the month,
  * from the week containing the 1st to the week containing the last day — 4,
@@ -158,6 +174,21 @@ export function monthWeeks(m: CalendarMonth, weekStart: Weekday): GridWeek[] {
     weeks.push({ start: w, end: w + 7 * DAY_MS, days });
   }
   return weeks;
+}
+
+/**
+ * A week or day page (#2950): the week containing the civil day `dayMs`, from
+ * `weekStart`, or that day alone — one row, so the month grid's segment and
+ * slot maths applies to its all-day strip unchanged. Days are `inMonth` when
+ * they are in `dayMs`'s month.
+ */
+export function timePage(dayMs: number, mode: 'week' | 'day', weekStart: Weekday): GridWeek {
+  const page = monthOf(dayStart(dayMs));
+  const first = mode === 'day' ? dayStart(dayMs) : dayStart(dayMs) - daysIntoWeek(dayMs, weekStart) * DAY_MS;
+  const count = mode === 'day' ? 1 : 7;
+  const days: GridDay[] = [];
+  for (let i = 0; i < count; i++) days.push(gridDay(first + i * DAY_MS, page));
+  return { start: first, end: first + count * DAY_MS, days };
 }
 
 // ── Week numbers ─────────────────────────────────────────────────────────

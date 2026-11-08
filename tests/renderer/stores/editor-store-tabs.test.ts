@@ -821,7 +821,7 @@ describe('persistTabs — structured-clone safety', () => {
   it('a calendar month and dateBy set from the view persist on the tab, and the defaults are omitted (#2701)', () => {
     editor.openTypeView('dated-book', { layout: 'calendar' });
     const tab = () => editor.groups.flatMap((g) => g.tabs).find((t) => t.type === 'type-view' && t.typeId === 'dated-book');
-    expect(tab()).toMatchObject({ layout: 'calendar', month: null, dateBy: null });
+    expect(tab()).toMatchObject({ layout: 'calendar', month: null, mode: null, date: null, dateBy: null });
     const saved = () => (h.tabsSave.mock.calls.at(-1)![0] as LayoutSession).groups.flatMap((g) => g.tabs).find((t) => t.type === 'type-view' && t.typeId === 'dated-book');
     editor.persistTabs();
     expect(saved()).not.toHaveProperty('month');
@@ -829,6 +829,11 @@ describe('persistTabs — structured-clone safety', () => {
     editor.setTypeViewState('dated-book', null, { month: '2026-10', dateBy: 'published' });
     editor.persistTabs();
     expect(saved()).toMatchObject({ layout: 'calendar', month: '2026-10', dateBy: 'published' });
+    expect(saved()).not.toHaveProperty('mode');
+    expect(saved()).not.toHaveProperty('date');
+    editor.setTypeViewState('dated-book', null, { mode: 'week', date: '2026-10-06' }); // #2950
+    editor.persistTabs();
+    expect(saved()).toMatchObject({ month: '2026-10', mode: 'week', date: '2026-10-06' });
   });
   it('reopening a calendar with an explicit month re-applies it to the open tab (#2701)', () => {
     editor.openTypeView('repaged-book', { layout: 'calendar' });

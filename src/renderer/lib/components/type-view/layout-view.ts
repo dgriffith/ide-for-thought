@@ -45,6 +45,9 @@ export interface ViewStatePatch {
   from?: string | null;
   to?: string | null;
   month?: string | null;
+  /** A plugin's `view.setState` arrives unparsed; `calendarSpecForType` re-reads both. */
+  mode?: 'week' | 'day' | null;
+  date?: string | null;
   dateBy?: string | null;
 }
 
@@ -130,5 +133,8 @@ export interface LayoutView {
   from: string | null;
   to: string | null;
   month: string | null;
+  /** Calendar (#2950): the week or day page, null for the month grid; its anchor, null for today. */
+  mode: 'week' | 'day' | null;
+  date: string | null;
   dateBy: string | null;
 }

@@ -19,13 +19,20 @@
  *   means **the current month**, judged when the view is drawn, and nothing is
  *   serialised. Untrusted JSON is read leniently: anything that isn't a month
  *   (a day, a year, junk) is dropped, without throwing.
+ * - **`mode`** (#2950, epic #2949) is `"week"` or `"day"`; absent, or anything
+ *   else (a written `"month"` included), is the month grid, and nothing is
+ *   serialised — so a saved month view stays a month view.
+ * - **`date`** (#2950) anchors a week or day page: a day-precision value,
+ *   `"2026-10-06"`, read with `parseDayAnchor`. Absent means **today**, judged
+ *   when the view is drawn. `month` stays beside it, for month mode, so
+ *   switching modes keeps each page.
  * - **`dateBy`** is `date-by.ts`'s shared field, validated against the type's
  *   date properties by `calendarSpecForType` where the type is known.
  */
 import type { ViewLayout } from '../types';
 import { settledPropertyDefs, type TypeLike } from './inheritance';
 import { dateByForSpec, dateProperties, hasDateProperty } from './date-by';
-import { formatMonthAnchor, parseMonthAnchor } from './calendar-grid';
+import { formatDayAnchor, formatMonthAnchor, parseDayAnchor, parseMonthAnchor } from './calendar-grid';
 import { DEFAULT_VIEW_LAYOUT, layoutDef } from './view-layouts';
 
 /** May the view of `typeId` show a Calendar? It has a date or datetime
@@ -44,10 +51,31 @@ export function parseCalendarMonth(raw: unknown): string | null {
   return m ? formatMonthAnchor(m) : null;
 }
 
+/** The calendar's page modes; `month` is the default and is never written. */
+export type CalendarMode = 'month' | 'week' | 'day';
+
+/** `mode` from untrusted JSON: `"week"` or `"day"`, else null (the month
+ *  grid — a written `"month"` too, so the default is never serialised). */
+export function parseCalendarMode(raw: unknown): Exclude<CalendarMode, 'month'> | null {
+  return raw === 'week' || raw === 'day' ? raw : null;
+}
+
+/** `date` from untrusted JSON: the day anchor in its canonical text
+ *  (`2026-10-06`) when it is a day-precision date value, else null (today).
+ *  Never throws. */
+export function parseCalendarDate(raw: unknown): string | null {
+  const ms = parseDayAnchor(typeof raw === 'string' ? raw.trim() : raw);
+  return ms === null ? null : formatDayAnchor(ms);
+}
+
 /** The calendar fields of a view spec. */
 export interface CalendarSpecFields {
   layout: ViewLayout;
   month: string | null;
+  /** `"week"` / `"day"`; null is the month grid. */
+  mode: Exclude<CalendarMode, 'month'> | null;
+  /** The week or day page's anchor; null is today. */
+  date: string | null;
   dateBy: string | null;
 }
 
@@ -55,11 +83,14 @@ export interface CalendarSpecFields {
  * The layout, month and date property a spec carries for `typeId`, judged
  * against the catalog:
  * - a type with no date property: a dated layout (Timeline, Calendar —
- *   `dated` in the registry) reads back as `DEFAULT_VIEW_LAYOUT`, and `month` and `dateBy` are dropped (they mean
- *   nothing without a date);
- * - a type with one: the month is kept under any layout, so switching back to
- *   Calendar keeps the page, and a `dateBy` that isn't one of its date choices
- *   is dropped (`dateByForSpec`).
+ *   `dated` in the registry) reads back as `DEFAULT_VIEW_LAYOUT`, and `month`,
+ *   `mode`, `date` and `dateBy` are dropped (they mean nothing without a date);
+ * - a type with one: the month, mode and date are kept under any layout, so
+ *   switching back to Calendar keeps the page, and a `dateBy` that isn't one of
+ *   its date choices is dropped (`dateByForSpec`).
+ *
+ * `mode` and `date` are re-read leniently either way: a plugin's
+ * `view.setState` reaches the tab unparsed.
  *
  * Where the schema isn't known here, the spec is kept as written: `types`
  * null, a catalog without `typeId`, or a `parent` chain that leaves the
@@ -67,14 +98,16 @@ export interface CalendarSpecFields {
  * not lose its calendar, or an inherited `dateBy`, to a half-loaded catalog.
  */
 export function calendarSpecForType(
-  spec: CalendarSpecFields,
+  spec: Omit<CalendarSpecFields, 'mode' | 'date'> & { mode: unknown; date: unknown },
   typeId: string,
   types: readonly TypeLike[] | null,
 ): CalendarSpecFields {
   const props = settledPropertyDefs(typeId, types);
-  if (props === null) return { layout: spec.layout, month: spec.month, dateBy: spec.dateBy };
+  const mode = parseCalendarMode(spec.mode);
+  const date = parseCalendarDate(spec.date);
+  if (props === null) return { layout: spec.layout, month: spec.month, mode, date, dateBy: spec.dateBy };
   if (dateProperties(props).length === 0) {
-    return { layout: layoutDef(spec.layout).dated ? DEFAULT_VIEW_LAYOUT : spec.layout, month: null, dateBy: null };
+    return { layout: layoutDef(spec.layout).dated ? DEFAULT_VIEW_LAYOUT : spec.layout, month: null, mode: null, date: null, dateBy: null };
   }
-  return { layout: spec.layout, month: spec.month, dateBy: dateByForSpec(spec.dateBy, props) };
+  return { layout: spec.layout, month: spec.month, mode, date, dateBy: dateByForSpec(spec.dateBy, props) };
 }

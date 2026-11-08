@@ -979,3 +979,31 @@ and the **Grid** pattern's "layout grid" interaction:
    cell in 4- and 5-row months)? *Recommended: 4–6.*
 9. **Export:** full days listed in the cell rather than a list after the
    grid? *Recommended: in the cell.*
+
+### Week and Day (epic #2949, #2950)
+
+The month grid's decisions above stand; a week or day page adds an hour grid
+under an all-day strip. The model is `src/shared/calendar/time-grid.ts`
+(`tests/shared/calendar/time-grid.test.ts`), the page `calendar-grid.ts`'s
+`timePage`. The spec gains `mode` (`"week"` / `"day"`; absent is the month)
+and `date` (a day anchor; absent is today). `month` stays, so a saved month
+view stays a month view and switching modes keeps each page.
+
+- **The strip or the hours.** A day start is a strip bar. A clock start is
+  in the hour grid unless it runs 24 hours or more, or its coarse end falls
+  on a later day; those are strip bars too, since a block a column tall
+  would hide the hours of every day it crosses. A timed event that crosses
+  midnight is cut per day, marked as continuing.
+- **An end the grid can't draw** (none, or one coarser than a clock time on
+  the start's day) is drawn 30 minutes long and hatched. That invented
+  stretch stops at midnight.
+- **Overlaps** share the column's width: `packLanes` in minutes, each piece
+  holding at least 15, and every piece of an overlapping cluster divides the
+  width by the cluster's lane count.
+- **DST: 24 equal hours.** A civil day is always `DAY_MS` long, so a 23- or
+  25-hour day is not a column of a different height. `dstNote` reports the
+  wall-clock stretch the viewer's zone skipped (spring) or repeated (autumn),
+  for the view to mark as a gap or overlap note.
+- **Retiming (#2953):** dropping a day-precision event into the hour grid
+  promotes it to a clock time at the drop (maintainer's decision,
+  2026-11-08, over "refuse in v1").

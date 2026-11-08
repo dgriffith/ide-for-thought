@@ -277,7 +277,7 @@ describe('object views on the back/forward stack', () => {
   });
 
   it('a timeline view records its range, and Back to it closed reopens the same stretch (#2607)', async () => {
-    const timelineView = { layout: 'timeline', sortColumn: null, sortDir: 'asc', columns: null, filters: [], mapStyle: 'auto', groupBy: null, columnOrder: [], showEmptyColumns: true, cardOrder: [], from: '1960', to: '1975', month: null, dateBy: null };
+    const timelineView = { layout: 'timeline', sortColumn: null, sortDir: 'asc', columns: null, filters: [], mapStyle: 'auto', groupBy: null, columnOrder: [], showEmptyColumns: true, cardOrder: [], from: '1960', to: '1975', month: null, mode: null, date: null, dateBy: null };
     h.editor.activeTab = { type: 'type-view', typeId: 'event', folder: null, ...timelineView };
     await view.handleFileSelect('e.md');
     const recorded = h.nav.record.mock.calls[0]![0] as { view: Record<string, unknown> };
@@ -287,8 +287,8 @@ describe('object views on the back/forward stack', () => {
     expect(h.editor.openTypeView).toHaveBeenCalledWith('event', { ...timelineView, folder: null });
   });
 
-  it('a calendar view records its month and dateBy, and Back to it closed reopens the same page (#2701)', async () => {
-    const calendarView = { layout: 'calendar', sortColumn: null, sortDir: 'asc', columns: null, filters: [], mapStyle: 'auto', groupBy: null, columnOrder: [], showEmptyColumns: true, cardOrder: [], from: null, to: null, month: '-0043-03', dateBy: 'published' };
+  it('a calendar view records its month, mode, date and dateBy, and Back to it closed reopens the same page (#2701)', async () => {
+    const calendarView = { layout: 'calendar', sortColumn: null, sortDir: 'asc', columns: null, filters: [], mapStyle: 'auto', groupBy: null, columnOrder: [], showEmptyColumns: true, cardOrder: [], from: null, to: null, month: '-0043-03', mode: 'day', date: '-0043-03-15', dateBy: 'published' };
     h.editor.activeTab = { type: 'type-view', typeId: 'book', folder: null, ...calendarView };
     await view.handleFileSelect('b.md');
     const recorded = h.nav.record.mock.calls[0]![0] as { view: Record<string, unknown> };
