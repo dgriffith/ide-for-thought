@@ -94,7 +94,9 @@ describe('a shared thoughtbase\'s hostile shapes, in the sweep (#2874)', () => {
     expect(listed.problems).toEqual([{ file: 'writer.ttl', problem: 'a sh:select must be a SELECT query; a shape can only read the graph' }]);
 
     const deps = { thoughtbaseShapes };
+    const first = Date.now();
     const found = await runAllChecks(project.ctx, undefined, deps);
+    const firstMs = Date.now() - first;
     const injected = found.filter((i) => i.type === 'thoughtbase:Injection');
     expect(injected.length).toBeGreaterThan(0);
     // Its text arrives as written; it is the panel's to carry delimited (InspectionsPanel.test.ts).
@@ -107,6 +109,10 @@ describe('a shared thoughtbase\'s hostile shapes, in the sweep (#2874)', () => {
     expect((await thoughtbaseInspections(project.ctx)).checks.find((c) => c.type === 'thoughtbase:Slow')?.stopped).toBe(true);
     const t0 = Date.now();
     await runAllChecks(project.ctx, undefined, deps);
-    expect(Date.now() - t0).toBeLessThan(400);
+    // Against the first sweep, not a fixed bound: that one waited out the slow shape's 400ms limit
+    // on top of every other check, so a sweep that skips it is about 400ms shorter, and one that ran
+    // it again is not. A fixed `< 400` failed on a coverage runner (429ms) whose other checks alone
+    // took that long.
+    expect(Date.now() - t0).toBeLessThan(firstMs - 250);
   }, 30_000);
 });
