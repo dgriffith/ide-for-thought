@@ -118,26 +118,44 @@ export function yearName(year: number, locale?: string): string {
   return fmt(locale, year <= 0 ? { year: 'numeric', era: 'short' } : { year: 'numeric' }).format(at);
 }
 
-/** The month and year bands of one page: partial-date events whose range meets it. */
+/** The month and year bands of one month page: partial-date events whose range meets it. */
 export function pageBands(model: Pick<CalendarModel, 'month' | 'year'>, page: CalendarMonth, locale?: string): { month: BandEntry[]; year: BandEntry[] } {
-  const { start, end } = monthBounds(page);
-  const pageKey = page.year * 12 + page.month;
+  return rangeBands(model, monthBounds(page), locale);
+}
+
+/**
+ * The month and year bands of any page — a month, or a week (#2951): the
+ * partial-date events whose range meets [start, end), each marked "since …"
+ * where it began before the page's first month (or year) and "until …" where
+ * it runs past its last. A name carries its year when that isn't the page's
+ * first year.
+ */
+export function rangeBands(
+  model: Pick<CalendarModel, 'month' | 'year'>,
+  range: { start: number; end: number },
+  locale?: string,
+): { month: BandEntry[]; year: BandEntry[] } {
+  const { start, end } = range;
+  const first = ym(start);
+  const last = ym(end - 1);
+  const firstKey = first.year * 12 + first.month;
+  const lastKey = last.year * 12 + last.month;
   const month = model.month.filter((ev) => rangeMeets(ev, start, end)).map((ev) => {
-    const first = ym(ev.start);
-    const last = ym(coveredDays(ev).last);
+    const from = ym(ev.start);
+    const to = ym(coveredDays(ev).last);
     return {
       ev,
-      since: first.year * 12 + first.month < pageKey ? `since ${monthName(ev.start, page.year, locale)}` : null,
-      until: last.year * 12 + last.month > pageKey ? `until ${monthName(coveredDays(ev).last, page.year, locale)}` : null,
+      since: from.year * 12 + from.month < firstKey ? `since ${monthName(ev.start, first.year, locale)}` : null,
+      until: to.year * 12 + to.month > lastKey ? `until ${monthName(coveredDays(ev).last, first.year, locale)}` : null,
     };
   });
   const year = model.year.filter((ev) => rangeMeets(ev, start, end)).map((ev) => {
-    const first = ym(ev.start).year;
-    const last = ym(coveredDays(ev).last).year;
+    const from = ym(ev.start).year;
+    const to = ym(coveredDays(ev).last).year;
     return {
       ev,
-      since: first < page.year ? `since ${yearName(first, locale)}` : null,
-      until: last > page.year ? `until ${yearName(last, locale)}` : null,
+      since: from < first.year ? `since ${yearName(from, locale)}` : null,
+      until: to > last.year ? `until ${yearName(to, locale)}` : null,
     };
   });
   const order = (a: BandEntry, b: BandEntry) => a.ev.start - b.ev.start || a.ev.title.localeCompare(b.ev.title);

@@ -4,7 +4,7 @@
  * "written as" for an offset value shown on another day (decision 7).
  */
 import { describe, it, expect } from 'vitest';
-import { buildCalendarModel, dayEvents, monthTitle, pageBands, timeOf, writtenAs, yearName } from '../../../src/shared/calendar/calendar-model';
+import { buildCalendarModel, dayEvents, monthTitle, pageBands, rangeBands, timeOf, writtenAs, yearName } from '../../../src/shared/calendar/calendar-model';
 import { civilMs } from '../../../src/shared/objects/date-precision';
 import type { TypeInstanceRow } from '../../../src/shared/objects/type-def';
 
@@ -50,6 +50,28 @@ describe('pageBands', () => {
     expect(pageBands(m, { year: -43, month: 3 }, 'en-GB').year.map((b) => b.ev.key)).toEqual(['bce.md']);
     expect(yearName(-43, 'en-GB')).toBe('44 BC');
     expect(monthTitle({ year: -43, month: 3 }, 'en-GB')).toBe('March 44 BC');
+  });
+});
+
+describe('rangeBands: a week page (#2951)', () => {
+  const day = (y: number, mo: number, d: number) => civilMs(y, mo - 1, d);
+  const m = buildCalendarModel([row('sep.md', '2026-09'), row('oct.md', '2026-10'), row('aug-oct.md', '2026-08', '2026-10'), row('y.md', '2026')], PROPS);
+  const week = { start: day(2026, 9, 28), end: day(2026, 10, 5) }; // Mon 28 Sep – Sun 4 Oct
+
+  it('lists what meets the week, judging since/until by its first and last months', () => {
+    expect(rangeBands(m, week, 'en-GB').month.map((b) => [b.ev.key, b.since, b.until])).toEqual([
+      ['aug-oct.md', 'since August', null],
+      ['sep.md', null, null],
+      ['oct.md', null, null],
+    ]);
+    expect(rangeBands(m, week, 'en-GB').year.map((b) => [b.ev.key, b.since, b.until])).toEqual([['y.md', null, null]]);
+  });
+
+  it('a week inside one month reads as that month\'s page does', () => {
+    const inside = { start: day(2026, 10, 5), end: day(2026, 10, 12) };
+    expect(rangeBands(m, inside, 'en-GB').month.map((b) => [b.ev.key, b.since, b.until])).toEqual(
+      pageBands(m, { year: 2026, month: 10 }, 'en-GB').month.map((b) => [b.ev.key, b.since, b.until]),
+    );
   });
 });
 

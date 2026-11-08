@@ -16,10 +16,15 @@ import { fakeMinerva } from '../kanban/fixtures';
 
 /** What the in-app calendar was given. */
 export interface CalendarProps {
-  type: { id: string; label: string; icon?: string };
+  type: { id: string; label: string; icon?: string; color?: string };
+  /** Per note: its own type's icon colour (a subtype's, #2951). */
+  colors?: Record<string, string>;
   properties: ReadonlyArray<{ name: string; type: string; label?: string }>;
   instances: TypeInstanceRow[];
   month?: string | null;
+  /** Week or Day, and its anchor (#2951); absent: the month grid, today. */
+  mode?: string | null;
+  date?: string | null;
   dateBy?: string | null;
   readOnly?: boolean;
   exportMode?: boolean;
@@ -34,12 +39,12 @@ export interface CalendarProps {
 export function calendarView(p: CalendarProps): PluginViewState {
   return {
     layout: 'calendar',
-    type: { id: p.type.id, label: p.type.label, ...(p.type.icon ? { icon: p.type.icon } : {}) },
+    type: { id: p.type.id, label: p.type.label, ...(p.type.icon ? { icon: p.type.icon } : {}), ...(p.type.color ? { color: p.type.color } : {}) },
     properties: p.properties.map((x) => ({ name: x.name, type: x.type, ...(x.label ? { label: x.label } : {}) })),
     visible: null,
-    instances: p.instances.map((i) => ({ path: i.path, title: i.title, values: { ...i.values }, fields: [] })),
+    instances: p.instances.map((i) => ({ path: i.path, title: i.title, values: { ...i.values }, fields: [], ...(p.colors?.[i.path] ? { icon: { glyph: '•', color: p.colors[i.path]!, label: 'Sub' } } : {}) })),
     sortColumn: null, sortDir: 'asc',
-    spec: { month: p.month ?? null, dateBy: p.dateBy ?? null },
+    spec: { month: p.month ?? null, mode: p.mode ?? null, date: p.date ?? null, dateBy: p.dateBy ?? null },
     filters: [],
     week: { start: p.weekStart ?? 1, numbers: p.showWeekNumbers ?? false },
     readOnly: p.readOnly ?? false, exportMode: p.exportMode ?? false,
