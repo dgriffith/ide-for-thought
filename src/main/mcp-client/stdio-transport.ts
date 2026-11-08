@@ -49,6 +49,15 @@ type StdioDescriptor = Extract<McpServerDescriptor, { kind: 'stdio' }>;
 
 const GRACEFUL_CLOSE_TIMEOUT_MS = 2000;
 const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
+/**
+ * The handshake's budget: a stdio server's first answer can include a cold
+ * start — `npx -y` / `uvx` fetching and unpacking the package. Measured on a
+ * Windows runner (#2996): the first launch in a given npm configuration
+ * answered nothing for over 30s, then every later launch connected in under
+ * 2s. A 30s handshake failed the user's first connection to such a server.
+ * Later requests keep the ordinary budget.
+ */
+export const HANDSHAKE_TIMEOUT_MS = 120_000;
 
 function modernMeta(): Record<string, unknown> {
   return {
@@ -209,10 +218,10 @@ export class StdioTransport implements McpTransport {
     // should already prevent reaching this branch while dead).
     if (this.dead) throw new McpConnectionError('mcp transport is not connected');
     const initId = this.ids.nextId();
-    // The handshake gets a normal request's budget: the probe timeout bounds
-    // only the probe, and a slow-starting legacy server (a cold `npx` /
-    // `uv run`) has usually spent it already by the time we get here.
-    const initPromise = this.pending.register(initId, DEFAULT_REQUEST_TIMEOUT_MS);
+    // The handshake gets the cold-start budget: the probe timeout bounds only
+    // the probe, and a slow-starting server (a cold `npx` / `uv run`) has
+    // usually spent it already by the time we get here (#2996).
+    const initPromise = this.pending.register(initId, HANDSHAKE_TIMEOUT_MS);
     this.writeRaw({
       jsonrpc: '2.0',
       id: initId,
