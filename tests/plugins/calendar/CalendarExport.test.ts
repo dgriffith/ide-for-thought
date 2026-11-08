@@ -206,3 +206,48 @@ describe('when the grid can\'t be drawn', () => {
     expect(container.textContent).not.toContain('typeId');
   });
 });
+
+describe('an exported week or day is an agenda (#2955)', () => {
+  const agendaDays = (q: (s: string) => HTMLElement | null) => [...q('.cala')!.querySelectorAll<HTMLElement>('.cala-day')];
+  const lines = (sec: HTMLElement) => [...sec.querySelectorAll('.cala-entry')].map((e) => e.textContent.replace(/\s+/g, ' ').trim());
+
+  it('a week: its title, seven days in order, each event with its time and link, no grid, no tab stops', () => {
+    const { q, container, evs } = setup({ mode: 'week', date: '2026-10-07' });
+    expect(q('.cal-title')!.textContent.replace(/\s+/g, ' ')).toBe('5 – 11 October 2026');
+    expect(q('[role="table"]')).toBeNull();
+    expect(q('[role="grid"]')).toBeNull();
+    const days = agendaDays(q);
+    expect(days.map((d) => d.querySelector('.cala-head')!.textContent)).toEqual([
+      'Monday, 5 October 2026', 'Tuesday, 6 October 2026', 'Wednesday, 7 October 2026', 'Thursday, 8 October 2026',
+      'Friday, 9 October 2026', 'Saturday, 10 October 2026', 'Sunday, 11 October 2026',
+    ]);
+    expect(lines(days[0]!)).toEqual([]);
+    expect(days[0]!.textContent).toContain('No events.');
+    expect(lines(days[1]!)).toEqual(['All day Dentist']);
+    expect(lines(days[2]!)).toEqual([`All day ${LONG}`, '9:00 Standup']); // all-day first
+    expect(lines(days[4]!)).toEqual(['All day, continued Trip']);
+    expect(evs('standup.md')).toHaveLength(1);
+    expect(container.querySelectorAll('[tabindex="0"]')).toHaveLength(0);
+  });
+
+  it('the week\'s bands and the Undated tray follow it', () => {
+    const { q } = setup({ mode: 'week', date: '2026-10-07' });
+    const after = (a: Element, b: Element) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+    expect(after(q('.cala')!, q('[data-band="month"]')!)).toBe(true);
+    expect(q('[data-band="month"]')!.textContent).toContain('Octfest');
+    expect(after(q('[data-band="month"]')!, q('.cal-undated')!)).toBe(true);
+  });
+
+  it('a day: that day alone, titled with it', () => {
+    const { q } = setup({ mode: 'day', date: '2026-10-07' });
+    expect(q('.cal-title')!.textContent).toBe('Wednesday, 7 October 2026');
+    expect(agendaDays(q)).toHaveLength(1);
+    expect(lines(agendaDays(q)[0]!)).toEqual([`All day ${LONG}`, '9:00 Standup']);
+  });
+
+  it('a month export is the grid, as before', () => {
+    const { q } = setup({ mode: null });
+    expect(q('[role="table"]')).not.toBeNull();
+    expect(q('.cala')).toBeNull();
+  });
+});

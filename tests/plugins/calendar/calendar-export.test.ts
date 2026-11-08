@@ -4,7 +4,8 @@
  * counts, and whether anything hatched is drawn (the legend).
  */
 import { describe, it, expect } from 'vitest';
-import { planCalendarExport, singleIsApprox } from '../../../plugins/calendar/src/calendar-export';
+import { planAgendaExport, planCalendarExport, singleIsApprox } from '../../../plugins/calendar/src/calendar-export';
+import { timePage } from '../../../src/shared/objects/calendar-grid';
 import { buildCalendarModel } from '../../../src/shared/calendar/calendar-model';
 import { civilMs } from '../../../src/shared/objects/date-precision';
 import type { TypeInstanceRow } from '../../../src/shared/objects/type-def';
@@ -60,5 +61,44 @@ describe('planCalendarExport', () => {
     expect(plan.weeks[0]!.start).toBe(civilMs(2026, 8, 27)); // Sunday 27 September
     expect(plan.rows[1]!.singles[0]!.map((e) => e.key)).toEqual(['a.md']); // Sunday 4 October, first column
     expect(day(4)).toBe(plan.rows[1]!.week.days[0]!.start);
+  });
+});
+
+describe('planAgendaExport (#2955)', () => {
+  // Monday 5 – Sunday 11 October 2026.
+  const WEEK = timePage(day(7), 'week', 1);
+  const plan = (rows: TypeInstanceRow[], page = WEEK) => planAgendaExport(grid(rows), page);
+  const keys = (d: { allDay: { ev: { key: string } }[]; timed: { ev: { key: string } }[] }) => [...d.allDay, ...d.timed].map((e) => e.ev.key);
+
+  it('lists each day\'s events: all-day first, then by their time that day', () => {
+    const p = plan([
+      row('late.md', 'Late', '2026-10-07T15:00', '2026-10-07T16:00'),
+      row('early.md', 'Early', '2026-10-07T09:00', '2026-10-07T09:30'),
+      row('holiday.md', 'Holiday', '2026-10-07'),
+      row('next.md', 'Next week', '2026-10-13T10:00'),
+    ]);
+    expect(p.days).toHaveLength(7);
+    expect(keys(p.days[2]!)).toEqual(['holiday.md', 'early.md', 'late.md']);
+    expect(p.days[2]!.timed[0]).toMatchObject({ fromMin: 540, toMin: 570, endKnown: true });
+    expect(p.days.filter((d) => keys(d).length > 0)).toHaveLength(1); // nothing from next week
+  });
+
+  it('a run of days, and a 24h+ stay, are all-day on each day they meet, marked as continuing', () => {
+    const p = plan([row('trip.md', 'Trip', '2026-10-06', '2026-10-08'), row('conf.md', 'Conference', '2026-10-08T09:00', '2026-10-10T17:00')]);
+    expect(p.days.map((d) => d.allDay.map((e) => e.ev.key))).toEqual([[], ['trip.md'], ['trip.md'], ['trip.md', 'conf.md'], ['conf.md'], ['conf.md'], []]);
+    expect(p.days[1]!.allDay[0]).toMatchObject({ continuesBefore: false, continuesAfter: true });
+    expect(p.days[3]!.allDay[0]).toMatchObject({ continuesBefore: true, continuesAfter: false });
+  });
+
+  it('a night that crosses midnight is on both days, cut at midnight; one with no end is its start alone', () => {
+    const p = plan([row('night.md', 'Night shift', '2026-10-09T22:00', '2026-10-10T02:00'), row('call.md', 'Call', '2026-10-05T11:00')]);
+    expect(p.days[4]!.timed[0]).toMatchObject({ fromMin: 1320, toMin: 1440, continuesAfter: true });
+    expect(p.days[5]!.timed[0]).toMatchObject({ fromMin: 0, toMin: 120, continuesBefore: true });
+    expect(p.days[0]!.timed[0]).toMatchObject({ fromMin: 660, endKnown: false });
+  });
+
+  it('a day page is one day', () => {
+    const p = plan([row('a.md', 'A', '2026-10-07T09:00'), row('b.md', 'B', '2026-10-08T09:00')], timePage(day(7), 'day', 1));
+    expect(p.days.map(keys)).toEqual([['a.md']]);
   });
 });
