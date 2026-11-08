@@ -107,12 +107,14 @@
     from?: string | null; to?: string | null;
     /** Calendar's month page and the date property notes are placed by (#2701, `calendar.ts`); null = this month, the default. */
     month?: string | null; dateBy?: string | null;
+    /** Calendar's week or day page and its anchor (#2950, `calendar.ts`); null = the month grid, and today. */
+    mode?: string | null; date?: string | null;
     /** The note actions for selected rows (#2431, #2773): the bulk property
      *  panel, tags and properties. Absent (an embed, an export) → rows don't
      *  multi-select; a click just opens the note. */
     noteActions?: TypeViewNoteActions | undefined;
   }
-  let { typeId, layout, sortColumn, sortDir, columns, revision, onStateChange, onOpenNote, onSaveView, chromeless = false, onLoaded, mapExport, pluginExport, folder = null, filters = [], onClearFolder, mapStyle = 'auto', groupBy = null, columnOrder = [], showEmptyColumns = true, cardOrder = [], exportMode = false, from = null, to = null, month = null, dateBy = null, noteActions }: Props = $props();
+  let { typeId, layout, sortColumn, sortDir, columns, revision, onStateChange, onOpenNote, onSaveView, chromeless = false, onLoaded, mapExport, pluginExport, folder = null, filters = [], onClearFolder, mapStyle = 'auto', groupBy = null, columnOrder = [], showEmptyColumns = true, cardOrder = [], exportMode = false, from = null, to = null, month = null, mode = null, date = null, dateBy = null, noteActions }: Props = $props();
 
   let type = $state<TypeInfo | null>(null);
   let instances = $state<TypeInstanceRow[]>([]);
@@ -153,7 +155,7 @@
   // date property reads back as the default layout; kept as written until the type loads.
   const catalog = $derived(type ? [...objectTypesStore.types, type] : null);
   const timelineSpec = $derived(timelineSpecForType({ layout, from, to, dateBy }, typeId, catalog));
-  const calendarSpec = $derived(calendarSpecForType({ layout: timelineSpec.layout, month, dateBy }, typeId, catalog));
+  const calendarSpec = $derived(calendarSpecForType({ layout: timelineSpec.layout, month, mode, date, dateBy }, typeId, catalog));
   // A layout a built-in plugin draws shows the table while the plugin is off
   // (#2828); the view keeps its layout, so turning the plugin on brings it back.
   const wanted = $derived<Layout>(calendarSpec.layout);
@@ -422,7 +424,7 @@
     get readOnly() { return chromeless; },
     get exportMode() { return exportMode; },
     get spec() {
-      return { groupBy: groupProp?.name ?? null, columnOrder, showEmptyColumns, cardOrder, mapStyle, from: timelineSpec.from, to: timelineSpec.to, month: calendarSpec.month, dateBy: calendarSpec.dateBy };
+      return { groupBy: groupProp?.name ?? null, columnOrder, showEmptyColumns, cardOrder, mapStyle, from: timelineSpec.from, to: timelineSpec.to, month: calendarSpec.month, mode: calendarSpec.mode, date: calendarSpec.date, dateBy: calendarSpec.dateBy };
     },
     get locationProperty() { return locationProperty; },
     get mapStyle() { return mapStyle; },
@@ -442,6 +444,8 @@
     get from() { return timelineSpec.from; },
     get to() { return timelineSpec.to; },
     get month() { return calendarSpec.month; },
+    get mode() { return calendarSpec.mode; },
+    get date() { return calendarSpec.date; },
     get dateBy() { return calendarSpec.dateBy; },
   };
   const renderer = $derived(LAYOUT_RENDERERS[shown]);

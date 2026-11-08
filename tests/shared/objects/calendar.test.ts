@@ -7,7 +7,7 @@
 import { describe, it, expect } from 'vitest';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { calendarSpecForType, canShowCalendar, parseCalendarMonth } from '../../../src/shared/objects/calendar';
+import { calendarSpecForType, canShowCalendar, parseCalendarDate, parseCalendarMode, parseCalendarMonth } from '../../../src/shared/objects/calendar';
 import { DEFAULT_VIEW_LAYOUT } from '../../../src/shared/objects/view-layouts';
 import { parseType } from '../../../src/main/types/parse';
 import type { PropertyDef, TypeDef } from '../../../src/shared/objects/type-def';
@@ -90,8 +90,32 @@ describe('parseCalendarMonth (#2701)', () => {
   });
 });
 
+describe('parseCalendarMode (#2950)', () => {
+  it('reads week and day; month, anything else and nothing are the month grid (null)', () => {
+    expect(parseCalendarMode('week')).toBe('week');
+    expect(parseCalendarMode('day')).toBe('day');
+    for (const other of ['month', 'Week', ' day', 'year', '', null, undefined, 7, {}]) expect(parseCalendarMode(other)).toBeNull();
+  });
+});
+
+describe('parseCalendarDate (#2950)', () => {
+  it('canonicalises a day-precision value, with the month anchor\'s year forms', () => {
+    expect(parseCalendarDate('2026-10-06')).toBe('2026-10-06');
+    expect(parseCalendarDate('  2026-10-06 ')).toBe('2026-10-06');
+    expect(parseCalendarDate('-0043-03-15')).toBe('-0043-03-15'); // the Ides of March, 44 BCE
+    expect(parseCalendarDate('0000-02-29')).toBe('0000-02-29'); // 1 BCE was a leap year
+    expect(parseCalendarDate('+12026-01-01')).toBe('+12026-01-01');
+  });
+
+  it('drops anything that is not a day (today), without throwing', () => {
+    for (const bad of ['2026-10', '2026', '2026-10-06T09:00', '2026-02-30', '2026-13-01', 'today', '', null, undefined, 20261006, {}]) {
+      expect(parseCalendarDate(bad)).toBeNull();
+    }
+  });
+});
+
 describe('calendarSpecForType (#2701)', () => {
-  const pinned = { layout: 'calendar' as const, month: '2026-10', dateBy: null };
+  const pinned = { layout: 'calendar' as const, month: '2026-10', mode: 'week' as const, date: '2026-10-06', dateBy: null };
 
   it('keeps a calendar spec for a type with a date property, own or inherited', () => {
     expect(calendarSpecForType(pinned, 'event', TYPES)).toEqual(pinned);
@@ -99,13 +123,13 @@ describe('calendarSpecForType (#2701)', () => {
     expect(calendarSpecForType(pinned, 'conference', TYPES)).toEqual(pinned);
   });
 
-  it('reads `calendar` for a type with no date property as the default layout, dropping month and dateBy', () => {
+  it('reads `calendar` for a type with no date property as the default layout, dropping month, mode, date and dateBy', () => {
     expect(DEFAULT_VIEW_LAYOUT).toBe('table');
-    expect(calendarSpecForType({ ...pinned, dateBy: 'serves' }, 'recipe', TYPES)).toEqual({ layout: 'table', month: null, dateBy: null });
-    expect(calendarSpecForType({ ...pinned, layout: 'kanban' }, 'recipe', TYPES)).toEqual({ layout: 'kanban', month: null, dateBy: null });
+    expect(calendarSpecForType({ ...pinned, dateBy: 'serves' }, 'recipe', TYPES)).toEqual({ layout: 'table', month: null, mode: null, date: null, dateBy: null });
+    expect(calendarSpecForType({ ...pinned, layout: 'kanban' }, 'recipe', TYPES)).toEqual({ layout: 'kanban', month: null, mode: null, date: null, dateBy: null });
   });
 
-  it('keeps the month under another layout, so switching back to Calendar keeps the page', () => {
+  it('keeps the month, mode and date under another layout, so switching back to Calendar keeps the page', () => {
     expect(calendarSpecForType({ ...pinned, layout: 'list' }, 'event', TYPES)).toEqual({ ...pinned, layout: 'list' });
   });
 
@@ -130,7 +154,13 @@ describe('calendarSpecForType (#2701)', () => {
     expect(calendarSpecForType(odd, 'conference', [{ id: 'conference', parent: 'event', properties: [] }])).toEqual(odd);
   });
 
+  it('re-reads mode and date leniently, as a plugin\'s view.setState arrives unparsed (#2950)', () => {
+    expect(calendarSpecForType({ ...pinned, mode: 'month', date: '2026-10' }, 'event', TYPES)).toEqual({ ...pinned, mode: null, date: null });
+    expect(calendarSpecForType({ ...pinned, mode: 'fortnight', date: 42 }, 'event', TYPES)).toEqual({ ...pinned, mode: null, date: null });
+    expect(calendarSpecForType({ ...pinned, mode: 'day', date: ' 2026-10-07 ' }, 'not-loaded', TYPES)).toEqual({ ...pinned, mode: 'day', date: '2026-10-07' });
+  });
+
   it('a dateless cycle is settled, not unknown', () => {
-    expect(calendarSpecForType(pinned, 'loop-a', TYPES)).toEqual({ layout: 'table', month: null, dateBy: null });
+    expect(calendarSpecForType(pinned, 'loop-a', TYPES)).toEqual({ layout: 'table', month: null, mode: null, date: null, dateBy: null });
   });
 });

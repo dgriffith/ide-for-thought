@@ -108,7 +108,7 @@ describe('calendar layout (#2701, #2702)', () => {
     const { md, spec } = await copied();
     expect(md).not.toContain('"month"');
     expect(md).not.toContain('"dateBy"');
-    expect(spec).toMatchObject({ layout: 'calendar', month: null, dateBy: null });
+    expect(spec).toMatchObject({ layout: 'calendar', month: null, mode: null, date: null, dateBy: null });
   });
 
   it('a dateBy that is not a date property of the type is dropped from the copy', async () => {
@@ -127,6 +127,26 @@ describe('calendar layout (#2701, #2702)', () => {
     expect((await copied()).spec).toMatchObject({ typeId: 'diary', layout: 'calendar', month: '2026-10', dateBy: 'published' });
   });
 
+  it('sends mode and date to the plugin, takes them back from view.setState, and copies them (#2950)', async () => {
+    h.instances.mockResolvedValue({ type: JOURNAL, instances: ENTRIES });
+    const onStateChange = vi.fn();
+    render(TypeView, props({ typeId: 'journal', layout: 'calendar', month: '2026-10', mode: 'week', date: '2026-10-06', onStateChange }));
+    await screen.findByRole('grid');
+    await waitFor(() => expect(h.loop.views.at(-1)?.spec).toMatchObject({ month: '2026-10', mode: 'week', date: '2026-10-06' }));
+    h.loop.host!.setViewState!({ mode: 'day', date: '2026-10-07', groupBy: 'nope' });
+    expect(onStateChange).toHaveBeenLastCalledWith({ mode: 'day', date: '2026-10-07' }); // only the layout's own fields
+    expect((await copied()).spec).toMatchObject({ month: '2026-10', mode: 'week', date: '2026-10-06' });
+  });
+
+  it('a mode or date the plugin sent malformed reads as the month grid and today (#2950)', async () => {
+    h.instances.mockResolvedValue({ type: JOURNAL, instances: ENTRIES });
+    render(TypeView, props({ typeId: 'journal', layout: 'calendar', month: '2026-10', mode: 'month', date: '6 Oct' }));
+    await screen.findByRole('grid');
+    await waitFor(() => expect(h.loop.views.at(-1)?.spec).toMatchObject({ mode: null, date: null }));
+    const { md } = await copied();
+    expect(md).not.toContain('"mode"');
+    expect(md).not.toContain('"date"');
+  });
 
   describe("the plugin's reschedules are the host's (#2829)", () => {
     it('view.reschedule moves the note through the move store, and History says the Calendar did', async () => {

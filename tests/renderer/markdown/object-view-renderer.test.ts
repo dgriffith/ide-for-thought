@@ -97,13 +97,15 @@ describe('parseObjectViewSpec (#2067)', () => {
       from: null,
       to: null,
       month: null,
+      mode: null,
+      date: null,
       dateBy: null,
     });
   });
 
   it('carries through explicit sort/columns', () => {
     expect(parseObjectViewSpec('{"typeId":"book","layout":"table","sortColumn":"author","sortDir":"desc","columns":["author"]}'))
-      .toEqual({ typeId: 'book', layout: 'table', sortColumn: 'author', sortDir: 'desc', columns: ['author'], folder: null, filters: [], mapStyle: 'auto', height: 360, width: null, groupBy: null, columnOrder: [], showEmptyColumns: true, cardOrder: [], from: null, to: null, month: null, dateBy: null });
+      .toEqual({ typeId: 'book', layout: 'table', sortColumn: 'author', sortDir: 'desc', columns: ['author'], folder: null, filters: [], mapStyle: 'auto', height: 360, width: null, groupBy: null, columnOrder: [], showEmptyColumns: true, cardOrder: [], from: null, to: null, month: null, mode: null, date: null, dateBy: null });
   });
 
   it('reads columnOrder and showEmptyColumns, dropping invalid shapes rather than throwing (#2614)', () => {
@@ -143,12 +145,18 @@ describe('parseObjectViewSpec (#2067)', () => {
 
   it('accepts the calendar layout and reads month/dateBy, dropping invalid values rather than throwing (#2701)', () => {
     const spec = (extra: string) => parseObjectViewSpec(`{"typeId":"book","layout":"calendar"${extra}}`);
-    expect(spec('')).toMatchObject({ layout: 'calendar', month: null, dateBy: null });
+    expect(spec('')).toMatchObject({ layout: 'calendar', month: null, mode: null, date: null, dateBy: null });
     expect(spec(',"month":"2026-10","dateBy":"published"')).toMatchObject({ month: '2026-10', dateBy: 'published' });
     expect(spec(',"month":"-0043-03"')).toMatchObject({ month: '-0043-03' }); // March 44 BCE
     // Anything but a month is dropped on its own: a day, a year, a number, junk.
     for (const bad of ['"2026-10-07"', '"2026"', '202610', '"soon"', '{"y":2026}']) {
       expect(spec(`,"month":${bad},"dateBy":"published"`)).toMatchObject({ month: null, dateBy: 'published' });
+    }
+    // A week or day page and its anchor (#2950); anything else is the month grid, and today.
+    expect(spec(',"mode":"week","date":"2026-10-06"')).toMatchObject({ mode: 'week', date: '2026-10-06' });
+    expect(spec(',"mode":"day","date":"-0043-03-15"')).toMatchObject({ mode: 'day', date: '-0043-03-15' });
+    for (const [mode, date] of [['"month"', '"2026-10"'], ['"Week"', '"2026-10-06T09:00"'], ['7', '20261006'], ['null', '"tomorrow"']]) {
+      expect(spec(`,"mode":${mode},"date":${date},"month":"2026-10"`)).toMatchObject({ month: '2026-10', mode: null, date: null });
     }
     expect(spec(',"dateBy":""')).toMatchObject({ dateBy: null });
     expect(spec(',"dateBy":7')).toMatchObject({ dateBy: null });

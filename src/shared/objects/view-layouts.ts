@@ -78,7 +78,7 @@ export const VIEW_LAYOUTS = [
   // A date or datetime property, own or inherited (#2715).
   { id: 'timeline', label: 'Timeline', noteName: 'timeline', appliesTo: datedRule, dated: true, grouped: false, specFields: ['from', 'to', 'dateBy'], plugin: 'timeline' },
   // The same rule as Timeline (#2702).
-  { id: 'calendar', label: 'Calendar', noteName: 'calendar', appliesTo: datedRule, dated: true, grouped: false, specFields: ['month', 'dateBy'], plugin: 'calendar', moves: 'calendar' },
+  { id: 'calendar', label: 'Calendar', noteName: 'calendar', appliesTo: datedRule, dated: true, grouped: false, specFields: ['month', 'mode', 'date', 'dateBy'], plugin: 'calendar', moves: 'calendar' },
 ] as const satisfies readonly ViewLayoutDef[];
 
 /** A layout id — derived from the registry, so adding one is one entry. */

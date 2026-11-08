@@ -257,7 +257,7 @@ describe('TypeView (#1070)', () => {
       await fireEvent.click(await screen.findByText('Copy as markdown'));
       expect(writeText).toHaveBeenCalledWith(buildViewEmbed(spec));
       expect(buildViewNoteContent('Books', spec)).toContain(writeText.mock.calls[0]![0] as string);
-      expect(copiedSpec()).toEqual({ ...spec, filters: [{ property: 'rating', min: '4', max: null }], mapStyle: 'auto', height: 360, width: null, groupBy: null, columnOrder: [], showEmptyColumns: true, cardOrder: [], from: null, to: null, month: null, dateBy: null }); // the parser's normal form
+      expect(copiedSpec()).toEqual({ ...spec, filters: [{ property: 'rating', min: '4', max: null }], mapStyle: 'auto', height: 360, width: null, groupBy: null, columnOrder: [], showEmptyColumns: true, cardOrder: [], from: null, to: null, month: null, mode: null, date: null, dateBy: null }); // the parser's normal form
     });
 
     it('a map copies as a map — not a list (the report)', async () => {
@@ -637,7 +637,7 @@ describe('calendar layout (#2701, #2702)', () => {
     expect(container.querySelector('.tv-table')).toBeTruthy();
     expect(screen.getByRole('tab', { name: 'Table' }).getAttribute('aria-selected')).toBe('true');
     const { md, spec } = await copied();
-    expect(spec).toMatchObject({ typeId: 'book', layout: 'table', month: null, dateBy: null });
+    expect(spec).toMatchObject({ typeId: 'book', layout: 'table', month: null, mode: null, date: null, dateBy: null });
     expect(md).not.toContain('calendar');
     expect(md).not.toContain('2026-10');
   });

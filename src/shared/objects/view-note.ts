@@ -53,6 +53,12 @@ export interface ViewNoteSpec {
   /** Calendar's month page (#2701); written only when set — absent means the
    *  current month. */
   month?: string | null | undefined;
+  /** Calendar's week or day page (#2950); written only when set — absent
+   *  means the month grid. */
+  mode?: string | null | undefined;
+  /** The week or day page's anchor (#2950); written only when set — absent
+   *  means today. */
+  date?: string | null | undefined;
   /** The date property the view places notes by (#2701); written only when
    *  chosen — absent means the type's default. */
   dateBy?: string | null | undefined;
@@ -88,6 +94,8 @@ export function buildViewEmbed(spec: ViewNoteSpec): string {
   if (spec.from) body.from = spec.from;
   if (spec.to) body.to = spec.to;
   if (spec.month) body.month = spec.month;
+  if (spec.mode) body.mode = spec.mode;
+  if (spec.date) body.date = spec.date;
   if (spec.dateBy) body.dateBy = spec.dateBy;
   const height = viewHeightField(spec.height);
   if (height !== undefined) body.height = height;

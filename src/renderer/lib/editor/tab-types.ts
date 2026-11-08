@@ -128,6 +128,10 @@ export interface TypeViewState {
   /** Calendar's month page (#2701, `calendar.ts`), `"2026-10"`; null = the
    *  current month. */
   month: string | null;
+  /** Calendar's week or day page (#2950, `calendar.ts`); null = the month grid. */
+  mode: 'week' | 'day' | null;
+  /** The week or day page's anchor (#2950), `"2026-10-06"`; null = today. */
+  date: string | null;
   /** The date property the view places notes by (#2701, `date-by.ts`); null =
    *  the type's default (`date`, else its first date property). */
   dateBy: string | null;

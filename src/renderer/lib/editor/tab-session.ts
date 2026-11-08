@@ -12,7 +12,7 @@ import { normalizeFolder, parseViewFilters } from '../../../shared/objects/view-
 import { parseMapStyle } from '../../../shared/objects/map-style';
 import { parseCardOrder, parseColumnOrder, parseGroupBy, parseShowEmptyColumns } from '../../../shared/objects/kanban';
 import { parseTimelineRange } from '../../../shared/objects/timeline';
-import { parseCalendarMonth } from '../../../shared/objects/calendar';
+import { parseCalendarDate, parseCalendarMode, parseCalendarMonth } from '../../../shared/objects/calendar';
 import { parseDateBy } from '../../../shared/objects/date-by';
 import type {
   TabSession, SavedTab, SavedGroup, LayoutSession,
@@ -61,6 +61,8 @@ export function toSavedTab(t: Tab): SavedTab {
       ...(t.from !== null ? { from: t.from } : {}),
       ...(t.to !== null ? { to: t.to } : {}),
       ...(t.month !== null ? { month: t.month } : {}),
+      ...(t.mode !== null ? { mode: t.mode } : {}),
+      ...(t.date !== null ? { date: t.date } : {}),
       ...(t.dateBy ? { dateBy: t.dateBy } : {}),
     };
   } else {
@@ -152,6 +154,8 @@ export async function reconstructTab(saved: SavedTab, nextQueryId: () => string)
       cardOrder: parseCardOrder(saved.cardOrder),
       ...parseTimelineRange(saved.from, saved.to),
       month: parseCalendarMonth(saved.month),
+      mode: parseCalendarMode(saved.mode),
+      date: parseCalendarDate(saved.date),
       dateBy: parseDateBy(saved.dateBy),
     };
   } else {
