@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { queryViewTitle } from '../shared/views/view-source-spec';
+  import { queryFileName, queryViewTitle } from '../shared/views/view-source-spec';
   import { querySource } from './lib/components/type-view/view-source';
   import TitleBar from './lib/components/TitleBar.svelte';
   import TabBar from './lib/components/TabBar.svelte';
@@ -599,6 +599,7 @@
     setShowGotoLine: (v) => { featureDialogs.setGotoLine(v); },
     toggleQuickOpen: () => { featureDialogs.toggleGotoNote(); },
     setShowEditSavedQueries: (v) => { featureDialogs.setEditSavedQueries(v); },
+    setShowSavedQueryView: (v) => { if (v) void refreshSavedQueriesCache(); featureDialogs.setSavedQueryView(v); },
     setShowSettings: (v) => { v ? featureDialogs.openSettings() : featureDialogs.closeSettings(); },
     setShowAbout: (v) => { featureDialogs.setAbout(v); },
     setShowShortcuts: (v) => { featureDialogs.setShortcuts(v); },
@@ -992,6 +993,7 @@
     onFileSelect: (path) => { void handleFileSelect(path); },
     onOpenSource: handleOpenSource,
     onOpenQuery: (query, language) => editor.openQuery(query, language),
+    onOpenQueryView: (q) => editor.openQueryView({ kind: 'queryFile', queryFile: queryFileName(q.filePath) }),
     getCursorPosition: () => editorComponent?.getCursorPosition() ?? { line: 1, column: 1 },
     onGotoLine: (line, col) => {
       recordCurrentPosition();

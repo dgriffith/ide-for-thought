@@ -22,6 +22,7 @@ const h = vi.hoisted(() => ({
     setQueryText: vi.fn(),
     setQueryLanguage: vi.fn(),
     executeQuery: vi.fn().mockResolvedValue(undefined),
+    openQueryView: vi.fn(),
   },
 }));
 
@@ -81,5 +82,22 @@ describe('QueryPanel (#2049)', () => {
     const select = await waitFor(() => screen.getByTitle('Query language'));
     await fireEvent.change(select, { target: { value: 'sql' } });
     expect(h.editorStore.setQueryLanguage).toHaveBeenCalledWith('sql');
+  });
+});
+
+describe('Open as view (#2948)', () => {
+  it('is offered beside results, and opens the panel\'s query as a query view', async () => {
+    const tab = makeTab({ query: 'SELECT ?note WHERE { ?note a minerva:Note }', language: 'sparql', results: [{ note: 'https://x/a' }], columns: ['note'] });
+    render(QueryPanel, props({ tab }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Open as view' }));
+    expect(h.editorStore.openQueryView).toHaveBeenCalledWith({ kind: 'query', query: tab.query, language: 'sparql' });
+  });
+
+  it('isn\'t offered before a query has run, or when it failed', () => {
+    render(QueryPanel, props());
+    expect(screen.queryByRole('button', { name: 'Open as view' })).toBeNull();
+    cleanup();
+    render(QueryPanel, props({ tab: makeTab({ query: 'SELECT WHERE {', error: 'Parse error' }) }));
+    expect(screen.queryByRole('button', { name: 'Open as view' })).toBeNull();
   });
 });

@@ -156,6 +156,8 @@ export const COMMANDS = [
   // ── Query ──
   { id: 'query.new', title: 'New Query', category: 'Query', key: 'CmdOrCtrl+Shift+Q', palette: { when: 'project' }, menu: {} },
   { id: 'query.editSaved', title: 'Edit Saved Queries…', category: 'Query', palette: { when: 'project' }, menu: { gate: false } },
+  // A saved query as a live view (#2948): a picker of the saved queries, opening a `queryFile` view.
+  { id: 'query.openSavedAsView', title: 'Open Saved Query as View…', category: 'Query', palette: { when: 'project' }, menu: { gate: false } },
   // ── App ──
   { id: 'app.settings', title: 'Settings…', category: 'App', key: 'CmdOrCtrl+,', palette: { when: 'always' }, menu: { gate: false } },
 

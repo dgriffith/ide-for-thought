@@ -64,7 +64,7 @@ const THRESHOLD = 600;
  */
 const BUDGETS: Record<string, number> = { // +16: each day named from its content and each event by what it shows, described by its full date from the page's hidden list (WCAG 2.5.3, #2790); +4: `month` read by value and the page-turn effect keyed on the page number, so a graph refresh doesn't close the day list (#2742 follow-up); +6: #2704's export branch (`{#if exportMode}` → CalendarExportGrid) and its doc paragraph, merged with this; +40 past the 600 threshold (#2703): reschedule's wiring — the drag action, the choose-a-day mode on the grid's Enter/Escape/click, the move bar, the event menu's hooks, ⌘Z, and their styles. The logic lives beside it in calendar/ (event-drag.ts, reschedule-controller.svelte.ts, reschedule.ts, CalendarMoveBar.svelte); what's left is template and CSS that has to sit on the grid's own elements.
   // +1 for #2256: toggleCommandPalette on the ipc-wiring ctx.
-  'src/renderer/App.svelte': 1871, // +2: plugin app ops (open, reveal, run) (#2827); +17: plugin views in the palette and their tab, showing a sidebar's panel needs App's sidebar refs (#2640); +16: plugin command ops wiring (#2643); +5: plugin command keys and menu items (#2879); +3: a query view tab mounts with its source and saves its query (#2945)
+  'src/renderer/App.svelte': 1873, // +2: plugin app ops (open, reveal, run) (#2827); +17: plugin views in the palette and their tab, showing a sidebar's panel needs App's sidebar refs (#2640); +16: plugin command ops wiring (#2643); +5: plugin command keys and menu items (#2879); +3: a query view tab mounts with its source and saves its query (#2945); +2: the saved-query-as-view picker and its handler (#2948)
   // +32 for #2210 §3b: the shared wiki-link index and the comment explaining
   // why one index is safe for all three resolvers. Net code is SHORTER (two
   // duplicated file-array builds removed); the growth is the reasoning, which
@@ -91,7 +91,7 @@ const BUDGETS: Record<string, number> = { // +16: each day named from its conten
   // repo's dev-docs folder and how the parity test keeps it honest) and the
   // Command Palette item, whose comment explains that adding the item IS the
   // documentation fix — Keyboard Shortcuts derives from this template.
-  'src/main/menu.ts': 849, // +5: File → New Audio Recording (#2428); −174: menu commands moved onto the command registry (#2625); +8: a Saved Queries section per plugin (#2633); +6: plugin themes in View → Theme (#2787); +3: Python's kernel items only while the built-in Python plugin is on (#2822); +4: the menu bar's plugin commands (#2879); +3: Developer Tools on F12 off macOS, where its own key is Ingest URL's (#2986); +9: the update items in Help off macOS, shared with the app menu (#2184)
+  'src/main/menu.ts': 850, // +5: File → New Audio Recording (#2428); −174: menu commands moved onto the command registry (#2625); +8: a Saved Queries section per plugin (#2633); +6: plugin themes in View → Theme (#2787); +3: Python's kernel items only while the built-in Python plugin is on (#2822); +4: the menu bar's plugin commands (#2879); +3: Developer Tools on F12 off macOS, where its own key is Ingest URL's (#2986); +9: the update items in Help off macOS, shared with the app menu (#2184); +1: Open Saved Query as View… in Saved Queries (#2948)
   'src/renderer/lib/components/sidebar/NotesPanel.svelte': 635, // the Notes tree, extracted from Sidebar.svelte (982 → 360) when the left sidebar became a panel registry (#2626)
   'src/renderer/lib/app/refactor-ops.svelte.ts': 654, // −270: the tag and property actions moved to note-action-ops.svelte.ts (#2783), which the sidebar and every view share
   // Raised again in #2208: the staleness check became two queries (sort a
@@ -110,7 +110,7 @@ const BUDGETS: Record<string, number> = { // +16: each day named from its conten
   'src/main/graph/inspection-checks.ts': 614, // −10: unsupported claims and contradictions became SHACL shapes, parsed on first use (#2642); the checks + their registry, split out of health-checks.ts (836 → 234) when checks became a registry (#2627)
   'src/renderer/lib/components/ExportDialog.svelte': 721, // +9: the PDF style profile picker, remembered per thoughtbase; its field is PdfProfileField.svelte (#2429)
   'src/renderer/lib/components/ProposalsPanel.svelte': 638, // +12: announce approve/reject outcomes (#2374); +2: bare-key guard (#2377); +5: a plugin proposal's review, from proposals/plugin-review.ts (#2890); +5: the thoughtbase-guide marker, open by default (#2837)
-  'src/renderer/lib/components/QueryPanel.svelte': 766, // +7: CM content a11y attrs + AA placeholder (#2375)
+  'src/renderer/lib/components/QueryPanel.svelte': 777, // +7: CM content a11y attrs + AA placeholder (#2375); +11: Open as view, beside the results (#2948)
   // +17 (#2491): the property card's "Also fills {{name}} in the note's body" line, its helper and style.
   'src/renderer/lib/components/conversations/DraftCards.svelte': 781, // +6: the thoughtbase-guide marker, open by default (#2837)
   // +1 for #2256: the MENU_COMMAND_PALETTE channel / its MENU_COMMANDS entry.

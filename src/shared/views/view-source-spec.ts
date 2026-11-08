@@ -99,3 +99,8 @@ export function viewKeyFor(src: ViewSourceSpec): string {
 export function queryViewTitle(src: QuerySourceSpec): string {
   return src.kind === 'queryFile' ? src.queryFile.replace(/\.(rq|sql)$/i, '') : 'Query view';
 }
+
+/** A saved query's file name, as a `queryFile` names it: the last segment of its path, either separator. */
+export function queryFileName(filePath: string): string {
+  return filePath.replace(/\\/g, '/').split('/').pop() ?? filePath;
+}

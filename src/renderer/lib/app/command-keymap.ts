@@ -108,6 +108,8 @@ export interface CommandKeymapCtx {
   setShowGotoLine: (v: boolean) => void;
   toggleQuickOpen: () => void;
   setShowEditSavedQueries: (v: boolean) => void;
+  /** Open the saved-query picker that opens one as a view (#2948). */
+  setShowSavedQueryView: (v: boolean) => void;
   setShowSettings: (v: boolean) => void;
   setShowAbout: (v: boolean) => void;
   setShowShortcuts: (v: boolean) => void;
@@ -244,6 +246,7 @@ export function createCommandKeymap(ctx: CommandKeymapCtx): {
     // ── Query / Export ──
     'query.new': () => editor.openQuery(),
     'query.editSaved': () => ctx.setShowEditSavedQueries(true),
+    'query.openSavedAsView': () => ctx.setShowSavedQueryView(true),
     'export.publish': () => ctx.setPublishDialogOpen(true),
     // ── App ──
     'app.settings': () => ctx.setShowSettings(true),

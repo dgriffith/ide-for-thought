@@ -28,7 +28,7 @@ import { api } from '../../ipc/client';
 import { objectTypesStore } from '../../stores/object-types.svelte';
 import type { TypeInfo, TypeInstanceRow } from '../../../../shared/objects/type-def';
 import { toViewRows } from '../../../../shared/views/view-rows';
-import { queryFileLanguage, queryViewTitle, type QuerySourceSpec } from '../../../../shared/views/view-source-spec';
+import { queryFileLanguage, queryFileName, queryViewTitle, type QuerySourceSpec } from '../../../../shared/views/view-source-spec';
 
 export interface ViewSourceData {
   /** Null when the source has nothing to show (a type id that matches no type). */
@@ -75,7 +75,7 @@ export function rowsSource(key: string, data: ViewSourceData | (() => Promise<Vi
 /** The text of a saved query named by its file name: the thoughtbase's own first, then this machine's and plugins'. */
 async function savedQueryText(name: string): Promise<{ query: string; language: 'sparql' | 'sql' } | null> {
   const all = await api.queries.list();
-  const base = (p: string) => p.replace(/\\/g, '/').split('/').pop() ?? p;
+  const base = queryFileName;
   const order = ['project', 'global', 'plugin'] as const;
   const match = [...all].sort((a, b) => order.indexOf(a.scope) - order.indexOf(b.scope)).find((q) => base(q.filePath) === name);
   return match ? { query: match.query, language: match.language } : null;

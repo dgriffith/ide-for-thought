@@ -169,6 +169,7 @@ Query
     (role undefined)
       Open questions → send menu:openStockQuery [{"query":"SELECT 1","language":"sparql"}]
     ---
+    Open Saved Query as View… → send menu:command ["query.openSavedAsView"]
     Edit Saved Queries… → send menu:command ["query.editSaved"]
   ---
   Export Knowledge Graph… → showSaveDialog
@@ -364,6 +365,7 @@ Query
     (role undefined)
       Open questions → send menu:openStockQuery [{"query":"SELECT 1","language":"sparql"}]
     ---
+    Open Saved Query as View… → send menu:command ["query.openSavedAsView"]
     Edit Saved Queries… → send menu:command ["query.editSaved"]
   ---
   Export Knowledge Graph… disabled → (no effect)
