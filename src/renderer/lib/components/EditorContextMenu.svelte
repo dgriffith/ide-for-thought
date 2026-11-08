@@ -57,6 +57,8 @@
     /** Transcribe (or, once transcribed, Summarize) the recording on the
      *  clicked line — only supplied when that line holds one (#2428, #2729). */
     recordingAction?: { label: string; run: () => void } | undefined;
+    /** Convert the `:::query-list` / `:::query-table` on the clicked line to its view fence (#2947) — only then. */
+    queryViewAction?: (() => void) | undefined;
   }
 
   let {
@@ -76,6 +78,7 @@
     onDictate,
     onRecordAudio,
     recordingAction,
+    queryViewAction,
   }: Props = $props();
 
   // Read from the store, as a component may (#1922): the commands that asked for this menu.
@@ -318,6 +321,9 @@
     <button onclick={() => onMenuAction(onDictate)}>Dictate…</button>
   {/if}
   <button onclick={() => onMenuAction(onRecordAudio)}>Record Audio…</button>
+  {#if queryViewAction}
+    <button onclick={() => onMenuAction(queryViewAction)} title="Rewrite this query list as the object-view fence it renders as">Convert to View</button>
+  {/if}
   {#if recordingAction}
     <button onclick={() => onMenuAction(recordingAction.run)}>{recordingAction.label}</button>
   {/if}

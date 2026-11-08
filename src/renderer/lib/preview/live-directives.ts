@@ -12,7 +12,8 @@
 import type { MarkdownIt, StateBlock, Token } from 'markdown-it';
 import { LIVE_DIRECTIVE_OPENERS, type DirectiveBlockKind } from '../../../shared/live-blocks';
 import { escapeAttr } from './text';
-import { splitQueryDirective, queryBlockPlaceholderHtml } from './query-directive';
+import { splitQueryDirective, queryBlockPlaceholderHtml, queryViewDirectiveHtml } from './query-directive';
+import { directiveViewSpec } from '../../../shared/views/directive-view';
 
 interface DirectivePreview {
   /** Fill the token from the opening line's match and the body. */
@@ -32,7 +33,9 @@ export const DIRECTIVE_PREVIEWS: Record<DirectiveBlockKind, DirectivePreview> = 
     },
     render: (token) => {
       const { type, config } = token.meta as { type: string; config: Record<string, unknown> };
-      return queryBlockPlaceholderHtml(type, token.content, config);
+      // A list or table is a query view (#2947): the object-view hydrator draws it, the note untouched.
+      const spec = directiveViewSpec(type, token.content, config);
+      return spec ? queryViewDirectiveHtml(spec) : queryBlockPlaceholderHtml(type, token.content, config);
     },
   },
   // :::argument … ::: (#907). The same config/body split (key: value lines
