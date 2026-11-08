@@ -332,6 +332,10 @@
   }
 
   function onGridKeydown(e: KeyboardEvent): void {
+    // A key acts on the cell it came from: its focus event can arrive after the
+    // keydown when the frame's document is only just getting focus (#3025).
+    const cellDay = Number((e.target as HTMLElement | null)?.closest<HTMLElement>('[data-day]')?.dataset.day);
+    if (Number.isFinite(cellDay) && cellDay !== focusedDay) focusedDay = cellDay;
     if (e.altKey && e.key === 'Enter' && !e.metaKey && !e.ctrlKey && !move.moving) {
       e.preventDefault();
       openDay(tabDay);
