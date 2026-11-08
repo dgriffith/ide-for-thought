@@ -1,3 +1,5 @@
+import { queryViewRows } from '../views/query-rows';
+import type { QueryLanguage, QueryRowsOptions } from '../../shared/views/query-view';
 import { dialog } from 'electron';
 import path from 'node:path';
 import { Channels } from '../../shared/channels';
@@ -75,6 +77,11 @@ export function registerGraph(): void {
     const result = await tables.runNoteQuery(projectContext(rootPath), sql);
     return result.ok ? { ...result, rows: coerceDuckRowsForIpc(result.rows) } : result;
   }));
+
+  // A query view's rows (#2944): SPARQL read-only, SQL through the same
+  // note guard as above (`queryViewRows` calls `runNoteQuery`, never `runQuery`).
+  handle(Channels.QUERY_VIEW_ROWS, withRootPath((rootPath, query: string, language: QueryLanguage, opts?: QueryRowsOptions) =>
+    queryViewRows(projectContext(rootPath), query, language === 'sql' ? 'sql' : 'sparql', opts ?? {})));
 
   handle(Channels.TABLES_LIST, withRootPathOr<[], TableInfo[] | Promise<TableInfo[]>>([], (rootPath) =>
     tables.listTables(projectContext(rootPath))));

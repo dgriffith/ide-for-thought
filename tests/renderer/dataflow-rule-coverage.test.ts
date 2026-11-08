@@ -95,6 +95,8 @@ const READ_ALLOWLIST = new Set<string>([
   // tables.queryNote (#2448): note-embedded SQL under the registered-relations
   // allowlist — a read like `query`, just a narrower one.
   'queryNote',
+  // queryViews.rows (#2944): a query view's rows — SPARQL read-only, SQL under the same note guard.
+  'rows',
   // notebase reads
   'getProperties', 'listFiles', 'readFile', 'searchInNotes',
   // tags / types / tables / templates / collections / sites / skills reads

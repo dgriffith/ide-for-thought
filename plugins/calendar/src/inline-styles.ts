@@ -49,6 +49,8 @@ function responsive(el: Element): Record<string, string> {
   const fixed = Object.entries(FIXED_HEIGHT).find(([cls]) => c.contains(cls));
   if (fixed && !c.contains('calx-bar')) return { height: fixed[1] };
   const own = (name: string, of: Element = el) => (of as HTMLElement).style?.getPropertyValue(name).trim() ?? '';
+  // An agenda line (#2955): the time column's width, not the frame's pixels.
+  if (c.contains('cala-entry')) return { 'grid-template-columns': '9em minmax(0, 1fr)' };
   if (c.contains('calx-row')) {
     return { 'grid-template-columns': el.closest('.calx-wk-on') ? '2.6em repeat(7, minmax(0, 1fr))' : 'repeat(7, minmax(0, 1fr))' };
   }
