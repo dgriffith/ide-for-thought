@@ -1,5 +1,7 @@
 /**
- * What an exported Calendar month draws (#2704, epic #2699). Pure.
+ * What an exported Calendar month draws (#2704, epic #2699) — and, for a
+ * week or a day, the agenda it draws instead (#2955, `planAgendaExport`,
+ * below). Pure.
  *
  * A page can't open "+N more", so an export lists **every event in its
  * day's cell** (decision 9 on #2699): a busy day makes a tall row, which is
@@ -23,11 +25,12 @@
  */
 import type { TimelineEvent } from '../../../src/shared/timeline/timeline-events';
 import {
-  coveredDays, layoutMonth, monthWeeks, uncertainFrom,
+  coveredDays, layoutMonth, monthWeeks, rangeMeets, uncertainFrom,
   type CalendarMonth, type GridWeek, type PlacedSegment, type Weekday,
 } from '../../../src/shared/objects/calendar-grid';
 import { DAY_MS } from '../../../src/shared/time';
 import { pageItems } from '../../../src/shared/calendar/calendar-model';
+import { drawnRange, timeGridPlacement } from '../../../src/shared/calendar/time-grid';
 
 export interface ExportRow {
   week: GridWeek;
@@ -86,4 +89,71 @@ export function planCalendarExport(grid: readonly TimelineEvent[], page: Calenda
     return { week, bars, barSlots: barRows[r]!.slotCount, singles: cells, counts };
   });
   return { weeks, rows, hatched };
+}
+
+// ── A week or a day: an agenda (#2955) ───────────────────────────────────
+//
+// Decision (#2955): a week or day exports as an AGENDA, not an hour grid —
+// on paper, overlapping events side by side and an hour grid broken across
+// pages fight the drawing, and a printed hour grid is mostly empty boxes.
+// Each day of the page lists the events that meet it: all-day ones first
+// (a day start, or a timed stay of a day or more — `timeGridPlacement`'s
+// strip), by start then title; then timed ones by their time on that day.
+// An event that crosses midnight is listed on each day it meets, with what
+// it shows there: "from 22:00" on the first, "until 02:00" on the next. An
+// approximate one says so in words, so the agenda needs no legend.
+
+const MINUTE_MS = 60_000;
+
+/** One event on one agenda day. */
+export interface AgendaEntry {
+  ev: TimelineEvent;
+  /** A timed event's stretch on this day, in minutes past its midnight; null for an all-day one. */
+  fromMin: number | null;
+  toMin: number | null;
+  /** It began on an earlier day, or goes on into a later one. */
+  continuesBefore: boolean;
+  continuesAfter: boolean;
+  /** Its end wasn't written as a time: the time grid drew it half an hour; the agenda gives the start alone. */
+  endKnown: boolean;
+}
+
+export interface AgendaDay {
+  /** The day's start, civil ms. */
+  day: number;
+  allDay: AgendaEntry[];
+  timed: AgendaEntry[];
+}
+
+export interface AgendaExportPlan {
+  days: AgendaDay[];
+}
+
+/** The agenda for a week or day page (see above). */
+export function planAgendaExport(grid: readonly TimelineEvent[], page: GridWeek): AgendaExportPlan {
+  const byTitle = (a: AgendaEntry, b: AgendaEntry) => a.ev.title.localeCompare(b.ev.title) || a.ev.key.localeCompare(b.ev.key);
+  const days = page.days.map((d): AgendaDay => {
+    const dayEnd = d.start + DAY_MS;
+    const allDay: AgendaEntry[] = [];
+    const timed: AgendaEntry[] = [];
+    for (const ev of grid) {
+      if (timeGridPlacement(ev) === 'allDay') {
+        if (!rangeMeets(ev, d.start, dayEnd)) continue;
+        allDay.push({ ev, fromMin: null, toMin: null, continuesBefore: ev.start < d.start, continuesAfter: ev.end > dayEnd, endKnown: true });
+      } else {
+        const drawn = drawnRange(ev);
+        if (!rangeMeets(drawn, d.start, dayEnd)) continue;
+        const from = Math.max(drawn.start, d.start);
+        const to = Math.min(drawn.end, dayEnd);
+        timed.push({
+          ev, fromMin: (from - d.start) / MINUTE_MS, toMin: (to - d.start) / MINUTE_MS,
+          continuesBefore: drawn.start < d.start, continuesAfter: drawn.end > dayEnd, endKnown: drawn.endKnown,
+        });
+      }
+    }
+    allDay.sort((a, b) => a.ev.start - b.ev.start || byTitle(a, b));
+    timed.sort((a, b) => a.fromMin! - b.fromMin! || a.toMin! - b.toMin! || byTitle(a, b));
+    return { day: d.start, allDay, timed };
+  });
+  return { days };
 }

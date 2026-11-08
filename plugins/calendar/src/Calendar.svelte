@@ -73,7 +73,9 @@
    *   write `date`. `CalendarWeek` draws the week as an all-day strip over
    *   24 hours (`time-grid.ts`), with the bands and the Undated tray for the
    *   week. Events don't drag there yet (#2953); *Move to date…* chooses one
-   *   of its days. An export draws the week's month until #2955.
+   *   of its days. An export lists the week as an agenda (#2955,
+   *   `CalendarExportAgenda`: each day's events, all-day first, then by time),
+   *   with the week's bands and the Undated tray after it; a Day, its day.
    * - **Day** (#2952, `mode: "day"`, on the same `date`): the week's grid
    *   with one column, each event showing its first card field as a second
    *   line; ‹ Today › step a day, and ←/→ past the column go to the next day.
@@ -115,6 +117,7 @@
   import CalendarDayList from './CalendarDayList.svelte';
   import CalendarBands from './CalendarBands.svelte';
   import CalendarExportGrid from './CalendarExportGrid.svelte';
+  import CalendarExportAgenda from './CalendarExportAgenda.svelte';
   import { createPluginHover } from './hover.svelte';
   import { timelineProperties, type TimelineEvent } from '../../../src/shared/timeline/timeline-events';
   import { buildCalendarModel, dayEvents, dayName, monthTitle, pageBands, pageItems, rangeBands, timeOf, weekdayNames, writtenAs, yearName } from '../../../src/shared/calendar/calendar-model';
@@ -195,7 +198,7 @@
   const weekFollowsToday = $derived(dayOverride ? dayOverride.follows : parseDayAnchor(dateProp) === null);
   const weekPage = $derived(timePage(anchor, mode === 'day' ? 'day' : 'week', view.week.start));
 
-  // In Week and Day (and their exports, until #2955 draws them) the month grid's page is the anchor's month.
+  // In Week and Day the month grid's page is the anchor's month (where a switch back to Month opens).
   const page = $derived<CalendarMonth>(mode !== 'month' ? monthOf(anchor) : override ?? parseMonthAnchor(monthProp) ?? monthOf(today));
   const pageKey = (m: CalendarMonth) => m.year * 12 + m.month;
   const pageNumber = $derived(pageKey(page)); // a turn, not a re-derived object
@@ -246,10 +249,12 @@
   const gridStart = $derived(weeks[0]!.start);
   const gridEnd = $derived(weeks[weeks.length - 1]!.end);
   const rows = $derived(layoutMonth(pageItems(model.grid, weeks), weeks));
-  /** Week or Day, on screen: the time grid. */
-  const weekView = $derived(mode !== 'month' && !exportMode);
-  const bands = $derived(weekView ? rangeBands(model, weekPage, locale) : pageBands(model, page, locale));
-  const title = $derived(!weekView ? monthTitle(page, locale)
+  /** Week or Day: its page, title and bands, on screen and in an export (an agenda there, #2955). */
+  const timeMode = $derived(mode !== 'month');
+  /** …and on screen: the time grid. */
+  const weekView = $derived(timeMode && !exportMode);
+  const bands = $derived(timeMode ? rangeBands(model, weekPage, locale) : pageBands(model, page, locale));
+  const title = $derived(!timeMode ? monthTitle(page, locale)
     : mode === 'day' ? dayName(anchor, locale)
     : weekTitle(weekPage, locale, weekNumbers ? rowWeekNumber(weekPage).week : null));
   const timeGrid = $derived(weekView ? layoutTimeGrid(model.grid, weekPage, { minMinutes: Math.max(MIN_TIMED_MINUTES, 20) }) : null);
@@ -515,7 +520,9 @@
   {/if}
 
   <div class="cal-main">
-    {#if exportMode}
+    {#if exportMode && timeMode}
+    <CalendarExportAgenda grid={model.grid} page={weekPage} {locale} />
+    {:else if exportMode}
     <CalendarExportGrid grid={model.grid} {page} weekStart={firstDay} {weekNumbers} {locale} />
     {:else if weekView && timeGrid}
     <div class="cal-timerow">
@@ -681,7 +688,7 @@
     </div>
 
     <CalendarBands
-      bands={[{ id: 'year', head: `${weekView ? yearName(monthOf(weekPage.start).year, locale) : yearName(page.year, locale)} · no month`, entries: bands.year }, { id: 'month', head: `${weekView ? monthTitle(monthOf(weekPage.start), locale) : title} · no day`, entries: bands.month }]}
+      bands={[{ id: 'year', head: `${timeMode ? yearName(monthOf(weekPage.start).year, locale) : yearName(page.year, locale)} · no month`, entries: bands.year }, { id: 'month', head: `${timeMode ? monthTitle(monthOf(weekPage.start), locale) : title} · no day`, entries: bands.month }]}
       {hover} {cardId} {cardKey} {exportMode} {onOpenNote}
       onMenu={noteMenu ? onNoteMenu : null}
     />
