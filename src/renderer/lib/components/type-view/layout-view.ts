@@ -123,6 +123,8 @@ export interface LayoutView {
   onReorderCard: ((path: string, target: string, side: DropSide) => void) | undefined;
   /** Calendar (#2829): move a note's dates by whole days, with undo; absent in an embed or export. */
   onReschedule: ((path: string, days: number) => void) | undefined;
+  /** Calendar's week and day (#2953): move a timed note, or its end, by whole minutes, with undo; absent where onReschedule is. */
+  onRetime: ((path: string, minutes: number, kind: 'move' | 'resize') => void) | undefined;
   /** Calendar (#2929): a plugin layout hands over how to start choosing a
    *  day for a note (its `moveToDate` event), so the row menu can offer
    *  *Move to date…*; null when it goes. */

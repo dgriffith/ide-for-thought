@@ -34,6 +34,9 @@ export type PluginIntent =
   /** A card put beside another in the view's order (#2922): the host changes the view, no note. */
   | { kind: 'reorderCard'; path: string; target: string; side: 'before' | 'after' }
   | { kind: 'reschedule'; path: string; days: number }
+  /** A calendar's move or resize by time (#2953): the host writes, with its own undo. */
+  | { kind: 'retime'; path: string; minutes: number }
+  | { kind: 'resize'; path: string; minutes: number }
   /** A live block's frame height (#2641), clamped by the broker. */
   | { kind: 'setHeight'; height: number };
 

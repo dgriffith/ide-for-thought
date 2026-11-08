@@ -7,7 +7,7 @@ import { describe, it, expect, vi } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createPluginSession, PluginCallError, type BrokerDeps, type BrokerPort, type PluginIdentity } from '../../../src/main/plugins/broker';
-import { PLUGIN_LLM_MAX_NOTES, PLUGIN_LLM_MAX_PROMPT_CHARS, PLUGIN_MAX_IN_FLIGHT, PLUGIN_MESSAGE_LIMIT_BYTES, PLUGIN_METHODS, PLUGIN_PREVIEW_MAX_EXTRA, PLUGIN_PREVIEW_MAX_EXTRA_CHARS, PLUGIN_QUERY_ROW_LIMIT } from '../../../src/shared/plugins/api';
+import { PLUGIN_LLM_MAX_NOTES, PLUGIN_LLM_MAX_PROMPT_CHARS, PLUGIN_MAX_IN_FLIGHT, PLUGIN_MESSAGE_LIMIT_BYTES, PLUGIN_METHODS, PLUGIN_PREVIEW_MAX_EXTRA, PLUGIN_PREVIEW_MAX_EXTRA_CHARS, PLUGIN_QUERY_ROW_LIMIT, PLUGIN_RETIME_MAX_MINUTES } from '../../../src/shared/plugins/api';
 import type { RevisionSource } from '../../../src/shared/history';
 import type { PluginCapability } from '../../../src/shared/plugins/capabilities';
 import { silenceLogTags } from '../../helpers/quiet-logs';
@@ -397,6 +397,19 @@ describe('the ui kit (#2827)', () => {
     expect(s.intents).toEqual([{ kind: 'setHeight', height: 212 }, { kind: 'setHeight', height: 24 }, { kind: 'setHeight', height: 4000 }]);
     expect((await s.call('view.setHeight', { height: 'tall' })).error?.code).toBe('bad-request');
     expect((await open({ capabilities: ['notes:read'] }).call('view.setHeight', { height: 100 })).error?.code).toBe('capability');
+  });
+
+  it('passes a calendar\'s move and resize by minutes on as intents, scoped and bounded (#2953)', async () => {
+    const s = open();
+    await s.call('view.retime', { path: 'a.md', minutes: 75 });
+    await s.call('view.resize', { path: 'a.md', minutes: -15 });
+    expect(s.intents).toEqual([{ kind: 'retime', path: 'a.md', minutes: 75 }, { kind: 'resize', path: 'a.md', minutes: -15 }]);
+    for (const minutes of [0, 1.5, 'an hour', PLUGIN_RETIME_MAX_MINUTES + 1]) {
+      expect((await s.call('view.retime', { path: 'a.md', minutes })).error?.code, String(minutes)).toBe('bad-request');
+    }
+    expect((await s.call('view.resize', { path: 'b.md', minutes: 15 })).error?.code).toBe('scope');
+    expect((await open({ capabilities: ['notes:read', 'ui'] }).call('view.retime', { path: 'a.md', minutes: 15 })).error?.code).toBe('capability');
+    expect(s.intents).toHaveLength(2);
   });
 
   it('none of them without the ui capability', async () => {

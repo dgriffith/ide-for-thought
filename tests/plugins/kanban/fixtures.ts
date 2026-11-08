@@ -29,7 +29,7 @@ export function fakeMinerva() {
     tables: group(['tables.query']),
     llm: group(['llm.propose']),
     ui: group(['ui.openNote', 'ui.announce', 'ui.copyText', 'ui.revealNote', 'ui.showMenu', 'ui.releaseFocus', 'ui.forwardKey', 'ui.showNoteMenu', 'ui.previewNote', 'ui.hidePreview']),
-    view: group(['view.setState', 'view.provideExport', 'view.click', 'view.selectAll', 'view.clearSelection', 'view.moveCard', 'view.undoMove', 'view.moveColumn', 'view.reorderCard', 'view.reschedule', 'view.setHeight']),
+    view: group(['view.setState', 'view.provideExport', 'view.click', 'view.selectAll', 'view.clearSelection', 'view.moveCard', 'view.undoMove', 'view.moveColumn', 'view.reorderCard', 'view.reschedule', 'view.retime', 'view.resize', 'view.setHeight']),
   } as unknown as MinervaPlugin;
   return {
     minerva,

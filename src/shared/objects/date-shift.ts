@@ -46,8 +46,33 @@
  * local day altogether (in London, 23:30Z shows on 28 March 2026 and then on
  * 30 March); no whole-day move reaches the skipped day, so the uncorrected
  * move stands and the event shows a day past the drop.
+ *
+ * ## By minutes (#2953): the Week and Day grids
+ *
+ * `retimeByMinutes` moves an event's start and end by whole minutes, a drop
+ * on another day included (`days × 1440 + minutes`); `resizeByMinutes` moves
+ * the end alone. Both count on the viewer's wall clock: the event lands where
+ * the user dropped it, as seen.
+ * - **Only a clock start moves by minutes.** A day start refuses `no-time`
+ *   ("… has no time to move"; it still moves by days), and a month or year
+ *   start `not-a-day`, as above. A drop into the hours never promotes a date
+ *   to a time: that would write a time the user didn't write.
+ * - **A clock value keeps its form**: its precision, any seconds or fraction,
+ *   and its offset as written. A floating value moves on its own wall clock;
+ *   an offset value is written in its own offset at the instant that shows at
+ *   the target wall-clock time for this viewer, so a move across a DST change
+ *   keeps the time dropped on. (A target inside a spring-forward gap has no
+ *   such instant and lands an hour off, where the zone puts it.)
+ * - **The end follows a retime**: a clock end by the same wall-clock minutes,
+ *   a day end by the days the start's date moved; a month or year end refuses
+ *   `end-not-a-day`. None written, or not a date, is left alone.
+ * - **A resize writes the end.** A clock end moves by the minutes; an end
+ *   never written, or one coarser than a clock time (which the grid drew
+ *   `DEFAULT_TIMED_MINUTES` long), is created at its drawn end plus the
+ *   minutes, in the start's form. An end at or before the start refuses
+ *   `end-before-start`.
  */
-import { parseDateValue, spanOfParsed, type ParsedDate, type SpanOptions } from './date-precision';
+import { isClockPrecision, parseDateValue, spanOfParsed, type ParsedDate, type SpanOptions } from './date-precision';
 import { dayStart } from './calendar-grid';
 import { DAY_MS } from '../time';
 
@@ -93,7 +118,7 @@ function two(n: number): string {
   return String(n).padStart(2, '0');
 }
 
-export type RescheduleRefusal = 'not-a-day' | 'end-not-a-day' | 'invalid' | 'out-of-range';
+export type RescheduleRefusal = 'not-a-day' | 'end-not-a-day' | 'invalid' | 'out-of-range' | 'no-time' | 'end-before-start';
 
 export type RescheduleResult =
   | {
@@ -175,4 +200,145 @@ export function rescheduleByDays(
   const end = shiftDateValue(endRaw!, d);
   if (end === null) return { ok: false, reason: 'out-of-range' };
   return { ok: true, start, end, days: d };
+}
+
+// ── By minutes (#2953) ───────────────────────────────────────────────────
+
+const MINUTE_MS = 60_000;
+/** How long the hour grid draws an event with no clock end, in minutes (`time-grid.ts`'s `DEFAULT_TIMED_MINUTES`). */
+export const DRAWN_END_MINUTES = 30;
+/** A clock value: its date, hours and minutes, and the rest (seconds, fraction, offset) verbatim. */
+const CLOCK_RE = /^([+-]?\d+)-\d{2}-\d{2}T\d{2}:\d{2}(.*)$/;
+
+const localZoneOffset = (instantMs: number): number => -new Date(instantMs).getTimezoneOffset();
+
+/** Where a value shows on the viewer's wall clock (civil ms), or null. */
+function shownAt(p: ParsedDate, opts: SpanOptions): number | null {
+  return spanOfParsed(p, opts)?.start ?? null;
+}
+
+/**
+ * `form` (a clock value as written) rewritten to show at `target` on the
+ * viewer's wall clock: same seconds, fraction and offset. Null outside
+ * `Date`'s range.
+ */
+function writeShownAt(form: string, p: ParsedDate, target: number, opts: SpanOptions): string | null {
+  const m = CLOCK_RE.exec(form.trim());
+  if (!m) return null;
+  let wall = target;
+  if (p.offsetMinutes !== null) {
+    // The instant that shows at `target` for this viewer, then that instant in the written offset.
+    const zone = opts.zoneOffsetMinutes ?? localZoneOffset;
+    const guess = target - zone(target) * MINUTE_MS;
+    const instant = target - zone(guess) * MINUTE_MS;
+    wall = instant + p.offsetMinutes * MINUTE_MS;
+  }
+  const d = new Date(wall);
+  if (!Number.isFinite(d.getTime())) return null;
+  const out = `${formatYear(d.getUTCFullYear(), m[1]!)}-${two(d.getUTCMonth() + 1)}-${two(d.getUTCDate())}T${two(d.getUTCHours())}:${two(d.getUTCMinutes())}${m[2]}`;
+  return parseDateValue(out) ? out : null;
+}
+
+/** The refusal for a start that can't move by minutes, or null for a clock start. */
+function clockStartRefusal(p: ParsedDate | null): RescheduleRefusal | null {
+  if (!p) return 'invalid';
+  if (p.precision === 'day') return 'no-time';
+  if (!isDayOrFiner(p)) return 'not-a-day';
+  return null;
+}
+
+/** Can this event move by minutes? The refusal `retimeByMinutes` would give, or null. */
+export function retimeRefusal(startRaw: string, endRaw: string | null | undefined): RescheduleRefusal | null {
+  const start = clockStartRefusal(parseDateValue(startRaw));
+  if (start) return start;
+  const e = endRaw === null || endRaw === undefined ? null : parseDateValue(endRaw);
+  return e && !isDayOrFiner(e) ? 'end-not-a-day' : null;
+}
+
+export type RetimeResult =
+  | {
+      ok: true;
+      start: string;
+      /** The end to write, or null to leave the end field as it is. */
+      end: string | null;
+    }
+  | { ok: false; reason: RescheduleRefusal };
+
+/**
+ * Move a timed event so it shows `minutes` later (earlier when negative) on
+ * the viewer's wall clock, its end following (see the header).
+ */
+export function retimeByMinutes(
+  startRaw: string,
+  endRaw: string | null | undefined,
+  minutes: number,
+  opts: SpanOptions = {},
+): RetimeResult {
+  const refusal = retimeRefusal(startRaw, endRaw);
+  if (refusal) return { ok: false, reason: refusal };
+  if (!Number.isInteger(minutes) || minutes === 0) return { ok: false, reason: 'invalid' };
+  const p = parseDateValue(startRaw)!;
+  const from = shownAt(p, opts);
+  const start = from === null ? null : writeShownAt(startRaw, p, from + minutes * MINUTE_MS, opts);
+  if (start === null) return { ok: false, reason: 'out-of-range' };
+  const e = endRaw === null || endRaw === undefined ? null : parseDateValue(endRaw);
+  if (!e) return { ok: true, start, end: null };
+  let end: string | null;
+  if (isClockPrecision(e.precision)) {
+    const endFrom = shownAt(e, opts);
+    end = endFrom === null ? null : writeShownAt(endRaw!, e, endFrom + minutes * MINUTE_MS, opts);
+  } else {
+    // A day end moves by the days the start's written date moved.
+    end = shiftDateValue(endRaw!, dayIndex(parseDateValue(start)!) - dayIndex(p));
+  }
+  if (end === null) return { ok: false, reason: 'out-of-range' };
+  return { ok: true, start, end };
+}
+
+/** A written day's position on the civil axis, in days. */
+function dayIndex(p: ParsedDate): number {
+  const d = new Date(0);
+  d.setUTCFullYear(p.year, p.month! - 1, p.day);
+  return Math.round(d.getTime() / DAY_MS);
+}
+
+/** Can this event's end be resized? The refusal `resizeByMinutes` would give for any resize, or null. */
+export function resizeRefusal(startRaw: string): RescheduleRefusal | null {
+  return clockStartRefusal(parseDateValue(startRaw));
+}
+
+/**
+ * Move a timed event's end so it shows `minutes` later (earlier when
+ * negative) than it is drawn now — creating it, in the start's form, when
+ * there's no clock end (see the header). The start is never written.
+ */
+export function resizeByMinutes(
+  startRaw: string,
+  endRaw: string | null | undefined,
+  minutes: number,
+  opts: SpanOptions = {},
+): RetimeResult {
+  const refusal = resizeRefusal(startRaw);
+  if (refusal) return { ok: false, reason: refusal };
+  if (!Number.isInteger(minutes) || minutes === 0) return { ok: false, reason: 'invalid' };
+  const p = parseDateValue(startRaw)!;
+  const from = shownAt(p, opts);
+  if (from === null) return { ok: false, reason: 'out-of-range' };
+  const e = endRaw === null || endRaw === undefined ? null : parseDateValue(endRaw);
+  let end: string | null;
+  let endAt: number | null;
+  if (e && isClockPrecision(e.precision)) {
+    const drawn = shownAt(e, opts);
+    endAt = drawn === null ? null : drawn + minutes * MINUTE_MS;
+    end = endAt === null ? null : writeShownAt(endRaw!, e, endAt, opts);
+  } else {
+    // No clock end: the grid drew it DRAWN_END_MINUTES long, not past midnight.
+    const drawn = Math.min(from + DRAWN_END_MINUTES * MINUTE_MS, dayStart(from) + DAY_MS);
+    endAt = drawn + minutes * MINUTE_MS;
+    end = writeShownAt(startRaw, p, endAt, opts);
+  }
+  if (end === null || endAt === null) return { ok: false, reason: 'out-of-range' };
+  const written = shownAt(parseDateValue(end)!, opts);
+  if (written === null || written <= from) return { ok: false, reason: 'end-before-start' };
+  return { ok: true, start: startRaw.trim(), end };
 }

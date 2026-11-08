@@ -173,6 +173,7 @@
       onMoveColumn={(key, target, side) => view.onMoveColumn?.(key, target, side)}
       onReorderCard={(path, target, side) => view.onReorderCard?.(path, target, side)}
       onReschedule={(path, days) => view.onReschedule?.(path, days)}
+      onRetime={(path, minutes, kind) => view.onRetime?.(path, minutes, kind)}
       onExportHtml={(id, html) => { void onExportHtml(id, html); }}
       {hoverInstance}
       onViewClick={(path, mods) => view.onRowClick(new MouseEvent('click', { metaKey: mods.meta, ctrlKey: mods.ctrl, shiftKey: mods.shift }), path)}

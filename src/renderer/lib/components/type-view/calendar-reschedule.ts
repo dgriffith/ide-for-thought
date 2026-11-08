@@ -5,12 +5,19 @@
  * its undo and its announcement — naming the days the way the calendar did,
  * and Local History the plugin that asked.
  *
+ * By time (#2953): the Week and Day grids ask with `view.retime` (start and
+ * end by whole minutes) or `view.resize` (the end alone), and
+ * `retimeInView` runs the store's `retimeEvent` the same way, naming the
+ * landing time ("Wednesday, 7 October 2026, 10:00", or "at 11:30" for an
+ * end on the start's day).
+ *
  * The row menu's *Move to date…* (#2929) asks the plugin to let the user
  * choose the day; `moveToDateRefusal` is why it's disabled, the same sentence
  * the calendar speaks on a refused drag.
  */
-import { addDays } from '../../../../shared/objects/calendar-grid';
+import { addDays, dayStart } from '../../../../shared/objects/calendar-grid';
 import { startDayOf } from '../../../../shared/objects/date-shift';
+import { dateSpan } from '../../../../shared/objects/date-precision';
 import { dayName } from '../../../../shared/calendar/calendar-model';
 import { timelineProperties } from '../../../../shared/timeline/timeline-events';
 import type { PropertyDef, TypeInstanceRow } from '../../../../shared/objects/type-def';
@@ -43,4 +50,44 @@ export function moveToDateRefusal(
   view: { properties: readonly PropertyDef[]; dateBy: string | null },
 ): string | null {
   return refusalFor({ inst, title: inst.title }, timelineProperties(view.dateBy, view.properties));
+}
+
+/** Where a written value shows for the viewer: its day, "Wednesday, 7 October 2026, 10:00", and the time alone. */
+function whenOf(raw: string | null, locale?: string): { day: number; text: string; time: string } | null {
+  const span = raw === null ? null : dateSpan(raw);
+  if (!span) return null;
+  const day = dayStart(span.start);
+  const time = new Intl.DateTimeFormat(locale, { timeZone: 'UTC', hour: 'numeric', minute: '2-digit' }).format(new Date(span.start));
+  return { day, time, text: span.precision === 'day' ? dayName(day, locale) : `${dayName(day, locale)}, ${time}` };
+}
+
+/** Move `inst` by `minutes` on the viewer's clock, or (`resize`) its end alone, on the view's *Date by* (#2953). */
+export function retimeInView(
+  moves: ReturnType<typeof getKanbanMoveStore>,
+  inst: TypeInstanceRow,
+  view: { properties: readonly PropertyDef[]; dateBy: string | null; cause?: string | undefined; locale?: string | undefined },
+  minutes: number,
+  kind: 'move' | 'resize',
+): void {
+  if (!Number.isInteger(minutes) || minutes === 0) return;
+  const dates = timelineProperties(view.dateBy, view.properties);
+  const start = (inst.values[dates.dateProperty] ?? '').trim();
+  const end = dates.endProperty === null ? null : (inst.values[dates.endProperty] ?? '').trim() || null;
+  const at = (raw: string | null) => whenOf(raw, view.locale);
+  const startAt = at(start);
+  const to = (w: { start: string; end: string | null }): string => {
+    if (kind === 'move') return at(w.start)?.text ?? w.start;
+    const e = at(w.end);
+    if (!e) return w.end ?? '';
+    return e.day === at(w.start)?.day ? `at ${e.time}` : `on ${e.text}`;
+  };
+  const back = kind === 'move' ? startAt?.text ?? start : end === null ? 'no end' : at(end)?.text ?? end;
+  void moves.retimeEvent(
+    { path: inst.path, title: inst.title },
+    { start: dates.dateProperty, end: dates.endProperty },
+    minutes,
+    kind,
+    { to, back },
+    view.cause ? { cause: view.cause } : {},
+  );
 }

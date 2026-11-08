@@ -302,3 +302,59 @@ describe('reschedule (#2703)', () => {
     });
   });
 });
+
+describe('retime by minutes (#2953)', () => {
+  const STANDUP = '---\ntype: event\ndate: 2026-10-07T09:00\nend: 2026-10-07T09:30 # short\n---\n# Standup\n';
+  const CALL = '---\ntype: event\ndate: 2026-10-07T14:00\n---\n# Call\n';
+  const ev = (path: string, title: string) => ({ path, title });
+  const FIELDS = { start: 'date', end: 'end' };
+  const at = (w: { start: string; end: string | null }) => w.start.slice(11, 16);
+  const labels = { to: at, back: '9:00' };
+
+  it('moves start and end in ONE save, keeping comments; announces; ⌘Z puts it back', async () => {
+    const store = await freshStore();
+    h.disk.set('standup.md', STANDUP);
+    expect(await store.retimeEvent(ev('standup.md', 'Standup'), FIELDS, 75, 'move', labels)).toEqual({ ok: true, paths: ['standup.md'] });
+    expect(h.writeFile).toHaveBeenCalledOnce();
+    expect(h.disk.get('standup.md')).toBe(STANDUP.replace('T09:00', 'T10:15').replace('T09:30', 'T10:45'));
+    expect(h.announce).toHaveBeenCalledWith('Moved Standup to 10:15.');
+    expect(store.canUndoReschedule).toBe(true);
+    await store.undoLastMove('calendar');
+    expect(h.disk.get('standup.md')).toBe(STANDUP);
+  });
+
+  it('a resize writes only the end, and creates one never written', async () => {
+    const store = await freshStore();
+    h.disk.set('standup.md', STANDUP);
+    h.disk.set('call.md', CALL);
+    const endAt = { to: (w: { start: string; end: string | null }) => `at ${w.end!.slice(11, 16)}`, back: 'no end' };
+    await store.retimeEvent(ev('standup.md', 'Standup'), FIELDS, 15, 'resize', endAt);
+    expect(h.disk.get('standup.md')).toBe(STANDUP.replace('T09:30', 'T09:45'));
+    expect(h.announce).toHaveBeenLastCalledWith('Standup now ends at 09:45.');
+    await store.retimeEvent(ev('call.md', 'Call'), FIELDS, 30, 'resize', endAt);
+    expect(h.disk.get('call.md')).toBe('---\ntype: event\ndate: 2026-10-07T14:00\nend: 2026-10-07T15:00\n---\n# Call\n');
+    await store.undoLastMove('calendar');
+    expect(h.disk.get('call.md')).toBe(CALL);
+  });
+
+  it('refuses aloud: a start with no time, an end before the start, a view with no end field', async () => {
+    const store = await freshStore();
+    h.disk.set('day.md', '---\ndate: 2026-10-07\n---\n');
+    h.disk.set('standup.md', STANDUP);
+    expect(await store.retimeEvent(ev('day.md', 'Holiday'), FIELDS, 30, 'move', labels))
+      .toEqual({ ok: false, refusal: '2026-10-07 has no time to move; open it to edit.' });
+    expect(await store.retimeEvent(ev('standup.md', 'Standup'), FIELDS, -45, 'resize', labels))
+      .toEqual({ ok: false, refusal: 'Standup can’t end before it starts.' });
+    expect(await store.retimeEvent(ev('standup.md', 'Standup'), { start: 'date', end: null }, 15, 'resize', labels))
+      .toEqual({ ok: false, refusal: 'Standup has no end to change in this view.' });
+    expect(h.writeFile).not.toHaveBeenCalled();
+    expect(h.announce).toHaveBeenCalledTimes(3);
+  });
+
+  it('writes with the plugin\'s cause, for Local History', async () => {
+    const store = await freshStore();
+    h.disk.set('standup.md', STANDUP);
+    await store.retimeEvent(ev('standup.md', 'Standup'), FIELDS, 15, 'move', labels, { cause: 'Moved by Calendar' });
+    expect(h.writeFile).toHaveBeenCalledWith('standup.md', expect.any(String), { cause: 'Moved by Calendar' });
+  });
+});

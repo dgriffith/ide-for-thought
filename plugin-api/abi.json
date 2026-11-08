@@ -1,5 +1,5 @@
 {
-  "version": "1.13.0",
+  "version": "1.14.0",
   "errorCodes": [
     "bad-request",
     "busy",
@@ -692,6 +692,46 @@
         "members": [
           {
             "name": "days",
+            "optional": false,
+            "type": "number"
+          },
+          {
+            "name": "path",
+            "optional": false,
+            "type": "string"
+          }
+        ]
+      },
+      "result": {
+        "text": "Record<string, never>"
+      }
+    },
+    "view.resize": {
+      "capability": "notes:write-properties",
+      "params": {
+        "members": [
+          {
+            "name": "minutes",
+            "optional": false,
+            "type": "number"
+          },
+          {
+            "name": "path",
+            "optional": false,
+            "type": "string"
+          }
+        ]
+      },
+      "result": {
+        "text": "Record<string, never>"
+      }
+    },
+    "view.retime": {
+      "capability": "notes:write-properties",
+      "params": {
+        "members": [
+          {
+            "name": "minutes",
             "optional": false,
             "type": "number"
           },

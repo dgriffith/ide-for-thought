@@ -40,12 +40,13 @@
  * written.
  */
 import { DAY_MS } from '../time';
+import { DRAWN_END_MINUTES } from '../objects/date-shift';
 import { isClockPrecision, type CivilSpan } from '../objects/date-precision';
 import { packLanes } from '../objects/interval-lanes';
 import { dayStart, layoutMonth, rangeMeets, type CalendarItem, type GridWeek, type RowLayout } from '../objects/calendar-grid';
 
-/** How long an event with no drawable end is drawn, in minutes. */
-export const DEFAULT_TIMED_MINUTES = 30;
+/** How long an event with no drawable end is drawn, in minutes — the length a resize starts from (`date-shift.ts`). */
+export const DEFAULT_TIMED_MINUTES = DRAWN_END_MINUTES;
 /** The least a timed piece occupies when packing, in minutes. */
 export const MIN_TIMED_MINUTES = 15;
 
