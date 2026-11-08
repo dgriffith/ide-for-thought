@@ -1,3 +1,11 @@
+---
+id: electron-origin-model
+type: architecture-design
+status: draft
+title: The renderer's origin, and what trusts it
+parent: architecture
+---
+
 # The renderer's origin, and what trusts it
 
 Chromium makes most of its security decisions by **origin**: what a CSP

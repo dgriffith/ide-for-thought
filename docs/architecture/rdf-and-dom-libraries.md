@@ -1,3 +1,11 @@
+---
+id: adr-rdf-stacks
+type: architecture-design
+status: draft
+title: "ADR: RDF and DOM library stacks"
+parent: graph
+---
+
 # ADR: RDF and DOM library stacks
 
 **Status:** Accepted (2026-07). Consolidation evaluation for [#1013]; dual-store
