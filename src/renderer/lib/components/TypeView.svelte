@@ -5,8 +5,8 @@
    * typed notes rendered as a list, a table (declared properties as columns), a
    * gallery of cards keyed off a designated cover property, a map (#2066) or a
    * Kanban board grouped by an enum property (#2602), a timeline (#2608) or a month calendar (#2702). "Switch the view,
-   * same data": every projection reads the one `api.types.instances(typeId)`
-   * result, so toggling never re-queries the instance set.
+   * same data": every projection reads the one result its source loaded
+   * (#2943, `type-view/view-source.ts`), so toggling never re-queries it.
    *
    * Projection state (layout / sort / visible columns) is PROP-DRIVEN: it lives
    * on the tab (persisted across sessions) and is mutated via `onStateChange`,
@@ -46,6 +46,7 @@
   import { getCalendarSettings } from '../stores/settings-calendar.svelte';
   import { moveToDateRefusal } from './type-view/calendar-reschedule';
   import { calendarHost } from './type-view/calendar-host';
+  import { typeSource, type ViewSource } from './type-view/view-source';
   import { announce } from '../stores/announcer.svelte';
   import { moveTargets, sharedColumnValue, type MoveTarget } from '../../../shared/objects/kanban-move';
   import type { PropertyDef, TypeInfo, TypeInstanceRow } from '../../../shared/objects/type-def';
@@ -54,7 +55,9 @@
   type StatePatch = ViewStatePatch;
 
   interface Props {
-    typeId: string;
+    /** The type to show — or `source`, which wins (#2943): a schema and rows from anywhere. */
+    typeId?: string;
+    source?: ViewSource;
     layout: Layout;
     /** Sort key (property name, `__title`, or null) + direction — from the tab. */
     sortColumn: string | null;
@@ -115,55 +118,51 @@
      *  multi-select; a click just opens the note. */
     noteActions?: TypeViewNoteActions | undefined;
   }
-  let { typeId, layout, sortColumn, sortDir, columns, revision, onStateChange, onOpenNote, onSaveView, chromeless = false, onLoaded, mapExport, pluginExport, folder = null, filters = [], onClearFolder, mapStyle = 'auto', groupBy = null, columnOrder = [], showEmptyColumns = true, cardOrder = [], exportMode = false, from = null, to = null, month = null, mode = null, date = null, dateBy = null, noteActions }: Props = $props();
+  let { typeId: typeIdProp = '', source, layout, sortColumn, sortDir, columns, revision, onStateChange, onOpenNote, onSaveView, chromeless = false, onLoaded, mapExport, pluginExport, folder = null, filters = [], onClearFolder, mapStyle = 'auto', groupBy = null, columnOrder = [], showEmptyColumns = true, cardOrder = [], exportMode = false, from = null, to = null, month = null, mode = null, date = null, dateBy = null, noteActions }: Props = $props();
 
+  const src = $derived(source ?? typeSource(typeIdProp));
+  /** The type behind the view, or null (#2943): only a type source has the Type filter, subtypes, moves and Save. */
+  const typeId = $derived(src.typeId);
   let type = $state<TypeInfo | null>(null);
   let instances = $state<TypeInstanceRow[]>([]);
   let loading = $state(true);
+  let loadedKey: string | null = null;
   let columnsMenuOpen = $state(false);
 
-  async function load(): Promise<void> {
-    loading = untrack(() => type?.id !== typeId); // a refresh keeps the view (and a board's focus) up
-    // A Type filter (#2716) is matched against the catalog — an export must not snapshot before it's known.
-    if (!objectTypesStore.loaded && untrack(() => filters.some(isTypeFilter))) await objectTypesStore.refresh();
-    const result = await api.types.instances(typeId);
-    type = result.type;
-    instances = result.instances;
+  async function load(from: ViewSource): Promise<void> {
+    loading = loadedKey !== from.key; // a refresh keeps the view (and a board's focus) up
+    const result = await from.load({ needCatalog: untrack(() => filters.some(isTypeFilter)) });
+    type = result.schema;
+    instances = result.rows;
+    loadedKey = from.key;
     loading = false;
     if (onLoaded) { await tick(); onLoaded(); }
   }
-  // Re-project when the type changes or the graph is rewritten.
+  // Re-project when the source changes or the graph is rewritten.
   const moves = getKanbanMoveStore(); // a card move (#2603) re-projects too
-  $effect(() => { typeId; revision; moves.revision; void load(); });
+  $effect(() => { const from = src; revision; moves.revision; void untrack(() => load(from)); });
 
-  // Effective (inherited + own) properties, not just `type.properties` —
-  // otherwise a subtype relying on an ancestor's property (e.g. a `geo`
-  // location inherited from Place) loses that column entirely, and with it
-  // the Map layout option below, which is gated on a geo property existing
-  // at all. The freshly-loaded `type` is spread in last (after the store's
-  // catalog) so the current type is always present and authoritative for
-  // the chain walk even if the store's own copy is stale or hasn't loaded
-  // yet — the store is only needed here to resolve ANCESTOR ids.
-  const allColumns = $derived<PropertyDef[]>(
-    type
-      ? effectivePropertyDefs(
-          type.id,
-          new Map<string, TypeInfo>([...objectTypesStore.types.map((t) => [t.id, t] as const), [type.id, type]]),
-        )
-      : [],
-  );
+  // Effective (inherited + own) properties, not just `type.properties`: a subtype relying on an
+  // ancestor's (a `geo` inherited from Place) would lose the column, and the Map layout with it.
+  // The loaded `type` goes in last so it's authoritative even when the store's copy is stale; the
+  // store only resolves ANCESTOR ids.
+  const allColumns = $derived<PropertyDef[]>(type
+    ? effectivePropertyDefs(type.id, new Map<string, TypeInfo>([...objectTypesStore.types.map((t) => [t.id, t] as const), [type.id, type]]))
+    : []);
   // A `timeline` (#2607, #2715) or `calendar` (#2701) spec for a type with no
   // date property reads back as the default layout; kept as written until the type loads.
   const catalog = $derived(type ? [...objectTypesStore.types, type] : null);
-  const timelineSpec = $derived(timelineSpecForType({ layout, from, to, dateBy }, typeId, catalog));
-  const calendarSpec = $derived(calendarSpecForType({ layout: timelineSpec.layout, month, mode, date, dateBy }, typeId, catalog));
+  // Specs and layouts are judged by the schema's own id: a type's, or a source's synthetic one (#2943).
+  const schemaId = $derived(typeId ?? type?.id ?? '');
+  const timelineSpec = $derived(timelineSpecForType({ layout, from, to, dateBy }, schemaId, catalog));
+  const calendarSpec = $derived(calendarSpecForType({ layout: timelineSpec.layout, month, mode, date, dateBy }, schemaId, catalog));
   // A layout a built-in plugin draws shows the table while the plugin is off
   // (#2828); the view keeps its layout, so turning the plugin on brings it back.
   const wanted = $derived<Layout>(calendarSpec.layout);
   const offPlugin = $derived(layoutAvailable(wanted, (id) => codePluginsStore.isOn(id)) ? null : layoutPlugin(wanted));
   const shown = $derived<Layout>(offPlugin ? DEFAULT_VIEW_LAYOUT : wanted);
   // The layouts this type can show, from the registry (#2623).
-  const available = $derived(layoutsFor({ typeId, properties: allColumns, catalog: catalog ?? objectTypesStore.types, pluginOn: (id) => codePluginsStore.isOn(id) }));
+  const available = $derived(layoutsFor({ typeId: schemaId, properties: allColumns, catalog: catalog ?? objectTypesStore.types, pluginOn: (id) => codePluginsStore.isOn(id) }));
   // Visible columns (table): null on the tab means "all". Order follows the
   // type's declared order regardless of the saved set.
   const visibleColumns = $derived<PropertyDef[]>(
@@ -210,10 +209,10 @@
   const propertyTypes = $derived(Object.fromEntries(allColumns.map((c) => [c.name, c.type])));
   // The Type filter (#2716, `view-spec.ts`): the catalog and each note's own
   // type once the store has them; stale ids dropped, choices counted in scope.
-  const typeLookup = $derived<TypeLookup | null>(catalog && objectTypesStore.loaded
+  const typeLookup = $derived<TypeLookup | null>(typeId !== null && catalog && objectTypesStore.loaded
     ? { byId: new Map(catalog.map((t) => [t.id, t] as const)), typeOf: (p) => objectTypesStore.typeForNote(p)?.id } : null);
-  const viewFilters = $derived(resolveTypeFilter(filters, typeId, typeLookup?.byId ?? null));
-  const subtypes = $derived(typeLookup && catalog && !chromeless
+  const viewFilters = $derived(resolveTypeFilter(filters, schemaId, typeLookup?.byId ?? null));
+  const subtypes = $derived(typeId !== null && typeLookup && catalog && !chromeless
     ? subtypeChoices(typeId, catalog, applyViewSpec(instances, { folder, filters: viewFilters.filter((f) => !isTypeFilter(f)) }, propertyTypes), typeLookup.typeOf) : []);
   const scoped = $derived<TypeInstanceRow[]>(applyViewSpec(instances, { folder, filters: viewFilters }, propertyTypes, typeLookup));
 
@@ -257,6 +256,7 @@
    */
   async function copyAsMarkdown(): Promise<void> {
     // A `groupBy` the type no longer has as an enum is dropped, not copied.
+    if (typeId === null) return; // a source's embed is #2945's
     const md = buildViewEmbed({ typeId, ...timelineSpec, ...calendarSpec, sortColumn, sortDir, columns, folder, filters: viewFilters, mapStyle, groupBy: groupByForSpec(groupBy, type ? allColumns : null), columnOrder, showEmptyColumns, cardOrder });
     try {
       await navigator.clipboard.writeText(md);
@@ -357,7 +357,8 @@
   }
   // A calendar's moves are its own surface: ⌘Z there undoes the calendar's last move, never a board's.
   const onCalendar = $derived(layoutDef(shown).moves === 'calendar');
-  const movesHere = $derived(onCalendar ? !chromeless && !exportMode : selectable);
+  // Moves write a note's own fields, so only a type source offers them in this epic (#2943).
+  const movesHere = $derived(typeId !== null && (onCalendar ? !chromeless && !exportMode : selectable));
   const calendarSettings = getCalendarSettings();
   // The calendar plugin's moves and new events, Minerva's half (#2829, #2953, #2954).
   const calendar = calendarHost(moves, () => ({
@@ -432,7 +433,7 @@
     get pluginExport() { return pluginExport; },
     get group() { return groupProp; },
     get board() { return board; },
-    get onMoveCard() { return selectable ? (p: string, t: MoveTarget) => moveTo([p], t) : undefined; },
+    get onMoveCard() { return selectable && typeId !== null ? (p: string, t: MoveTarget) => moveTo([p], t) : undefined; },
     get onUndoMove() { return movesHere ? () => void moves.undoLastMove(onCalendar ? 'calendar' : 'board', moveCause ? { cause: moveCause } : {}) : undefined; },
     get canUndoMove() { return onCalendar ? moves.canUndoReschedule : moves.canUndo; },
     get onReschedule() { return onCalendar && movesHere ? calendar.reschedule : undefined; },
@@ -458,12 +459,12 @@
   {#if !chromeless}
     <header class="tv-header">
       <span class="tv-icon" style={type?.color ? `color:${type.color}` : undefined}>{type?.icon ?? '◆'}</span>
-      <h1 class="tv-title">{type?.label ?? typeId}</h1>
+      <h1 class="tv-title">{type?.label ?? typeId ?? ''}</h1>
       <span class="tv-count">{scoped.length === instances.length ? scoped.length : `${scoped.length} of ${instances.length}`}</span>
       {#if folder && onClearFolder}
         <span class="tv-chip" title="Only notes under {folder}">
           in {folder}
-          <button type="button" class="tv-chip-x" aria-label="Show {type?.label ?? typeId} from the whole thoughtbase" onclick={onClearFolder}>✕</button>
+          <button type="button" class="tv-chip-x" aria-label="Show {type?.label ?? typeId ?? ''} from the whole thoughtbase" onclick={onClearFolder}>✕</button>
         </span>
       {/if}
       <TypeViewFilters properties={allColumns} instances={inFolderOnly} filters={viewFilters} {subtypes} {display} onChange={(next) => onStateChange({ filters: next })} />
@@ -490,11 +491,11 @@
           </div>
         {/if}
         <TypeViewLayoutSwitch layout={shown} layouts={available} properties={allColumns} {groupBy} dateBy={timelineSpec.dateBy} {showEmptyColumns} {onStateChange}>
-          <button class="tv-btn" onclick={copyAsMarkdown}>{markdownCopied ? 'Copied' : 'Copy as markdown'}</button>
+          {#if typeId !== null}<button class="tv-btn" onclick={copyAsMarkdown}>{markdownCopied ? 'Copied' : 'Copy as markdown'}</button>{/if}
           {#if layoutDef(shown).exportsCsv}
             <button class="tv-btn" onclick={exportCsv} title="Save the notes this view shows, with their properties, as a CSV file">Export CSV</button>
           {/if}
-          {#if onSaveView}
+          {#if onSaveView && typeId !== null}
             <button class="tv-btn" onclick={handleSaveViewClick} title="Save this view as a note, with the view embedded live">{viewSaved ? 'Saved' : 'Save as note'}</button>
           {/if}
         </TypeViewLayoutSwitch>
