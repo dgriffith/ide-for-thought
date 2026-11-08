@@ -10,7 +10,7 @@
  * took longer than 5s, so the probe fell back and this test read `legacy`. What's
  * under test is the modern path, not how fast the runner is.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { it, expect, beforeEach, afterEach } from 'vitest';
 import { StdioTransport } from '../../../src/main/mcp-client/stdio-transport';
 import { _setEraProbeTimeoutMsForTests } from '../../../src/main/mcp-client/era';
 import { skipIfNoMcpFixture, MCP_MODERN_FIXTURE_PACKAGE } from '../../helpers/mcp-fixture';

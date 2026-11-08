@@ -4,7 +4,7 @@
  * transport actually works end-to-end, not just against mocks: real era
  * detection, a real tool list, and a real tool call.
  */
-import { describe, it, expect } from 'vitest';
+import { it, expect } from 'vitest';
 import { StdioTransport } from '../../../src/main/mcp-client/stdio-transport';
 import { skipIfNoMcpFixture, MCP_FIXTURE_PACKAGE } from '../../helpers/mcp-fixture';
 
