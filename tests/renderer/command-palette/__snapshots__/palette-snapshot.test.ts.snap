@@ -72,6 +72,7 @@ research.importZoteroRdf | Import Zotero RDF… | Research | - | enabled
 research.bibliography | Insert/Update Bibliography | Research | - | enabled
 query.new | New Query | Query | ⌘ ⇧ Q | enabled
 query.editSaved | Edit Saved Queries… | Query | - | enabled
+query.openSavedAsView | Open Saved Query as View… | Query | - | enabled
 app.settings | Settings… | App | ⌘ , | enabled"
 `;
 
@@ -133,5 +134,6 @@ research.importZoteroRdf | Import Zotero RDF… | Research | - | disabled
 research.bibliography | Insert/Update Bibliography | Research | - | disabled
 query.new | New Query | Query | ⌘ ⇧ Q | disabled
 query.editSaved | Edit Saved Queries… | Query | - | disabled
+query.openSavedAsView | Open Saved Query as View… | Query | - | disabled
 app.settings | Settings… | App | ⌘ , | enabled"
 `;

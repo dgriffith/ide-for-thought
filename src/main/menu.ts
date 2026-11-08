@@ -655,6 +655,7 @@ function buildQueryMenu(gate: Gate): Electron.MenuItemConstructorOptions {
             items.push(...renderScope(populated[0]?.queries ?? []));
           }
           items.push({ type: 'separator' });
+          items.push(command('query.openSavedAsView', gate));
           items.push(command('query.editSaved', gate));
           return items;
         })(),

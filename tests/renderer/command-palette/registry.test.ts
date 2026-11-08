@@ -45,7 +45,7 @@ describe('buildCommandRegistry', () => {
       'refactor.decompose', 'refactor.format', 'research.ingestUrl',
       'research.ingestIdentifier', 'research.ingestFile', 'research.ingestBulk', 'research.importBibtex',
       'research.importZoteroRdf', 'research.bibliography', 'query.new',
-      'query.editSaved', 'app.settings',
+      'query.editSaved', 'query.openSavedAsView', 'app.settings',
     ]);
   });
 

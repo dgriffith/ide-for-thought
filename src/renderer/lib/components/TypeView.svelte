@@ -19,6 +19,7 @@
   import { api } from '../ipc/client';
   import TypeViewLayoutSwitch from './TypeViewLayoutSwitch.svelte';
   import TypeViewFilters from './TypeViewFilters.svelte';
+  import TypeViewQuerySource from './TypeViewQuerySource.svelte';
   import { selectionSetProperties, selectionTags, type TypeViewNoteActions } from './type-view/note-actions';
   import { notePathForIri } from '../../../shared/objects/note-iri';
   import { getNotebaseStore } from '../stores/notebase.svelte';
@@ -458,6 +459,7 @@
     <header class="tv-header">
       <span class="tv-icon" style={type?.color ? `color:${type.color}` : undefined}>{type?.icon ?? '◆'}</span>
       <h1 class="tv-title">{type?.label ?? typeId ?? ''}</h1>
+      {#if src.query}<TypeViewQuerySource spec={src.query} />{/if}
       <span class="tv-count">{scoped.length === instances.length ? scoped.length : `${scoped.length} of ${instances.length}`}</span>
       {#if folder && onClearFolder}
         <span class="tv-chip" title="Only notes under {folder}">

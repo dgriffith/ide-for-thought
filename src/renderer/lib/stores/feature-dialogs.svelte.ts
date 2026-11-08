@@ -67,6 +67,8 @@ let settingsTab = $state<SettingsTab>(undefined);
 let onboarding = $state(false);
 let thoughtbaseProperties = $state(false);
 let editSavedQueries = $state(false);
+/** The saved-query picker that opens one as a view (#2948). */
+let savedQueryView = $state(false);
 let about = $state(false);
 let shortcuts = $state(false);
 let gotoLine = $state(false);
@@ -98,6 +100,8 @@ export function getFeatureDialogStore() {
 
     get editSavedQueries() { return editSavedQueries; },
     setEditSavedQueries(open: boolean) { editSavedQueries = open; },
+    get savedQueryView() { return savedQueryView; },
+    setSavedQueryView(open: boolean) { savedQueryView = open; },
 
     get about() { return about; },
     setAbout(open: boolean) { about = open; },

@@ -82,6 +82,8 @@
     onFileSelect: (path: string) => void;
     onOpenSource: (id: string) => void;
     onOpenQuery: (query: string, language: 'sparql' | 'sql') => void;
+    /** Open a saved query as a view (#2948). */
+    onOpenQueryView: (query: SavedQuery) => void;
     /** Jump the focused editor to a position; App owns the editor instance and
      *  the navigation-history record that goes with the jump. */
     onGotoLine: (line: number, column: number) => void;
@@ -149,6 +151,16 @@
     onSelectSource={(id) => { featureDialogs.setGotoNote(false); ops.onOpenSource(id); }}
     onSelectQuery={(q) => { featureDialogs.setGotoNote(false); ops.onOpenQuery(q.query, q.language ?? 'sparql'); }}
     onCancel={() => { featureDialogs.setGotoNote(false); }}
+  />
+{/if}
+{#if featureDialogs.savedQueryView}
+  <GotoNoteDialog
+    files={[]}
+    {savedQueries}
+    placeholder="Open a saved query as a view…"
+    onSelect={() => {}}
+    onSelectQuery={(q) => { featureDialogs.setSavedQueryView(false); ops.onOpenQueryView(q); }}
+    onCancel={() => { featureDialogs.setSavedQueryView(false); }}
   />
 {/if}
 {#if featureDialogs.mergePickerSource}

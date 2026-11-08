@@ -60,6 +60,11 @@
   // omit `language:` (it's the directive default); SQL tabs include it so
   // Preview.svelte's query-block executor routes them through DuckDB.
 
+  /** Open the query that produced these results as a query view tab (#2948). */
+  function openAsView(): void {
+    editorStore.openQueryView({ kind: 'query', query: tab.query, language: tab.language });
+  }
+
   function copyAsList(): void {
     const header = tab.language === 'sql' ? 'language: sql\n---\n' : '';
     const block = `:::query-list\n${header}${tab.query.trim()}\n:::`;
@@ -448,6 +453,12 @@
             class="export-btn"
             onclick={() => api.export.csv(toCsv(tab.columns, tab.results!))}
           >Export CSV</button>
+          <!-- A live view of this query (#2948): every layout, refreshing as notes change. -->
+          <button
+            class="export-btn"
+            onclick={openAsView}
+            title="Open this query as a view — a table, list, board, map, timeline or calendar of the notes it names"
+          >Open as view</button>
         </div>
       </div>
     {/if}
