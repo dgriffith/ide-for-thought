@@ -143,6 +143,13 @@ describe('e2e launch hygiene (#1928)', () => {
       const env = minervaEnv(home, { MINERVA_E2E: '1' });
       expect(env.HOME).toBe(home);
       expect(env.HOME).not.toBe(os.homedir());
+      // Windows' home folder is USERPROFILE (#3023) — except in CLI mode on
+      // Windows, where redirecting it crashes the packaged binary.
+      expect(env.USERPROFILE).toBe(home);
+      const cli = minervaEnv(home, {}, { cliMode: true });
+      expect(cli.HOME).toBe(home);
+      if (process.platform === 'win32') expect(cli.USERPROFILE).not.toBe(home);
+      else expect(cli.USERPROFILE).toBe(home);
       expect(env.MINERVA_E2E).toBe('1');
     } finally {
       fs.rmSync(profile, { recursive: true, force: true });

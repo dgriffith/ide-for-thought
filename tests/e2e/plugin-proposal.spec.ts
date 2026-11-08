@@ -56,8 +56,10 @@ test('a drafted plugin is a proposal: reviewed, then installed only when approve
 
     await test.step('approving installs it, recorded as a draft', async () => {
       await panel.getByRole('button', { name: 'Approve (y)', exact: true }).click();
-      await expect.poll(() => fs.existsSync(path.join(installed, 'plugin.json')), { timeout: 10_000 }).toBe(true);
-      expect(fs.readFileSync(path.join(installed, 'skills', 'w.md'), 'utf8')).toBe(SKILL);
+      // The skill's contents, not just the manifest's existence: the install
+      // writes files one by one (the race #2182 and #3023 found elsewhere).
+      const skill = path.join(installed, 'skills', 'w.md');
+      await expect.poll(() => (fs.existsSync(skill) ? fs.readFileSync(skill, 'utf8') : null), { timeout: 10_000 }).toBe(SKILL);
       const records = JSON.parse(fs.readFileSync(path.join(isolatedHome(userDataDir), '.minerva', 'plugins.json'), 'utf8'));
       expect(records.plugins['weekly-lab']).toMatchObject({ enabled: true, source: { kind: 'draft' } });
       await expect(card).toHaveCount(0);

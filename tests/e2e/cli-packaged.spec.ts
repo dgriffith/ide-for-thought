@@ -34,6 +34,7 @@ import { spawn, spawnSync, type SpawnSyncReturns } from 'node:child_process';
 import path from 'node:path';
 import fs from 'node:fs';
 import { makeTempDir, minervaEnv, packagedApp } from './helpers/launch';
+import { killTree } from './helpers/kill-tree';
 
 let app: ReturnType<typeof packagedApp>;
 let project: string;
@@ -63,7 +64,7 @@ test.afterAll(() => {
 function minerva(args: string[], input?: string): SpawnSyncReturns<string> {
   return spawnSync(binary(), ['--minerva-cli', '--', ...args], {
     cwd: elsewhere,
-    env: minervaEnv(home),
+    env: minervaEnv(home, {}, { cliMode: true }),
     encoding: 'utf-8',
     input,
     timeout: 45_000,
@@ -94,7 +95,7 @@ function runBounded(cmd: string, args: string[], opts: { cwd: string; env: NodeJ
     let stderr = '';
     child.stdout.on('data', (d: Buffer) => { stdout += d.toString(); });
     child.stderr.on('data', (d: Buffer) => { stderr += d.toString(); });
-    const killGroup = () => { try { process.kill(-child.pid!, 'SIGKILL'); } catch { /* already gone */ } };
+    const killGroup = () => killTree(child.pid);
     const timer = setTimeout(killGroup, ms);
     child.on('exit', (status, signal) => {
       clearTimeout(timer);
@@ -134,6 +135,9 @@ test('packaged CLI: query and sql still work', async () => {
 
 test('packaged CLI: mcp answers tools/list and a semantic_search call', async () => {
   test.skip(app === null, 'packaged app not built — run `pnpm build:e2e` first');
+  // A known gap, not a pass: on Windows the packaged binary in CLI mode gets
+  // no piped stdin, so `mcp` answers nothing (#3026). Remove with the fix.
+  test.fixme(process.platform === 'win32', 'Windows CLI mode receives no piped stdin (#3026)');
   const lines = [
     { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', clientInfo: { name: 'e2e' } } },
     { jsonrpc: '2.0', method: 'notifications/initialized' },
@@ -144,10 +148,14 @@ test('packaged CLI: mcp answers tools/list and a semantic_search call', async ()
   expect(r.status, describeRun(r)).toBe(0);
 
   const byId = new Map<number, { result?: { tools?: unknown[]; isError?: boolean; content?: { text: string }[] } }>();
-  for (const line of r.stdout.split('\n').filter(Boolean)) {
-    const msg = JSON.parse(line) as { id: number };
+  // Whitespace-only lines are skipped (Windows' stdout carried one, #3023);
+  // any other line must be JSON-RPC — stdout is the protocol channel.
+  for (const line of r.stdout.split(/\r?\n/).filter((l) => l.trim() !== '')) {
+    let msg: { id: number };
+    try { msg = JSON.parse(line) as { id: number }; } catch { throw new Error(`a non-JSON line on the protocol channel: ${JSON.stringify(line)}\n${describeRun(r)}`); }
     byId.set(msg.id, msg);
   }
+  expect([...byId.keys()].sort(), `every request answered\n${describeRun(r)}`).toEqual([1, 2, 3]);
   expect(byId.get(2)?.result?.tools?.length, describeRun(r)).toBeGreaterThan(0);
   const call = byId.get(3)?.result;
   expect(call?.isError, `semantic_search failed over MCP: ${call?.content?.[0]?.text}`).not.toBe(true);
@@ -156,7 +164,7 @@ test('packaged CLI: mcp answers tools/list and a semantic_search call', async ()
 test('packaged CLI: a shim installed before #2565 (ELECTRON_RUN_AS_NODE) still works', async () => {
   test.skip(app === null, 'packaged app not built — run `pnpm build:e2e` first');
   const r = spawnSync(binary(), [cliJs(), 'sql', 'SELECT 1 + 1 AS two', '--project', project], {
-    cwd: elsewhere, env: minervaEnv(home, { ELECTRON_RUN_AS_NODE: '1' }), encoding: 'utf-8', timeout: 45_000,
+    cwd: elsewhere, env: minervaEnv(home, { ELECTRON_RUN_AS_NODE: '1' }, { cliMode: true }), encoding: 'utf-8', timeout: 45_000,
   });
   expect(r.status, describeRun(r)).toBe(0);
   expect(r.stdout).toContain('"two"');
@@ -169,7 +177,7 @@ test('packaged binary: ELECTRON_RUN_AS_NODE no longer runs arbitrary JS (RunAsNo
   const r = await runBounded(
     binary(),
     ['-e', `require('fs').writeFileSync(${JSON.stringify(canary)}, 'ran')`],
-    { cwd: elsewhere, env: minervaEnv(home, { ELECTRON_RUN_AS_NODE: '1' }) },
+    { cwd: elsewhere, env: minervaEnv(home, { ELECTRON_RUN_AS_NODE: '1' }, { cliMode: true }) },
     8_000,
   );
   // With the fuse off the binary starts as the app (and is killed by the

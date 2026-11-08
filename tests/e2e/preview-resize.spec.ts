@@ -72,10 +72,12 @@ test('preview resize handles write the size into the note, undoably (#2666)', as
     await test.step('drag the image corner wider', async () => {
       await preview.locator('.resizable-image').hover();
       await changingPreview(win, preview, async () => {
-        await dragHandle(win, preview.locator('.resizable-image [data-resize-handle]'), 80, 0);
-        await expect(source).toContainText('![shot|280](pic.png)');
+        // +40, not more: the image is capped at the preview column's width,
+        // which Windows' non-overlay scrollbars leave at ~275px on CI (#3023).
+        await dragHandle(win, preview.locator('.resizable-image [data-resize-handle]'), 40, 0);
+        await expect(source).toContainText('![shot|240](pic.png)');
       });
-      await expect(preview.locator('img.local-image')).toHaveAttribute('width', '280');
+      await expect(preview.locator('img.local-image')).toHaveAttribute('width', '240');
     });
 
     await test.step('⌘Z in the editor takes the resize back', async () => {

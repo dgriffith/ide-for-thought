@@ -343,6 +343,10 @@ export function installEmbedResize(root: HTMLElement, ops: EmbedResizeOps): () =
       window.removeEventListener('pointerup', onEnd);
       window.removeEventListener('pointercancel', onEnd);
       try { handle.releasePointerCapture(u.pointerId); } catch { /* not captured */ }
+      // The release is where the drag ends: Chromium coalesces pointer moves,
+      // and the last one before it may never arrive (on Windows a drag stopped
+      // 5px short, #3023). A cancel keeps whatever was last applied.
+      if (u.type === 'pointerup') onMove(u);
       const frame = live();
       frame.classList.remove('resizing');
       if (u.type === 'pointercancel' || Math.round(px) === Math.round(start)) return;
