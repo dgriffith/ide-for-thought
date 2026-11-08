@@ -150,6 +150,20 @@ describe('calendar layout (#2701, #2702)', () => {
     expect(onStateChange).toHaveBeenLastCalledWith({ mode: null, month: '2026-09' });
   });
 
+  it('embedded in a note, a saved day or week draws that view, read-only, and writes nothing back (#2955)', async () => {
+    h.instances.mockResolvedValue({ type: JOURNAL, instances: ENTRIES });
+    const onStateChange = vi.fn();
+    const { container } = render(TypeView, props({ typeId: 'journal', layout: 'calendar', mode: 'day', date: '2026-10-01', chromeless: true, onStateChange }));
+    await waitFor(() => expect(container.querySelector('[role="grid"][data-week-start]')).toBeTruthy());
+    expect(h.loop.views.at(-1)).toMatchObject({ readOnly: true, movable: false, spec: { mode: 'day', date: '2026-10-01' } });
+    expect(container.querySelector('.wk')!.style.getPropertyValue('--cols')).toBe('1');
+    expect(drawn(container)).toEqual(['j2.md']);
+    expect(container.querySelector('[data-resize-handle]')).toBeNull();
+    await fireEvent.click(screen.getByRole('button', { name: 'Next day' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Week' }));
+    expect(onStateChange).not.toHaveBeenCalled();
+  });
+
   it('a mode or date the plugin sent malformed reads as the month grid and today (#2950)', async () => {
     h.instances.mockResolvedValue({ type: JOURNAL, instances: ENTRIES });
     render(TypeView, props({ typeId: 'journal', layout: 'calendar', month: '2026-10', mode: 'month', date: '6 Oct' }));
