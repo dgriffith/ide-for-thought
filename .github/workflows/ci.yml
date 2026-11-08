@@ -1083,8 +1083,9 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Warm the npx cache
         run: npx -y @modelcontextprotocol/server-everything@1.0.0 --help || true
-      - name: Probe
-        run: node scripts/probe/npx-probe.cjs @modelcontextprotocol/server-everything@1.0.0
+      - name: Probe the real transport, env vs. no env
+        run: pnpm exec vite-node scripts/probe/transport-probe.ts @modelcontextprotocol/server-everything@1.0.0
+        timeout-minutes: 5
 
   # Early warning for an x64 (Intel) macOS build — #2387, ahead of #962.
   #
