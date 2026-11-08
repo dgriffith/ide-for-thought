@@ -793,7 +793,9 @@ jobs:
           command -v minerva
           tb="$(mktemp -d)"
           printf '# Hello\n' > "$tb/hello.md"
-          out="$(xvfb-run --auto-servernum minerva --minerva-cli -- sql 'SELECT 6 * 7 AS answer' --project "$tb")"
+          # `minerva sql`, as a user types it: the binary on PATH runs the CLI
+          # for a command word, no flag (#1440).
+          out="$(xvfb-run --auto-servernum minerva sql 'SELECT 6 * 7 AS answer' --project "$tb")"
           echo "$out"
           grep -q 42 <<<"$out" || { echo "::error::the installed minerva didn't answer a SQL query"; exit 1; }
 

@@ -8,7 +8,8 @@ description: Use the Minerva command-line interface: build and run it, query the
 
     <h2 id="build">Getting the command</h2>
     <p>If you installed Minerva from the download on a Mac, choose <b>Help → Install ‘minerva’ Command in PATH…</b> in the app. That writes a <code>minerva</code> launcher to <code>~/.local/bin</code> — the app runs its own bundled Node, so there's nothing else to install. If <code>~/.local/bin</code> isn't on your <code>PATH</code>, the dialog shows how to add it, and gives the full path to use for MCP clients.</p>
-    <p>The menu item is macOS-only for now. On other platforms, or working from the source tree, build and link it:</p>
+    <p>If you installed the <code>.deb</code> or <code>.rpm</code> on Linux, there's nothing to do: the package already puts <code>minerva</code> on your <code>PATH</code>. On its own it opens the app; followed by a command, as in <code>minerva sql …</code>, it runs that command and prints the result, without opening a window.</p>
+    <p>On Windows, or working from the source tree, build and link it:</p>
     <pre><code>pnpm cli:build        # builds .vite/build/cli.js
 pnpm link --global    # exposes it globally as `minerva`</code></pre>
     <p>Either way, <code>minerva</code> then works anywhere. Point any command at a thoughtbase with <code>--project &lt;path&gt;</code> — it defaults to the current directory.</p>
