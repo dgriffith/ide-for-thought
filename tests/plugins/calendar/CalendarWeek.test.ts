@@ -321,6 +321,21 @@ describe('keyboard (#2951)', () => {
     await waitFor(() => expect(document.activeElement).toBe(c));
   });
 
+  it('a refresh (a new view, same page) leaves a day\'s list open, in Month and in Week', async () => {
+    // Every write re-projects the view: new objects, same week. Only a page turn closes the list.
+    for (const mode of ['week', null] as const) {
+      const s = setup({ mode });
+      const c = mode ? s.cell(TODAY, 18) : s.q(`[role="gridcell"][data-day="${TODAY}"]`)!;
+      c.focus();
+      await fireEvent.keyDown(c, { key: 'Enter' });
+      await screen.findByRole('dialog');
+      await s.rerender({ instances: [...EVENTS, row('new.md', 'Unrelated', null)] });
+      await tick();
+      expect(screen.queryByRole('dialog')).not.toBeNull();
+      cleanup();
+    }
+  });
+
   it('Shift+F10 on an event asks for Minerva\'s note menu', async () => {
     const s = setup({ rowMenu: true });
     const review = s.ev('review.md')[0]!;

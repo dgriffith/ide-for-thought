@@ -181,6 +181,7 @@
   const page = $derived<CalendarMonth>(mode === 'week' ? monthOf(anchor) : override ?? parseMonthAnchor(monthProp) ?? monthOf(today));
   const pageKey = (m: CalendarMonth) => m.year * 12 + m.month;
   const pageNumber = $derived(pageKey(page)); // a turn, not a re-derived object
+  const weekStart = $derived(weekPage.start); // likewise: a refresh rebuilds `weekPage`, not its start
 
   function goTo(m: CalendarMonth, opts: { current?: boolean } = {}): void {
     override = m;
@@ -337,7 +338,7 @@
     else void tick().then(() => grid?.querySelector<HTMLElement>(`[data-day="${day}"]`)?.focus());
   }
   // A page turn closes it — a turn, not a refresh re-deriving the same page.
-  $effect(() => { void pageNumber; void weekPage.start; untrack(() => { if (listDay !== null) closeList(false); }); });
+  $effect(() => { void pageNumber; void weekStart; untrack(() => { if (listDay !== null) closeList(false); }); });
 
   // ── Hover preview ─────────────────────────────────────────────────────
   // The app's (`hover.svelte.ts`): the dates head it, so the Date by property
