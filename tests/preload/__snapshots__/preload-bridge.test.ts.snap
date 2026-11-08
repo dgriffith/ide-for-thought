@@ -316,6 +316,9 @@ exports[`preload contextBridge contract (#676) > matches the full method surface
     "setGroup",
     "setOrder",
   ],
+  "queryViews": [
+    "rows",
+  ],
   "refactor": [
     "applySuggestedLink",
     "autoLinkApply",

@@ -26,6 +26,7 @@
  * so a wrong param/return type fails `tsc` instead of silently
  * corrupting renderer state.
  */
+import type { QueryLanguage, QueryRowsOptions, QueryRowsResult } from './views/query-view';
 import type { LiveBlockRequest, LiveBlockResult } from './live-blocks';
 import type {
   NotebaseMeta,
@@ -327,6 +328,8 @@ export interface ChannelMap {
   'tables:queryNote': (sql: string) =>
     | { ok: true; columns: string[]; rows: Record<string, unknown>[] }
     | { ok: false; error: string };
+  /** A query view's rows (#2944): a malformed query is the `ok: false` arm, rendered in place. */
+  'views:queryRows': (query: string, language: QueryLanguage, opts?: QueryRowsOptions) => QueryRowsResult;
   'tables:list': () => Array<{
     name: string;
     relativePath: string;

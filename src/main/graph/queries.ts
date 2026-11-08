@@ -64,6 +64,8 @@ export {
   getAllFrontmatterKeys,
   noteUriFor,
   notePathsForIris,
+  notePathsForValues,
+  noteTagsFor,
   excerptUriFor,
   headingsFor,
 } from './queries/notes';

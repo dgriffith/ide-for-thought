@@ -1,3 +1,4 @@
+import type { QueryLanguage, QueryRowsOptions, QueryRowsResult } from '../../../shared/views/query-view';
 import type { NoteFile, NotebaseMeta, TagInfo, TaggedNote, TaggedSource, SavedQuery, SearchResult, OutgoingLink, Backlink, TabSession, LayoutSession, BookmarkNode, SourceDetail, SearchInNotesOptions, SearchInNotesResult, ReplaceInNotesOptions, ReplaceInNotesResult, HeadingRenameCandidate, MenuEditorState } from '../../../shared/types';
 import type { PluginHostEvent, PluginIntentEvent, PluginSessionTarget } from '../../../shared/plugins/session';
 import type { PluginCommandAction, PluginCommandContext } from '../../../shared/plugins/format';
@@ -670,6 +671,13 @@ export interface YoutubeApi {
 
 /** Whole-window zoom (#...). Synchronous wrappers over the renderer's own
  *  `webFrame`, so no promises. */
+/** Views whose notes come from a query (#2944, epic #2936). */
+export interface QueryViewsApi {
+  /** Run SPARQL (read-only) or SQL (through the note guard) as a view's typed
+   *  schema and rows, notes resolved. A malformed query is `{ ok: false }`. */
+  rows(query: string, language: QueryLanguage, opts?: QueryRowsOptions): Promise<QueryRowsResult>;
+}
+
 export interface ViewApi {
   getZoomFactor(): number;
   setZoomFactor(factor: number): void;
@@ -1077,6 +1085,7 @@ export interface IdeApi {
   app: AppApi;
   images: ImagesApi;
   youtube: YoutubeApi;
+  queryViews: QueryViewsApi;
   view: ViewApi;
   bookmarks: BookmarksApi;
   clipper: ClipperApi;

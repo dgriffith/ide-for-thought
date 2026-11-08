@@ -227,6 +227,14 @@ export default defineConfig({
           statements: 80,
           branches: 65,
         },
+        // views (#2944) ~100% L / 100% F / 98% S / 78% B — one module, the query
+        // view's rows; single-file, so 8-15 points under (one new file swings it).
+        'src/main/views/**': {
+          lines: 85,
+          functions: 85,
+          statements: 85,
+          branches: 70,
+        },
         // sources ~89% L / 91% F / 87% S / 75% B.
         'src/main/sources/**': {
           lines: 80,

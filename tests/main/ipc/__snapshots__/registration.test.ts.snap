@@ -296,6 +296,7 @@ exports[`IPC registration contract (#997) > matches the known set of registered 
   "types:noteTypeMap",
   "types:rename",
   "types:save",
+  "views:queryRows",
   "youtube:thumbnail",
 ]
 `;

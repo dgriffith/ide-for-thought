@@ -8,8 +8,9 @@
  *
  * Read-only, reaches only `../state`, re-exported by `queries.ts`.
  */
+import type { NamedNode } from 'rdflib';
 import type { ProjectContext } from '../../project-context-types';
-import { type HeadingSnapshot, getState, noteUri, excerptUri } from '../state';
+import { type HeadingSnapshot, getState, noteUri, excerptUri, MINERVA } from '../state';
 import { allFrontmatterKeys, getHeadings } from '../note-caches';
 import {
   aliasMapObject,
@@ -89,6 +90,36 @@ export function notePathsForIris(ctx: ProjectContext, iris: Iterable<string>): M
     // Two notes can share an IRI (`a.md` and `a.ttl`, the latent collision
     // `noteUri` has): the first indexed keeps it, as the graph's triples do.
     if (wanted.has(iri) && !out.has(iri)) out.set(iri, rel);
+  }
+  return out;
+}
+
+/**
+ * The note each of `values` names, as a query view reads its rows (#2944):
+ * a note's IRI (a SPARQL result), or a note's project-relative path itself
+ * (a SQL result, or a `minerva:relativePath` projected as a string). Values
+ * naming no indexed note are absent from the map.
+ */
+export function notePathsForValues(ctx: ProjectContext, values: Iterable<string>): Map<string, string> {
+  const wanted = new Set(values);
+  const out = notePathsForIris(ctx, wanted);
+  if (wanted.size === 0) return out;
+  for (const rel of indexedNotePaths(ctx)) if (wanted.has(rel) && !out.has(rel)) out.set(rel, rel);
+  return out;
+}
+
+/** Each note's tags (`minerva:hasTag` → `minerva:tagName`), as a type view's rows carry them (#2768). */
+export function noteTagsFor(ctx: ProjectContext, paths: Iterable<string>): Map<string, string[]> {
+  const out = new Map<string, string[]>();
+  const state = getState(ctx);
+  if (!state) return out;
+  for (const rel of new Set(paths)) {
+    const tags = new Set<string>();
+    for (const st of state.store.statementsMatching(noteUri(state, rel), MINERVA('hasTag'), undefined)) {
+      const name = state.store.any(st.object as NamedNode, MINERVA('tagName'));
+      if (name) tags.add(name.value);
+    }
+    if (tags.size > 0) out.set(rel, [...tags]);
   }
   return out;
 }

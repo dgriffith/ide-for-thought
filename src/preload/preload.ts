@@ -1,3 +1,4 @@
+import type { QueryLanguage, QueryRowsOptions } from '../shared/views/query-view';
 import { contextBridge, ipcRenderer, webUtils, webFrame } from 'electron';
 import { Channels } from '../shared/channels';
 import { invoke } from './typed-invoke';
@@ -293,6 +294,9 @@ const api = {
   // Whole-window zoom (#...). Wraps the renderer's own `webFrame` — the same
   // frame zoom the View menu's zoom roles drive — so the Settings control and
   // the menu shortcuts stay in sync. Synchronous: no IPC round-trip.
+  queryViews: {
+    rows: (query: string, language: QueryLanguage, opts?: QueryRowsOptions) => invoke(Channels.QUERY_VIEW_ROWS, query, language, opts),
+  },
   view: {
     getZoomFactor: (): number => webFrame.getZoomFactor(),
     setZoomFactor: (factor: number): void => webFrame.setZoomFactor(factor),
