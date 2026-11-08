@@ -173,6 +173,16 @@ export function buildTimelineModel<I extends TimelineInstance = TypeInstanceRow>
   return { dated, undated, extent: dated.length > 0 ? { start: lo, end: hi } : null };
 }
 
+/**
+ * The notes in the order a timeline draws them (#2942) — what ⇧-click
+ * selects across and Export CSV writes: dated by start (then end, title,
+ * path), then Undated, in the tray's order.
+ */
+export function timelineOrder<I extends TimelineInstance>(model: TimelineModel<I>): I[] {
+  const dated = [...model.dated].sort((a, b) => a.start - b.start || a.end - b.end || a.title.localeCompare(b.title) || a.key.localeCompare(b.key));
+  return [...dated, ...model.undated].map((e) => e.inst);
+}
+
 function endIssueNote(issue: EndIssue | null, rawEnd: string | null): string | null {
   if (issue === 'before-start') return `End date ignored: ${rawEnd} is before the start`;
   if (issue === 'invalid') return `End date ignored: couldn't read '${rawEnd}'`;

@@ -5,6 +5,12 @@
   import type { LayoutView } from './layout-view';
 
   let { view }: { view: LayoutView } = $props();
+  /** ←/→ move a card, ↑/↓ a row of them as laid out now; with ⇧, extending the selection (#2942). */
+  function cardKey(e: KeyboardEvent & { currentTarget: HTMLElement }, path: string): void {
+    const cards = [...(e.currentTarget.parentElement?.children ?? [])] as HTMLElement[];
+    const perRow = Math.max(1, cards.filter((c) => c.offsetTop === cards[0]?.offsetTop).length);
+    view.onRowKey(e, path, { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -perRow, ArrowDown: perRow });
+  }
   function isImageUrl(v: string | null): v is string {
     return !!v && /^https?:\/\//i.test(v);
   }
@@ -14,7 +20,7 @@
   {#each view.instances as inst (inst.key ?? inst.path)}
     {@const rt = view.rowType(inst)}
     {@const summary = view.summary(inst)}
-    <button class="tv-card" class:selected={view.isSelected(inst.path)} aria-pressed={view.selectable ? view.isSelected(inst.path) : undefined} onclick={(e) => view.onRowClick(e, inst.path)} oncontextmenu={(e) => view.onRowContextMenu(e, inst.path)} title={inst.noNote ? undefined : inst.path} onkeydown={(e) => { if (view.rowMenu && isMenuKey(e)) { e.preventDefault(); openMenuAt(e.currentTarget); } }} data-note-path={inst.noNote ? undefined : inst.path}>
+    <button class="tv-card" class:selected={view.isSelected(inst.path)} aria-pressed={view.selectable ? view.isSelected(inst.path) : undefined} onclick={(e) => view.onRowClick(e, inst.path)} oncontextmenu={(e) => view.onRowContextMenu(e, inst.path)} title={inst.noNote ? undefined : inst.path} onkeydown={(e) => { if (view.rowMenu && isMenuKey(e)) { e.preventDefault(); openMenuAt(e.currentTarget); } else cardKey(e, inst.path); }} data-note-path={inst.noNote ? undefined : inst.path}>
       <div class="tv-card-cover">
         {#snippet icon()}<span class="tv-card-icon" style={rt?.color ? `color:${rt.color}` : undefined}>{rt?.icon ?? '◆'}</span>{/snippet}
         {#if isImageUrl(inst.cover)}

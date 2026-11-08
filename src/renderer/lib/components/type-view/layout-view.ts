@@ -82,6 +82,8 @@ export interface LayoutView {
   rowMenu: boolean;
   isSelected: (path: string) => boolean;
   onRowClick: (e: MouseEvent, path: string) => void;
+  /** A key on a focused row or card (#2942): Space toggles it; an arrow moves `steps[key]` in the layout's order, ⇧ extending the selection. */
+  onRowKey: (e: KeyboardEvent, path: string, steps: Readonly<Record<string, number>>) => void;
   onRowContextMenu: (e: MouseEvent, path: string) => void;
   /** The note a `link-to-type` value names, when it's one that exists (#2775). */
   refPath: (prop: PropertyDef, value: string | null) => string | null;

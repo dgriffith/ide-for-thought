@@ -5,13 +5,15 @@
   import type { LayoutView } from './layout-view';
 
   let { view }: { view: LayoutView } = $props();
+  /** ↑/↓ move through the rows; with ⇧, extending the selection (#2942). */
+  const STEPS = { ArrowUp: -1, ArrowDown: 1 };
 </script>
 
 <div class="tv-list">
   {#each view.instances as inst (inst.key ?? inst.path)}
     {@const rt = view.rowType(inst)}
     {@const summary = view.summary(inst)}
-    <button class="tv-list-row" class:selected={view.isSelected(inst.path)} aria-pressed={view.selectable ? view.isSelected(inst.path) : undefined} onclick={(e) => view.onRowClick(e, inst.path)} oncontextmenu={(e) => view.onRowContextMenu(e, inst.path)} title={inst.noNote ? undefined : inst.path} onkeydown={(e) => { if (view.rowMenu && isMenuKey(e)) { e.preventDefault(); openMenuAt(e.currentTarget); } }} data-note-path={inst.noNote ? undefined : inst.path}>
+    <button class="tv-list-row" class:selected={view.isSelected(inst.path)} aria-pressed={view.selectable ? view.isSelected(inst.path) : undefined} onclick={(e) => view.onRowClick(e, inst.path)} oncontextmenu={(e) => view.onRowContextMenu(e, inst.path)} title={inst.noNote ? undefined : inst.path} onkeydown={(e) => { if (view.rowMenu && isMenuKey(e)) { e.preventDefault(); openMenuAt(e.currentTarget); } else view.onRowKey(e, inst.path, STEPS); }} data-note-path={inst.noNote ? undefined : inst.path}>
       {#if rt}<span class="tv-list-icon"><TypeIcon type={rt} size={14} /></span>{/if}
       <span class="tv-list-body">
         <span class="tv-list-title">{inst.title}</span>

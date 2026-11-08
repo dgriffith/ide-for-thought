@@ -45,7 +45,7 @@ function fakeView(over: Partial<LayoutView> = {}): LayoutView {
     refPath: () => null, isSelected: (p: string) => p === 'a.md', selectable: true, rowMenu: true, group: null,
     spec: { groupBy: 'status', columnOrder: [], showEmptyColumns: true, cardOrder: [] }, board: [], canUndoMove: false, lastMove: null, filters: [], week: { start: 1, numbers: false }, onReschedule: undefined, provideMoveToDate: vi.fn(),
     onMoveCard: undefined, onUndoMove: undefined, onMoveColumn: undefined,
-    onRowClick: vi.fn(), selectAll: vi.fn(), clearSelection: vi.fn(),
+    onRowClick: vi.fn(), onRowKey: vi.fn(), selectAll: vi.fn(), clearSelection: vi.fn(),
     ...over,
   } as unknown as LayoutView;
 }

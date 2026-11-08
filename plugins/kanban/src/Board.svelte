@@ -95,6 +95,40 @@
   }
   const announce = (text: string) => quietly(minerva.ui.announce({ text }));
 
+  // A selection built from the keyboard (#2942) is said once Minerva's view of
+  // it has settled: a ⇧+arrow can be two clicks, and each can send a view.
+  let saySelection = false;
+  let sayTimer: ReturnType<typeof setTimeout> | undefined;
+  $effect(() => {
+    const n = view.selected.length;
+    if (!saySelection) return;
+    clearTimeout(sayTimer);
+    sayTimer = setTimeout(() => { saySelection = false; announce(n === 0 ? 'Nothing selected' : `${n} selected`); }, 120);
+  });
+  /**
+   * Space and ⇧+arrow on a card (#2942), as `view.click`'s own modifiers: Space
+   * toggles the card (a ⌘-click); ⇧+arrow focuses the card the arrow reaches
+   * and extends to it (a ⇧-click), from this card when nothing is selected.
+   */
+  function selectionKey(e: KeyboardEvent, path: string): boolean {
+    if (!view.selectable || e.metaKey || e.ctrlKey || e.altKey) return false;
+    if (e.key === ' ' && !e.shiftKey) {
+      e.preventDefault(); // not the button's click, which opens the note
+      saySelection = true;
+      quietly(minerva.view.click({ path, meta: true }));
+      return true;
+    }
+    if (!e.shiftKey || !['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return false;
+    e.preventDefault();
+    const next = target(path, e.key);
+    if (next === null) return true;
+    saySelection = true;
+    if (view.selected.length === 0) quietly(minerva.view.click({ path, meta: true }));
+    quietly(minerva.view.click({ path: next, shift: true }));
+    void focusCard(next);
+    return true;
+  }
+
   // The card's accessible description: what Minerva's preview of it says
   // (`preview` event, #2828) — `aria-describedby` can't reach that tooltip,
   // outside the frame, so its text is mirrored here.
@@ -281,8 +315,9 @@
       reorderBy(path, e.key === 'ArrowUp' ? 'up' : 'down');
       return;
     }
-    if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
     const path = card?.dataset['notePath'];
+    if (path && selectionKey(e, path)) return;
+    if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
     if (!path) return;
     const next = target(path, e.key);
     if (next === null && e.key === 'ArrowUp' && !view.readOnly && focusColumnHeader(card?.closest('.kb-column'))) {

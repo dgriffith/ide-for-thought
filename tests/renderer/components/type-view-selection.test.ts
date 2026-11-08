@@ -3,10 +3,11 @@
  *
  * The type-view selection's menu-only mode (#2774): an embed with note actions
  * gets the right-click menu for the one note under the pointer, and no
- * multi-select.
+ * multi-select. And building a selection from the keyboard (#2942).
  */
 import { describe, it, expect, vi } from 'vitest';
 import { createTypeViewSelection } from '../../../src/renderer/lib/components/type-view-selection.svelte';
+import { getAnnouncerStore } from '../../../src/renderer/lib/stores/announcer.svelte';
 
 const ORDER = ['a.md', 'b.md', 'c.md'];
 const mouse = (o: Partial<MouseEventInit> = {}) => new MouseEvent('click', { clientX: 10, clientY: 20, cancelable: true, ...o });
@@ -160,6 +161,74 @@ describe('selectAll / clear — ⌘A and Escape from a plugin layout (#2828)', (
       const { sel } = make(mode);
       sel.selectAll();
       expect(sel.selectedPaths, mode).toEqual([]);
+    }
+  });
+});
+
+describe('building a selection from the keyboard (#2942)', () => {
+  const key = (k: string, o: Partial<KeyboardEventInit> = {}) => new KeyboardEvent('keydown', { key: k, cancelable: true, ...o });
+  const ROWS = { ArrowUp: -1, ArrowDown: 1 };
+  function panel(order: () => string[] = () => ORDER) {
+    return createTypeViewSelection({ order, enabled: () => true, onOpen: vi.fn(), onEdit: vi.fn() });
+  }
+
+  it('Space toggles the focused row in and out, without opening it', () => {
+    const sel = panel();
+    const e = key(' ');
+    expect(sel.rowKey(e, 'b.md', ROWS)).toBe(true);
+    expect(e.defaultPrevented).toBe(true); // not the button's click
+    expect(sel.selectedPaths).toEqual(['b.md']);
+    sel.rowKey(key(' '), 'c.md', ROWS);
+    expect(sel.selectedPaths).toEqual(['b.md', 'c.md']);
+    sel.rowKey(key(' '), 'b.md', ROWS);
+    expect(sel.selectedPaths).toEqual(['c.md']);
+    expect(getAnnouncerStore().polite).toContain('1 selected');
+  });
+
+  it('⇧+arrow extends from this row when nothing is selected, then from the anchor', () => {
+    const sel = panel();
+    sel.rowKey(key('ArrowDown', { shiftKey: true }), 'a.md', ROWS);
+    expect(sel.selectedPaths).toEqual(['a.md', 'b.md']);
+    sel.rowKey(key('ArrowDown', { shiftKey: true }), 'b.md', ROWS);
+    expect(sel.selectedPaths).toEqual(['a.md', 'b.md', 'c.md']);
+    expect(getAnnouncerStore().polite).toContain('3 selected');
+    sel.rowKey(key('ArrowUp', { shiftKey: true }), 'c.md', ROWS); // shrinks toward the anchor
+    expect(sel.selectedPaths).toEqual(['a.md', 'b.md']);
+  });
+
+  it('a plain arrow moves without changing the selection; a step past the end stays put', () => {
+    const sel = panel();
+    sel.rowKey(key(' '), 'a.md', ROWS);
+    const e = key('ArrowDown');
+    expect(sel.rowKey(e, 'a.md', ROWS)).toBe(true);
+    expect(e.defaultPrevented).toBe(true);
+    expect(sel.selectedPaths).toEqual(['a.md']);
+    sel.rowKey(key('ArrowDown', { shiftKey: true }), 'c.md', ROWS);
+    expect(sel.selectedPaths).toEqual(['a.md', 'b.md', 'c.md']);
+  });
+
+  it('runs in the order as filtered: a hidden row is neither crossed into nor selected', () => {
+    const sel = panel(() => ['a.md', 'c.md']); // b.md filtered out
+    sel.rowKey(key('ArrowDown', { shiftKey: true }), 'a.md', ROWS);
+    expect(sel.selectedPaths).toEqual(['a.md', 'c.md']);
+  });
+
+  it('a layout\'s own steps: a gallery\'s ↓ is a row of cards', () => {
+    const sel = panel(() => ['a.md', 'b.md', 'c.md', 'd.md']);
+    sel.rowKey(key('ArrowDown', { shiftKey: true }), 'a.md', { ArrowDown: 2 });
+    expect(sel.selectedPaths).toEqual(['a.md', 'b.md', 'c.md']);
+  });
+
+  it('leaves other keys, modified keys, and a selection that is off alone', () => {
+    const sel = panel();
+    expect(sel.rowKey(key('Enter'), 'a.md', ROWS)).toBe(false);
+    expect(sel.rowKey(key(' ', { metaKey: true }), 'a.md', ROWS)).toBe(false);
+    expect(sel.selectedPaths).toEqual([]);
+    for (const mode of ['menuOnly', 'off'] as const) {
+      const { sel: s } = make(mode);
+      expect(s.rowKey(key(' '), 'a.md', ROWS)).toBe(false);
+      expect(s.rowKey(key('ArrowDown', { shiftKey: true }), 'a.md', ROWS)).toBe(true); // still moves
+      expect(s.selectedPaths).toEqual([]);
     }
   });
 });

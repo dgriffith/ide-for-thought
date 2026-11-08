@@ -495,6 +495,49 @@ describe('multi-select + Edit properties (#2431)', () => {
   });
 });
 
+describe('building a selection from the keyboard (#2942)', () => {
+  const THREE = [
+    ...INSTANCES,
+    { path: 'Snow.md', title: 'Snow Crash', values: { author: 'Neal Stephenson', rating: '3' }, cover: null },
+  ];
+  beforeEach(() => { instancesMock.mockResolvedValue({ type: TYPE, instances: THREE }); });
+  const key = (k: string, o: Record<string, unknown> = {}) => fireEvent.keyDown(document.activeElement!, { key: k, ...o });
+  // The row or card a note is drawn as: a table's <tr>, a list's or gallery's button.
+  const item = (title: string) => (screen.getByText(title).closest('tr') ?? screen.getByText(title).closest('button'))!;
+
+  for (const [layout, next] of [['table', 'ArrowDown'], ['list', 'ArrowDown'], ['gallery', 'ArrowRight']] as const) {
+    it(`${layout}: Space, an arrow and ⇧+arrow build a selection, and the menu key's Add Tag… reaches it all`, async () => {
+      const onOpenNote = vi.fn();
+      const acts = actions();
+      render(TypeView, props({ layout, onOpenNote, noteActions: acts }));
+      await waitFor(() => expect(screen.getByText('Dune')).toBeTruthy());
+      item('Dune').focus();
+      await key(' ');
+      expect(onOpenNote).not.toHaveBeenCalled();
+      await key(next);
+      expect(document.activeElement).toBe(item('Neuromancer'));
+      await key(next, { shiftKey: true });
+      expect(document.activeElement).toBe(item('Snow Crash'));
+      for (const t of ['Dune', 'Neuromancer', 'Snow Crash']) {
+        expect(item(t).getAttribute(layout === 'table' ? 'aria-selected' : 'aria-pressed')).toBe('true');
+      }
+      await key('F10', { shiftKey: true });
+      await fireEvent.click(await screen.findByRole('menuitem', { name: 'Add Tag… (3 notes)' }));
+      expect(acts.addTag).toHaveBeenCalledWith(['Dune.md', 'Neuro.md', 'Snow.md']);
+    });
+  }
+
+  it('Space toggles a row back out', async () => {
+    render(TypeView, props({ layout: 'list', noteActions: actions() }));
+    await waitFor(() => expect(screen.getByText('Dune')).toBeTruthy());
+    item('Dune').focus();
+    await key(' ');
+    expect(item('Dune').getAttribute('aria-pressed')).toBe('true');
+    await key(' ');
+    expect(item('Dune').getAttribute('aria-pressed')).toBe('false');
+  });
+});
+
 describe('timeline layout (#2607, #2608, #2715)', () => {
   // The cases that draw the timeline — the Timeline plugin's, since #2829 —
   // are in TypeViewTimelineLayout.test.ts, on jsdom with the plugin in loopback.
