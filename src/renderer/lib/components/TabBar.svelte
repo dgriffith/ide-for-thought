@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { queryViewTitle } from '../../../shared/views/view-source-spec';
   import type { Tab } from '../stores/editor.svelte';
   import type { SourceMetadata } from '../../../shared/types';
   import { displaySourceTitle } from '../../../shared/source-display';
@@ -136,7 +137,7 @@
                 : tab.type === 'plugin-view'
                   ? tab.title
                 : tab.type === 'type-view'
-                  ? `Type: ${tab.typeId}${tab.folder ? ` in ${tab.folder}` : ''}`
+                  ? (tab.source ? `Query: ${queryViewTitle(tab.source)}` : `Type: ${tab.typeId}${tab.folder ? ` in ${tab.folder}` : ''}`)
                   : tab.type === 'unsupported'
                     ? tab.relativePath
                     : `Source: ${sourceTabLabel(tab.sourceId)}`}
@@ -170,7 +171,7 @@
           {:else if tab.type === 'pdf'}{sourceTabLabel(tab.sourceId)} (PDF)
           {:else if tab.type === 'graph'}{(tab.relativePath.split('/').pop() ?? tab.relativePath).replace(/\.md$/, '')} (Graph)
           {:else if tab.type === 'plugin-view'}{tab.title}
-          {:else if tab.type === 'type-view'}{tab.typeId.charAt(0).toUpperCase() + tab.typeId.slice(1)}{tab.folder ? ` · ${tab.folder}` : ''}
+          {:else if tab.type === 'type-view'}{tab.source ? queryViewTitle(tab.source) : tab.typeId.charAt(0).toUpperCase() + tab.typeId.slice(1)}{tab.folder ? ` · ${tab.folder}` : ''}
           {:else if tab.type === 'unsupported'}{tab.fileName}
           {:else}{sourceTabLabel(tab.sourceId)}{/if}
         </span>

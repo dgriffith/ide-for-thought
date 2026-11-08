@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { tick, untrack } from 'svelte';
+  import { untrack } from 'svelte';
   /**
    * Multi-view over all instances of a typed-object type (#1070) — the same
    * typed notes rendered as a list, a table (declared properties as columns), a
@@ -47,6 +47,7 @@
   import { moveToDateRefusal } from './type-view/calendar-reschedule';
   import { calendarHost } from './type-view/calendar-host';
   import { typeSource, type ViewSource } from './type-view/view-source';
+  import { createViewLoader } from './type-view/view-loader.svelte';
   import { announce } from '../stores/announcer.svelte';
   import { moveTargets, sharedColumnValue, type MoveTarget } from '../../../shared/objects/kanban-move';
   import type { PropertyDef, TypeInfo, TypeInstanceRow } from '../../../shared/objects/type-def';
@@ -123,24 +124,20 @@
   const src = $derived(source ?? typeSource(typeIdProp));
   /** The type behind the view, or null (#2943): only a type source has the Type filter, subtypes, moves and Save. */
   const typeId = $derived(src.typeId);
-  let type = $state<TypeInfo | null>(null);
-  let instances = $state<TypeInstanceRow[]>([]);
-  let loading = $state(true);
-  let loadedKey: string | null = null;
+  /** Its spec can be written (Copy / Save as markdown): a type's, or a query's (#2945). */
+  const canEmbed = $derived(typeId !== null || src.query !== undefined);
+  // The source's last schema and rows (`view-loader.svelte.ts`): Loading… only for a new source.
+  const data = createViewLoader({ needCatalog: () => untrack(() => filters.some(isTypeFilter)), onLoaded: () => onLoaded });
+  const type = $derived(data.schema);
+  const instances = $derived(data.rows);
+  const loading = $derived(data.loading);
+  const loadError = $derived(data.error);
   let columnsMenuOpen = $state(false);
-
-  async function load(from: ViewSource): Promise<void> {
-    loading = loadedKey !== from.key; // a refresh keeps the view (and a board's focus) up
-    const result = await from.load({ needCatalog: untrack(() => filters.some(isTypeFilter)) });
-    type = result.schema;
-    instances = result.rows;
-    loadedKey = from.key;
-    loading = false;
-    if (onLoaded) { await tick(); onLoaded(); }
-  }
   // Re-project when the source changes or the graph is rewritten.
   const moves = getKanbanMoveStore(); // a card move (#2603) re-projects too
-  $effect(() => { const from = src; revision; moves.revision; void untrack(() => load(from)); });
+  // By key, not identity: a host may build the same source afresh each render (#2945).
+  const srcKey = $derived(src.key);
+  $effect(() => { void srcKey; revision; moves.revision; void untrack(() => data.load(src)); });
 
   // Effective (inherited + own) properties, not just `type.properties`: a subtype relying on an
   // ancestor's (a `geo` inherited from Place) would lose the column, and the Map layout with it.
@@ -256,8 +253,8 @@
    */
   async function copyAsMarkdown(): Promise<void> {
     // A `groupBy` the type no longer has as an enum is dropped, not copied.
-    if (typeId === null) return; // a source's embed is #2945's
-    const md = buildViewEmbed({ typeId, ...timelineSpec, ...calendarSpec, sortColumn, sortDir, columns, folder, filters: viewFilters, mapStyle, groupBy: groupByForSpec(groupBy, type ? allColumns : null), columnOrder, showEmptyColumns, cardOrder });
+    if (!canEmbed) return;
+    const md = buildViewEmbed({ typeId: typeId ?? src.key, source: src.query, ...timelineSpec, ...calendarSpec, sortColumn, sortDir, columns, folder, filters: viewFilters, mapStyle, groupBy: groupByForSpec(groupBy, type ? allColumns : null), columnOrder, showEmptyColumns, cardOrder });
     try {
       await navigator.clipboard.writeText(md);
       markdownCopied = true;
@@ -491,11 +488,11 @@
           </div>
         {/if}
         <TypeViewLayoutSwitch layout={shown} layouts={available} properties={allColumns} {groupBy} dateBy={timelineSpec.dateBy} {showEmptyColumns} {onStateChange}>
-          {#if typeId !== null}<button class="tv-btn" onclick={copyAsMarkdown}>{markdownCopied ? 'Copied' : 'Copy as markdown'}</button>{/if}
+          {#if canEmbed}<button class="tv-btn" onclick={copyAsMarkdown}>{markdownCopied ? 'Copied' : 'Copy as markdown'}</button>{/if}
           {#if layoutDef(shown).exportsCsv}
             <button class="tv-btn" onclick={exportCsv} title="Save the notes this view shows, with their properties, as a CSV file">Export CSV</button>
           {/if}
-          {#if onSaveView && typeId !== null}
+          {#if onSaveView && canEmbed}
             <button class="tv-btn" onclick={handleSaveViewClick} title="Save this view as a note, with the view embedded live">{viewSaved ? 'Saved' : 'Save as note'}</button>
           {/if}
         </TypeViewLayoutSwitch>
@@ -505,6 +502,8 @@
 
   {#if loading}
     <p class="tv-empty">Loading…</p>
+  {:else if loadError}
+    <p class="tv-empty tv-error" role="alert">The query couldn't run: {loadError}</p>
   {:else if !type}
     <p class="tv-empty">This type is no longer defined.</p>
   {:else if instances.length === 0}

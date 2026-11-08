@@ -4,9 +4,12 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 
-const h = vi.hoisted(() => ({ listeners: [] as Array<() => void> }));
+const h = vi.hoisted(() => ({ listeners: [] as Array<() => void>, tables: [] as Array<() => void> }));
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({
-  api: { graph: { onChanged: vi.fn((cb: () => void) => { h.listeners.push(cb); return () => undefined; }) } },
+  api: {
+    graph: { onChanged: vi.fn((cb: () => void) => { h.listeners.push(cb); return () => undefined; }) },
+    tables: { onChanged: vi.fn((cb: () => void) => { h.tables.push(cb); return () => undefined; }) },
+  },
 }));
 
 import { getGraphRevisionStore } from '../../../src/renderer/lib/stores/graph-revision.svelte';
@@ -17,6 +20,7 @@ describe('graph revision store', () => {
     getGraphRevisionStore();
     getGraphRevisionStore();
     expect(api.graph.onChanged).toHaveBeenCalledTimes(1);
+    expect(api.tables.onChanged).toHaveBeenCalledTimes(1);
   });
 
   it('moves on every graph:changed event', () => {
@@ -26,5 +30,12 @@ describe('graph revision store', () => {
     expect(store.revision).toBe(before + 1);
     h.listeners[0]!();
     expect(store.revision).toBe(before + 2);
+  });
+
+  it('moves on the tables\' change signal too, for views over SQL (#2945)', () => {
+    const store = getGraphRevisionStore();
+    const before = store.revision;
+    h.tables[0]!();
+    expect(store.revision).toBe(before + 1);
   });
 });

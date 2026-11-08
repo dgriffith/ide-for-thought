@@ -311,8 +311,9 @@ export interface SavedGraphTab {
 
 export interface SavedTypeViewTab {
   type: 'type-view';
-  /** The type whose instances the multi-view shows (#1070). */
+  /** The type whose instances the multi-view shows (#1070) — or a query view's key (#2945). */
   typeId: string;
+  source?: Record<string, unknown>; // a query view's (#2945), as an object-view spec writes it; read leniently
   /** Chosen projection (list/table/gallery/map/kanban/timeline/calendar); restored on reload. */
   layout?: ViewLayout;
   /** Sort + visible columns, restored on reload (#1072). */

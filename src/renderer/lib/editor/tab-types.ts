@@ -1,3 +1,4 @@
+import type { QuerySourceSpec } from '../../../shared/views/view-source-spec';
 import type { ViewFilter } from '../../../shared/objects/view-spec';
 import type { MapStyle } from '../../../shared/objects/map-style';
 import type { ViewLayout } from '../../../shared/objects/view-layouts';
@@ -138,8 +139,10 @@ export interface TypeViewState {
 }
 export interface TypeViewTab extends TypeViewState {
   type: 'type-view';
-  /** The type whose instances are shown (e.g. `book`). */
+  /** The type whose instances are shown (e.g. `book`) — or, with `source`, the query view's key (`viewKeyFor`). */
   typeId: string;
+  /** A query view's source (#2945): its rows come from this query, not a type. */
+  source?: QuerySourceSpec;
 }
 
 export type Tab = NoteTab | QueryTab | SourceTab | PdfTab | GraphTab | TypeViewTab | PluginViewTab | UnsupportedTab;

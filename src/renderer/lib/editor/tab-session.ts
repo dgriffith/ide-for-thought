@@ -8,6 +8,7 @@
  * module only computes what to persist and how to turn persisted data back
  * into live tabs.
  */
+import { parseViewSource, sourceFields, viewKeyFor } from '../../../shared/views/view-source-spec';
 import { normalizeFolder, parseViewFilters } from '../../../shared/objects/view-spec';
 import { parseMapStyle } from '../../../shared/objects/map-style';
 import { parseCardOrder, parseColumnOrder, parseGroupBy, parseShowEmptyColumns } from '../../../shared/objects/kanban';
@@ -49,6 +50,7 @@ export function toSavedTab(t: Tab): SavedTab {
   } else if (isTypeView(t)) {
     return {
       type: 'type-view', typeId: t.typeId, layout: t.layout, sortColumn: t.sortColumn, sortDir: t.sortDir, columns: t.columns,
+      ...(t.source ? { source: sourceFields(t.source) } : {}),
       ...(t.folder ? { folder: t.folder } : {}),
       // A plain copy: filters set from component state can be a reactive Proxy,
       // which the structured-clone IPC boundary rejects — losing the session.
@@ -138,9 +140,13 @@ export async function reconstructTab(saved: SavedTab, nextQueryId: () => string)
     if (typeof saved.pluginId !== 'string' || typeof saved.viewId !== 'string') return null;
     return { type: 'plugin-view', pluginId: saved.pluginId, viewId: saved.viewId, title: typeof saved.title === 'string' ? saved.title : saved.viewId };
   } else if (saved.type === 'type-view') {
+    // A query view (#2945): its source is read as an object-view spec's; one that no longer reads is dropped.
+    const src = saved.source && typeof saved.source === 'object' ? parseViewSource(saved.source) : null;
+    if (src && ('error' in src || src.kind === 'type')) return null;
     return {
       type: 'type-view',
-      typeId: saved.typeId,
+      typeId: src ? viewKeyFor(src) : saved.typeId,
+      ...(src ? { source: src } : {}),
       layout: saved.layout ?? DEFAULT_VIEW_LAYOUT,
       sortColumn: saved.sortColumn ?? null,
       sortDir: saved.sortDir ?? 'asc',

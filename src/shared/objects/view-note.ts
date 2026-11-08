@@ -18,9 +18,13 @@ import type { ViewFilter } from './view-spec';
 import type { MapStyle } from './map-style';
 import { viewHeightField } from './view-height';
 import { viewWidthField } from './view-width';
+import { sourceFields, type QuerySourceSpec } from '../views/view-source-spec';
 
 export interface ViewNoteSpec {
+  /** The type — or, with `source`, the query view's key (`viewKeyFor`), which isn't written. */
   typeId: string;
+  /** A query view's source (#2945): written in place of `typeId` — a `queryFile` as its name, not its text. */
+  source?: QuerySourceSpec | undefined;
   layout: ViewLayout;
   sortColumn: string | null;
   sortDir: 'asc' | 'desc';
@@ -78,7 +82,7 @@ export function suggestViewNoteName(typeLabel: string, layout: ViewLayout): stri
  * copies it bare, to paste into any note — the same view either way.
  */
 export function buildViewEmbed(spec: ViewNoteSpec): string {
-  const body: Record<string, unknown> = { typeId: spec.typeId, layout: spec.layout };
+  const body: Record<string, unknown> = { ...(spec.source ? sourceFields(spec.source) : { typeId: spec.typeId }), layout: spec.layout };
   if (spec.sortColumn) {
     body.sortColumn = spec.sortColumn;
     body.sortDir = spec.sortDir;

@@ -22,6 +22,7 @@ import {
   toSavedTab, buildSession, reconstructTab, asViewMode, savedTabIdentity,
   normalizeSession, resolveRestoredSession,
 } from '../../../src/renderer/lib/editor/tab-session';
+import { viewKeyFor } from '../../../src/shared/views/view-source-spec';
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -52,6 +53,27 @@ describe('type-view map style (#2665)', () => {
       expect(await reconstructTab(toSavedTab(view(mapStyle)), () => 'q')).toEqual(view(mapStyle));
     }
     expect(await reconstructTab({ type: 'type-view', typeId: 'place', mapStyle: 'sepia' }, () => 'q')).toMatchObject({ mapStyle: 'auto' });
+  });
+});
+
+describe('a query view tab (#2945)', () => {
+  const Q = 'SELECT ?note WHERE { ?note a minerva:Note }';
+  const base = { layout: 'table', sortColumn: null, sortDir: 'asc', columns: null, folder: null, filters: [], mapStyle: 'auto', groupBy: null, columnOrder: [], showEmptyColumns: true, cardOrder: [], from: null, to: null, month: null, mode: null, date: null, dateBy: null } as const;
+  const inline = { kind: 'query' as const, query: Q, language: 'sparql' as const };
+  const view = (source: typeof inline | { kind: 'queryFile'; queryFile: string }): Tab => ({ type: 'type-view', typeId: viewKeyFor(source), source, ...base, filters: [], columnOrder: [], cardOrder: [] });
+
+  it('saves its source as a spec writes it, and restores it under the same key', async () => {
+    const tab = view(inline);
+    expect(toSavedTab(tab)).toMatchObject({ type: 'type-view', source: { query: Q, language: 'sparql' } });
+    expect(await reconstructTab(toSavedTab(tab), () => 'q')).toEqual(tab);
+    const file = view({ kind: 'queryFile', queryFile: 'overdue.rq' });
+    expect(toSavedTab(file)).toMatchObject({ source: { queryFile: 'overdue.rq' } });
+    expect(await reconstructTab(toSavedTab(file), () => 'q')).toEqual(file);
+  });
+
+  it('a source that no longer reads is dropped, not restored as a type view', async () => {
+    expect(await reconstructTab({ type: 'type-view', typeId: 'query:x', source: { query: '' } }, () => 'q')).toBeNull();
+    expect(await reconstructTab({ type: 'type-view', typeId: 'query:x', source: { typeId: 'place' } }, () => 'q')).toBeNull();
   });
 });
 

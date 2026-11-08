@@ -1,3 +1,4 @@
+import { viewKeyFor, type QuerySourceSpec } from '../../../shared/views/view-source-spec';
 import { api } from '../ipc/client';
 import { normalizeFolder } from '../../../shared/objects/view-spec';
 import { movedFolder } from '../../../shared/objects/view-folder-rename';
@@ -326,7 +327,7 @@ function buildEditorStore() {
    *  per type; reopening refocuses rather than duplicating. A saved view (#1072)
    *  opens through here with its state, re-applying the projection onto the
    *  existing tab when one is already open. */
-  function openTypeView(typeId: string, opts?: Partial<TypeViewState> & { groupId?: string }) {
+  function openTypeView(typeId: string, opts?: Partial<TypeViewState> & { groupId?: string; source?: QuerySourceSpec }) {
     const folder = normalizeFolder(opts?.folder);
     const state: TypeViewState = {
       layout: opts?.layout ?? DEFAULT_VIEW_LAYOUT,
@@ -356,10 +357,15 @@ function buildEditorStore() {
     }
     const grp = resolveGroup(opts?.groupId);
     activeGroupId = grp.id;
-    const tab: TypeViewTab = { type: 'type-view', typeId, ...state };
+    const tab: TypeViewTab = { type: 'type-view', typeId, ...state, ...(opts?.source ? { source: opts.source } : {}) };
     grp.tabs.push(tab);
     grp.activeIndex = grp.tabs.length - 1;
     schedulePersistTabs();
+  }
+
+  /** Open a query view (#2945) as a tab: a type-view tab keyed by its query (`viewKeyFor`), so reopening refocuses it. */
+  function openQueryView(source: QuerySourceSpec, opts?: Partial<TypeViewState> & { groupId?: string }) {
+    openTypeView(viewKeyFor(source), { ...opts, source });
   }
 
   /** Update a type-view tab's projection state (layout switch, sort, columns). */
@@ -947,6 +953,7 @@ function buildEditorStore() {
     openPluginView,
     setGraphDepth,
     openTypeView,
+    openQueryView,
     setTypeViewState,
     rescopeTypeView,
     setPdfPage,
