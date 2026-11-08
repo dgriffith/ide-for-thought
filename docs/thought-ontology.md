@@ -1,3 +1,11 @@
+---
+id: thought-ontology
+type: module-design
+status: draft
+title: The Thought Ontology
+parent: graph
+---
+
 # The Thought Ontology
 
 `src/shared/ontology-thought.ttl` is the vocabulary Minerva uses to describe

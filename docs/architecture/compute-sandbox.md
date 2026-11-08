@@ -1,3 +1,11 @@
+---
+id: adr-compute-sandbox
+type: architecture-design
+status: draft
+title: "ADR: OS sandbox for Python compute"
+parent: compute
+---
+
 # ADR: OS sandbox for Python compute
 
 **Status:** Accepted, and **Phases 1 and 2 have shipped** — network containment
