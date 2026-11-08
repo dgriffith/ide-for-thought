@@ -67,17 +67,38 @@ beforeAll(() => {
 
 afterAll(() => fs.rmSync(bin, { recursive: true, force: true }));
 
-const SHELLS = ['sh', ...(fs.existsSync('/bin/dash') ? ['/bin/dash'] : [])];
+const IS_WINDOWS = process.platform === 'win32';
+
+/**
+ * Git for Windows' own sh (#2195): the shell git runs the hook with there.
+ * `usr\bin\sh.exe`, the MSYS one, not `bin\sh.exe`, which is a launcher.
+ */
+function gitForWindowsSh(): string | null {
+  const dirs = [...(process.env.PATH ?? '').split(';'), 'C:\\Program Files\\Git\\usr\\bin'];
+  return dirs.map((d) => path.join(d, 'sh.exe')).find((p) => /[\\/]usr[\\/]bin[\\/]sh\.exe$/i.test(p) && fs.existsSync(p)) ?? null;
+}
+
+const SHELLS = IS_WINDOWS
+  ? [gitForWindowsSh()].filter((s): s is string => s !== null)
+  : ['sh', ...(fs.existsSync('/bin/dash') ? ['/bin/dash'] : [])];
+
+/** MSYS takes `C:/…` happily; forward slashes keep a path from being read as escapes. */
+const msys = (p: string) => (IS_WINDOWS ? p.replace(/\\/g, '/') : p);
 
 function runHook(shell: string, env: Record<string, string>) {
   fs.rmSync(log, { force: true });
   fs.rmSync(`${log}.stdin`, { force: true });
-  const r = spawnSync(shell, [HOOK, 'origin', 'git@example.com:x/y.git'], {
+  const r = spawnSync(shell, [msys(HOOK), 'origin', 'git@example.com:x/y.git'], {
     cwd: ROOT,
     input: REFS,
     encoding: 'utf-8',
     // Only the stubs and the base system: no real pnpm/node/vitest reachable.
-    env: { PATH: `${bin}:/usr/bin:/bin`, HOME: os.tmpdir(), STUB_LOG: log, ...env },
+    // On Windows, a `;` list MSYS converts at startup: the stubs, then Git's
+    // usr\bin for the coreutils the hook uses (tr, cut, date, mktemp).
+    env: {
+      PATH: IS_WINDOWS ? `${bin};${path.dirname(shell)}` : `${bin}:/usr/bin:/bin`,
+      HOME: msys(os.tmpdir()), STUB_LOG: msys(log), ...env,
+    },
   });
   const calls = fs.existsSync(log) ? fs.readFileSync(log, 'utf-8').trim().split('\n') : [];
   const stdin = fs.existsSync(`${log}.stdin`) ? fs.readFileSync(`${log}.stdin`, 'utf-8') : null;
@@ -114,10 +135,16 @@ describe('.githooks/pre-push is POSIX sh', () => {
   });
 });
 
-// The harness is POSIX: stub scripts with shebangs on a `:`-separated PATH of
-// /usr/bin and /bin. The hook under Git for Windows is #2195's to cover; on a
-// Windows runner this would only prove the stubs can't be found (#2180).
-describe.skipIf(process.platform === 'win32').each(SHELLS)('pre-push under %s (#2380)', (shell) => {
+// Stub scripts with shebangs, found on PATH. On Windows the shell is Git for
+// Windows' sh — what git runs the hook with there (#2195) — and the Windows
+// CI leg runs these against it.
+describe('a shell to run the hook with', () => {
+  it('is found on this platform', () => {
+    expect(SHELLS.length, IS_WINDOWS ? 'Git for Windows\' usr\\bin\\sh.exe' : 'sh').toBeGreaterThan(0);
+  });
+});
+
+describe.each(SHELLS)('pre-push under %s (#2380, #2195)', (shell) => {
   it('SKIP_HOOKS=1 short-circuits before anything runs — even with PREPUSH_TESTS=1', () => {
     const r = runHook(shell, { SKIP_HOOKS: '1', PREPUSH_TESTS: '1' });
     expect(r.status).toBe(0);
