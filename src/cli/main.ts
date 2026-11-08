@@ -11,13 +11,14 @@
 import './suppress-punycode-warning';
 import { runCli } from './run';
 import { drained } from './drain';
+import { cliStdin } from './stdin';
 
 /** Read all of stdin (the `propose-note` note body). Returns '' at a TTY, so an
  *  interactive invocation without a pipe doesn't hang waiting for input. */
 async function readStdin(): Promise<string> {
   if (process.stdin.isTTY) return '';
   const chunks: Buffer[] = [];
-  for await (const chunk of process.stdin) chunks.push(chunk as Buffer);
+  for await (const chunk of cliStdin()) chunks.push(chunk as Buffer);
   return Buffer.concat(chunks).toString('utf-8');
 }
 
