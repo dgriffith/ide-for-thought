@@ -242,6 +242,44 @@ describe('root spelling (#2437)', () => {
   });
 });
 
+// Windows spells one path several ways (#2185): the allowlist entry is the
+// realpath with `\` and the drive letter as the OS reports it. A query may
+// use `/` or the other drive-letter case for a file inside — refusing those
+// would be a usability bug, not a hole — and must still be refused for the
+// root-prefixed sibling and a `..` escape, however spelled. Runs on the
+// Windows CI leg.
+describe.runIf(process.platform === 'win32')('Windows path spellings (#2185)', () => {
+  const slashes = (p: string) => p.replace(/\\/g, '/');
+  const otherDriveCase = (p: string) => p.replace(/^([A-Za-z]):/, (_m, d: string) => `${d === d.toUpperCase() ? d.toLowerCase() : d.toUpperCase()}:`);
+  const inRoot = path.join(root, 'data.csv');
+
+  for (const [name, spelled] of [
+    ['forward slashes', slashes(inRoot)],
+    ['the other drive-letter case', otherDriveCase(inRoot)],
+    ['both', otherDriveCase(slashes(inRoot))],
+  ] as const) {
+    it(`reads an in-root file spelled with ${name}`, async () => {
+      const r = await runQuery(ctx, `SELECT count(*) AS n FROM read_csv(${lit(spelled)})`);
+      expect(r.ok, r.ok ? '' : r.error).toBe(true);
+    });
+  }
+
+  const sibling = path.join(prefixSibling, 'near.csv');
+  const escape = `${root}\\..\\outside\\secret.csv`;
+  for (const [name, spelled] of [
+    ['the root-prefixed sibling, with backslashes', sibling],
+    ['the root-prefixed sibling, with forward slashes', slashes(sibling)],
+    ['the root-prefixed sibling, in the other drive-letter case', otherDriveCase(sibling)],
+    ['a .. escape with backslashes', escape],
+    ['a .. escape with forward slashes', slashes(escape)],
+    ['a .. escape in the other drive-letter case', otherDriveCase(escape)],
+  ] as const) {
+    it(`refuses ${name}`, async () => {
+      await expectRefused(`SELECT content FROM read_text(${lit(spelled)})`);
+    });
+  }
+});
+
 describe('fileLockdownSql (#2437)', () => {
   it('quotes each directory, adds the trailing separator, and locks last', () => {
     // Real (realpath'd) directories, in the platform's own separator (#2180).

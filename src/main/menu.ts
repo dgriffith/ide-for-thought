@@ -22,7 +22,7 @@ import {
   exportKnowledgeGraph,
 } from './maintenance-commands';
 import { STOCK_QUERIES } from '../shared/stock-queries';
-import { commandDef, type MenuCommandId } from '../shared/commands';
+import { commandDef, commandKey, type MenuCommandId } from '../shared/commands';
 import { installMinervaCommand } from './cli-install';
 import { listSavedQueries } from './saved-queries';
 import * as publish from './publish';
@@ -105,9 +105,10 @@ function command(
 ): Electron.MenuItemConstructorOptions {
   const def = commandDef(id);
   const menu = def.menu ?? {};
+  const key = commandKey(def, process.platform === 'darwin');
   const item: Electron.MenuItemConstructorOptions = {
     label: menu.label ?? def.title,
-    ...(def.key ? { accelerator: def.key } : {}),
+    ...(key ? { accelerator: key } : {}),
     ...(menu.toolTip ? { toolTip: menu.toolTip } : {}),
     click: () => send(Channels.MENU_COMMAND, id),
     ...over,
@@ -169,6 +170,22 @@ export function rebuildMenu(): Electron.MenuItemConstructorOptions[] {
   return template;
 }
 
+/**
+ * Check for Updates… — "Checking…" and disabled while a check is in flight
+ * (#963) — and, once a build is staged, Restart to Install Update. On Linux
+ * the check explains how to update instead (#2184).
+ */
+function updateItems(): Electron.MenuItemConstructorOptions[] {
+  return [
+    {
+      label: getUpdateState() === 'checking' ? 'Checking for Updates…' : 'Check for Updates…',
+      enabled: getUpdateState() !== 'checking',
+      click: () => checkForUpdatesNow(),
+    },
+    ...(isUpdateDownloaded() ? [{ label: 'Restart to Install Update', click: () => quitAndInstallUpdate() }] : []),
+  ];
+}
+
 /** App menu (macOS only) — About, updates, Preferences, standard app roles. */
 function buildAppMenu(isMac: boolean): Electron.MenuItemConstructorOptions[] {
   if (!isMac) return [];
@@ -178,16 +195,7 @@ function buildAppMenu(isMac: boolean): Electron.MenuItemConstructorOptions[] {
       submenu: [
         command('app.about'),
         { type: 'separator' as const },
-        {
-          // "Checking…" (disabled) while a check is in flight (#963).
-          label: getUpdateState() === 'checking' ? 'Checking for Updates…' : 'Check for Updates…',
-          enabled: getUpdateState() !== 'checking',
-          click: () => checkForUpdatesNow(),
-        },
-        // Only present once a build is staged; installs on confirm+restart.
-        ...(isUpdateDownloaded()
-          ? [{ label: 'Restart to Install Update', click: () => quitAndInstallUpdate() }]
-          : []),
+        ...updateItems(),
         { type: 'separator' as const },
         command('app.settings'),
         { type: 'separator' as const },
@@ -465,7 +473,9 @@ function buildViewMenu(gate: Gate, isMac: boolean): Electron.MenuItemConstructor
       ...(isMac
         ? []
         : [{ role: 'togglefullscreen' as const }, { type: 'separator' as const }]),
-      { role: 'toggleDevTools', label: 'Developer Tools' },
+      // Off macOS the role's own key is Ctrl+Shift+I, which is Ingest URL's
+      // there; F12 is the browsers' (#2986). macOS keeps ⌥⌘I.
+      { role: 'toggleDevTools', label: 'Developer Tools', ...(isMac ? {} : { accelerator: 'F12' }) },
     ],
   };
 }
@@ -777,12 +787,14 @@ function buildHelpMenu(isMac: boolean): Electron.MenuItemConstructorOptions {
             },
           ]
         : []),
-      // macOS keeps About in the app menu; Windows/Linux have no app menu,
-      // so About lives at the foot of Help (the platform convention).
+      // macOS keeps About and the update items in the app menu; Windows and
+      // Linux have no app menu, so they live at the foot of Help, the
+      // platform convention (#2184).
       ...(isMac
         ? []
         : [
             { type: 'separator' as const },
+            ...updateItems(),
             command('app.about'),
           ]),
     ],

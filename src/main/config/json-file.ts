@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
 import path from 'node:path';
 import { randomBytes } from 'node:crypto';
+import { restrictToCurrentUser } from './windows-acl';
 
 /**
  * True for a "no such file" error — the one filesystem failure a handler may
@@ -61,6 +62,10 @@ export async function writeJsonFileAtomic(absPath: string, value: unknown, forma
   await fs.mkdir(path.dirname(absPath), { recursive: true });
   const tmpPath = siblingTempPath(absPath);
   try {
+    if (windowsSecret(format)) {
+      await fs.writeFile(tmpPath, '', fileOptions(format));
+      restrictToCurrentUser(tmpPath);
+    }
     await fs.writeFile(tmpPath, serializeJson(value, format), fileOptions(format));
     await fs.rename(tmpPath, absPath);
   } catch (err) {
@@ -80,6 +85,10 @@ export function writeJsonFileAtomicSync(absPath: string, value: unknown, format:
   fsSync.mkdirSync(path.dirname(absPath), { recursive: true });
   const tmpPath = siblingTempPath(absPath);
   try {
+    if (windowsSecret(format)) {
+      fsSync.writeFileSync(tmpPath, '', fileOptions(format));
+      restrictToCurrentUser(tmpPath);
+    }
     fsSync.writeFileSync(tmpPath, serializeJson(value, format), fileOptions(format));
     fsSync.renameSync(tmpPath, absPath);
   } catch (err) {
@@ -106,6 +115,9 @@ export interface JsonFileFormat {
    * disk with wider permissions, not even between write and chmod — and the
    * rename carries it over, which also tightens an existing 0644 file on its
    * next write. Omitted: the process default (0666 & ~umask, usually 0644).
+   * On Windows, where a mode does nothing, `SECRET_FILE_MODE` instead
+   * restricts the file's ACL to the current user (`windows-acl.ts`, #2190),
+   * set on the empty temp file before the secret is written.
    */
   mode?: number;
 }
@@ -115,6 +127,11 @@ export interface JsonFileFormat {
  * local user must not be able to read them, encrypted or not.
  */
 export const SECRET_FILE_MODE = 0o600;
+
+/** A secret store on Windows: owner-only by ACL, not by mode (#2190). */
+function windowsSecret({ mode }: JsonFileFormat): boolean {
+  return mode === SECRET_FILE_MODE && process.platform === 'win32';
+}
 
 function fileOptions({ mode }: JsonFileFormat): { encoding: 'utf-8'; mode?: number } {
   return mode === undefined ? { encoding: 'utf-8' } : { encoding: 'utf-8', mode };

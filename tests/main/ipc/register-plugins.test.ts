@@ -169,7 +169,7 @@ const LIST = {
     id: 'list-tools', name: 'List Tools', version: '1.0.0',
     description: shipped('list-tools'),
     enabled: false, source: { kind: 'core' }, sample: true, contributes: {}, capabilities: ['notes:read'],
-    commands: [{ id: 'sort-selection', title: 'Sort List in Selection', when: 'selection', editorMenu: true, menu: 'edit', key: 'CmdOrCtrl+Alt+Shift+S', run: { handler: 'sortSelection' } }],
+    commands: [{ id: 'sort-selection', title: 'Sort List in Selection', when: 'selection', editorMenu: true, menu: 'edit', key: 'CmdOrCtrl+Alt+Shift+S', keyOffMac: 'CmdOrCtrl+Shift+O', run: { handler: 'sortSelection' } }],
   }, {
     id: 'transcripts', name: 'Transcripts', version: '1.0.0',
     description: shipped('transcripts'),

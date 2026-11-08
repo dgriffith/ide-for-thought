@@ -77,6 +77,20 @@ const BACKGROUND_LIGHT = '#f7f3eb';
 const SHOW_FALLBACK_MS = 4000;
 
 /**
+ * The window's frame (#2191). macOS draws Minerva's own title bar under its
+ * traffic lights (`hiddenInset`). Windows and Linux get the native frame: there
+ * a hidden title bar means no minimize / maximize / close at all, and no menu
+ * bar either — Electron treats `hiddenInset` as `hidden` off macOS — so the
+ * Learning, Research and Analysis menus would be unreachable. The in-app title
+ * bar still sits under the native one (`TitleBar.svelte` drops the
+ * traffic-light gutter there). A custom frame with overlay controls and an
+ * in-app menu is its own design, not this fix.
+ */
+export function windowFrame(platform: NodeJS.Platform): Pick<Electron.BrowserWindowConstructorOptions, 'titleBarStyle' | 'trafficLightPosition'> {
+  return platform === 'darwin' ? { titleBarStyle: 'hiddenInset', trafficLightPosition: { x: 12, y: 12 } } : {};
+}
+
+/**
  * Show `win` as soon as it has something to show — and, crucially, show it
  * even if it never does.
  *
@@ -160,8 +174,7 @@ export function createWindow(opts?: { x?: number; y?: number; width?: number; he
     // Window + taskbar icon on Linux/Windows (macOS uses the app bundle's
     // embedded icon and ignores this) (#805).
     icon: appIconPath(),
-    titleBarStyle: 'hiddenInset',
-    trafficLightPosition: { x: 12, y: 12 },
+    ...windowFrame(process.platform),
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       // contextIsolation on / nodeIntegration off / sandbox on. The preload

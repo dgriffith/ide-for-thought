@@ -13,7 +13,8 @@
  */
 import type { Command } from './types';
 import { formatAccelerator } from './format-accelerator';
-import { COMMANDS, type CommandId, type PaletteWhen } from '../../../shared/commands';
+import { COMMANDS, commandKey, type CommandId, type PaletteWhen } from '../../../shared/commands';
+import { IS_MAC } from '../utils/platform';
 import type { ThemeMode } from '../theme';
 import { isSourceScoped, toolRequiresNote, toolRequiresSelection, type ThinkingToolInfo } from '../../../shared/tools/types';
 import { CATEGORIES } from '../../../shared/tools/registry';
@@ -160,11 +161,12 @@ export function buildCommandRegistry(
   const out: Command[] = [];
   for (const def of COMMANDS) {
     if (!('palette' in def)) continue;
+    const key = commandKey(def, IS_MAC);
     out.push({
       id: def.id,
       title: def.id === currentThemeId ? `${def.title} (current)` : def.title,
       category: def.category,
-      keybinding: 'key' in def ? formatAccelerator(def.key) : null,
+      keybinding: key ? formatAccelerator(key) : null,
       enabled: enabled(def.palette.when, state),
       run: () => run(def.id),
     });
