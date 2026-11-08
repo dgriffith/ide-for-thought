@@ -77,8 +77,8 @@ test('an Event calendar: grid, paging, keyboard, the day\'s list, open, and `mon
     });
 
     await test.step('navigate by keyboard: one tab stop, arrows, Page Down/Up, Home/End', async () => {
-      // From the toolbar's last control (the Month | Week switch, #2951), one Tab reaches the grid.
-      await calendarOf(win).frame.getByRole('group', { name: 'Calendar view' }).getByRole('button', { name: 'Week' }).focus();
+      // From the toolbar's last control (the Month | Week | Day switch, #2951, #2952), one Tab reaches the grid.
+      await calendarOf(win).frame.getByRole('group', { name: 'Calendar view' }).getByRole('button', { name: 'Day' }).focus();
       await win.keyboard.press('Tab');
       await expect(cal.tabStop).toBeFocused();
       // Walk to the busy day with the arrows (no page turn inside the month).

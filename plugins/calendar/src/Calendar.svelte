@@ -73,8 +73,13 @@
    *   write `date`. `CalendarWeek` draws the week as an all-day strip over
    *   24 hours (`time-grid.ts`), with the bands and the Undated tray for the
    *   week. Events don't drag there yet (#2953); *Move to date…* chooses one
-   *   of its days. A `day` spec shows its week until #2952, and an export
-   *   draws the week's month until #2955.
+   *   of its days. An export draws the week's month until #2955.
+   * - **Day** (#2952, `mode: "day"`, on the same `date`): the week's grid
+   *   with one column, each event showing its first card field as a second
+   *   line; ‹ Today › step a day, and ←/→ past the column go to the next day.
+   *   Week ↔ Day keeps `date`. Double-clicking a day's number, or Alt+Enter
+   *   on a day, in Month or Week opens that day. At wide widths the day's
+   *   events are listed beside the grid too (`CalendarAgenda`).
    * - **The note menu** (#2929; where the view has one, `view.rowMenu`, never
    *   in an export): a right-click on any event — in the grid, a band, the
    *   Undated tray or a day's list — or the menu key on a focused one, asks
@@ -88,10 +93,11 @@
     addDays, addMonths, addMonthsClamped, coveredDays, formatDayAnchor, formatMonthAnchor, layoutMonth, monthOf, monthWeeks, overflowRow,
     parseDayAnchor, parseMonthAnchor, rowWeekNumber, timePage, weekEdge, type CalendarMonth, type PlacedSegment, type Weekday,
   } from '../../../src/shared/objects/calendar-grid';
-  import { parseCalendarMode } from '../../../src/shared/objects/calendar';
+  import { parseCalendarMode, type CalendarMode } from '../../../src/shared/objects/calendar';
   import { layoutTimeGrid, MIN_TIMED_MINUTES } from '../../../src/shared/calendar/time-grid';
   import CalendarWeek from './CalendarWeek.svelte';
-  import { monthFromWeek, stepWeek, weekFromMonth, weekTitle } from './week-nav';
+  import { monthFromWeek, stepPage, weekFromMonth, weekTitle } from './week-nav';
+  import CalendarAgenda from './CalendarAgenda.svelte';
   import { civilMs } from '../../../src/shared/objects/date-precision';
   import CalendarDayList from './CalendarDayList.svelte';
   import CalendarBands from './CalendarBands.svelte';
@@ -161,24 +167,23 @@
   // tab, Back) is the page from then on.
   const monthProp = $derived(month);
   $effect(() => { void monthProp; untrack(() => { override = null; }); });
-  // ── Week mode (#2951): `mode` and `date`, read by value as `month` is ──
+  // ── Week and Day (#2951, #2952): `mode` and `date`, read by value as `month` is ──
   const modeProp = $derived(parseCalendarMode(view.spec['mode']));
   const dateProp = $derived(str(view.spec['date']));
-  /** A mode or week chosen here, ahead of (or, read-only, instead of) the spec's. */
-  let modeOverride = $state<'month' | 'week' | null>(null);
+  /** A mode or page chosen here, ahead of (or, read-only, instead of) the spec's. */
+  let modeOverride = $state<CalendarMode | null>(null);
   /** `follows`: chosen as "today" (Today, or a switch from a month following today). */
   let dayOverride = $state<{ day: number; follows: boolean } | null>(null);
   $effect(() => { void modeProp; untrack(() => { modeOverride = null; }); });
   $effect(() => { void dateProp; untrack(() => { dayOverride = null; }); });
-  // Day mode is #2952's; until then a `day` spec shows its week.
-  const mode = $derived<'month' | 'week'>(modeOverride ?? (modeProp === null ? 'month' : 'week'));
-  /** The week page's day: the one chosen here, else `date`, else today. */
+  const mode = $derived<CalendarMode>(modeOverride ?? modeProp ?? 'month');
+  /** The week or day page's day: the one chosen here, else `date`, else today. */
   const anchor = $derived(dayOverride?.day ?? parseDayAnchor(dateProp) ?? today);
   const weekFollowsToday = $derived(dayOverride ? dayOverride.follows : parseDayAnchor(dateProp) === null);
-  const weekPage = $derived(timePage(anchor, 'week', view.week.start));
+  const weekPage = $derived(timePage(anchor, mode === 'day' ? 'day' : 'week', view.week.start));
 
-  // In Week mode (and its export, until #2955 draws a week's) the month grid's page is the anchor's month.
-  const page = $derived<CalendarMonth>(mode === 'week' ? monthOf(anchor) : override ?? parseMonthAnchor(monthProp) ?? monthOf(today));
+  // In Week and Day (and their exports, until #2955 draws them) the month grid's page is the anchor's month.
+  const page = $derived<CalendarMonth>(mode !== 'month' ? monthOf(anchor) : override ?? parseMonthAnchor(monthProp) ?? monthOf(today));
   const pageKey = (m: CalendarMonth) => m.year * 12 + m.month;
   const pageNumber = $derived(pageKey(page)); // a turn, not a re-derived object
   const weekStart = $derived(weekPage.start); // likewise: a refresh rebuilds `weekPage`, not its start
@@ -188,20 +193,24 @@
     if (interactive) onStateChange({ month: opts.current ? null : formatMonthAnchor(m) });
   }
 
-  /** Show the week holding `day`; `current` writes `date` unset (follow today). */
+  /** Show the week or day holding `day`; `current` writes `date` unset (follow today). */
   function goToWeek(day: number, opts: { current?: boolean } = {}): void {
     dayOverride = { day, follows: opts.current === true };
     if (interactive) onStateChange({ date: opts.current ? null : formatDayAnchor(day) });
   }
 
-  /** The Month | Week switch: keeps the page, and whether it follows today (`week-nav.ts`). */
-  function switchMode(to: 'month' | 'week'): void {
+  /** The Month | Week | Day switch: keeps the page, and whether it follows today (`week-nav.ts`). */
+  function switchMode(to: CalendarMode): void {
     if (to === mode) return;
-    if (to === 'week') {
-      const { anchor: day, date } = weekFromMonth({ page, followsToday: override === null && parseMonthAnchor(monthProp) === null, focused: focusedDay, today, weekStart: firstDay });
-      modeOverride = 'week';
+    if (to !== 'month' && mode !== 'month') {
+      // Week ↔ Day: the same `date`, so the day stays.
+      modeOverride = to;
+      if (interactive) onStateChange({ mode: to });
+    } else if (to !== 'month') {
+      const { anchor: day, date } = weekFromMonth({ page, followsToday: override === null && parseMonthAnchor(monthProp) === null, focused: focusedDay, today, weekStart: firstDay, mode: to });
+      modeOverride = to;
       dayOverride = { day, follows: date === null };
-      if (interactive) onStateChange({ mode: 'week', date });
+      if (interactive) onStateChange({ mode: to, date });
     } else {
       const month = monthFromWeek({ anchor, followsToday: weekFollowsToday });
       modeOverride = 'month';
@@ -211,13 +220,25 @@
     if (listDay !== null) closeList(false);
   }
 
+  /** Open `day` in Day mode (#2952): a day number double-clicked, or Alt+Enter, in Month or Week. */
+  function openDay(day: number): void {
+    modeOverride = 'day';
+    const follows = day === today && (mode === 'month' ? override === null && parseMonthAnchor(monthProp) === null : weekFollowsToday);
+    dayOverride = { day, follows };
+    if (interactive) onStateChange({ mode: 'day', date: follows ? null : formatDayAnchor(day) });
+    if (listDay !== null) closeList(false);
+  }
+
   const weeks = $derived(monthWeeks(page, firstDay));
   const gridStart = $derived(weeks[0]!.start);
   const gridEnd = $derived(weeks[weeks.length - 1]!.end);
   const rows = $derived(layoutMonth(pageItems(model.grid, weeks), weeks));
-  const weekView = $derived(mode === 'week' && !exportMode);
+  /** Week or Day, on screen: the time grid. */
+  const weekView = $derived(mode !== 'month' && !exportMode);
   const bands = $derived(weekView ? rangeBands(model, weekPage, locale) : pageBands(model, page, locale));
-  const title = $derived(weekView ? weekTitle(weekPage, locale, weekNumbers ? rowWeekNumber(weekPage).week : null) : monthTitle(page, locale));
+  const title = $derived(!weekView ? monthTitle(page, locale)
+    : mode === 'day' ? dayName(anchor, locale)
+    : weekTitle(weekPage, locale, weekNumbers ? rowWeekNumber(weekPage).week : null));
   const timeGrid = $derived(weekView ? layoutTimeGrid(model.grid, weekPage, { minMinutes: Math.max(MIN_TIMED_MINUTES, 20) }) : null);
   let weekGrid = $state<ReturnType<typeof CalendarWeek>>();
   /** Now, on the civil axis — the week's now-line moves each minute. */
@@ -235,6 +256,12 @@
   function colorOf(key: string): string | null {
     const inst = model.byKey.get(key)?.inst as { icon?: { color?: string } } | undefined;
     return inst?.icon?.color ?? view.type.color ?? null;
+  }
+  /** An event's second line in Day mode (#2952): its first card field that isn't one of its dates. */
+  function detailOf(key: string): string | null {
+    const inst = model.byKey.get(key)?.inst as { fields?: Array<{ name: string; label: string; text: string }> } | undefined;
+    const f = inst?.fields?.find((x) => x.name !== dates.dateProperty && x.name !== dates.endProperty && x.text !== '');
+    return f ? `${f.label}: ${f.text}` : null;
   }
   const columns = $derived(weeks[0]!.days.map((d) => weekdayNames(d.weekday, locale)));
 
@@ -287,6 +314,11 @@
   }
 
   function onGridKeydown(e: KeyboardEvent): void {
+    if (e.altKey && e.key === 'Enter' && !e.metaKey && !e.ctrlKey && !move.moving) {
+      e.preventDefault();
+      openDay(tabDay);
+      return;
+    }
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     const from = tabDay;
     let to: number;
@@ -411,10 +443,11 @@
     <h2 class="cal-title" id="{uid}-title">{title}</h2>
     {#if !exportMode}
       {#if weekView}
+        {@const unit = mode === 'day' ? 'day' : 'week'}
         <div class="cal-nav">
-          <button type="button" class="cal-btn" aria-label="Previous week" title="Previous week" onclick={() => goToWeek(stepWeek(anchor, -1))}>‹</button>
-          <button type="button" class="cal-btn" title="This week" onclick={() => goToWeek(today, { current: true })}>Today</button>
-          <button type="button" class="cal-btn" aria-label="Next week" title="Next week" onclick={() => goToWeek(stepWeek(anchor, 1))}>›</button>
+          <button type="button" class="cal-btn" aria-label="Previous {unit}" title="Previous {unit}" onclick={() => goToWeek(stepPage(anchor, unit, -1))}>‹</button>
+          <button type="button" class="cal-btn" title="This {unit}" onclick={() => goToWeek(today, { current: true })}>Today</button>
+          <button type="button" class="cal-btn" aria-label="Next {unit}" title="Next {unit}" onclick={() => goToWeek(stepPage(anchor, unit, 1))}>›</button>
         </div>
       {:else}
         <div class="cal-nav">
@@ -424,7 +457,7 @@
         </div>
       {/if}
       <div class="cal-modes" role="group" aria-label="Calendar view">
-        {#each [['month', 'Month'], ['week', 'Week']] as const as [id, label] (id)}
+        {#each [['month', 'Month'], ['week', 'Week'], ['day', 'Day']] as const as [id, label] (id)}
           <button type="button" class="cal-mode" aria-pressed={mode === id} onclick={() => switchMode(id)}>{label}</button>
         {/each}
       </div>
@@ -445,6 +478,7 @@
     {#if exportMode}
     <CalendarExportGrid grid={model.grid} {page} weekStart={firstDay} {weekNumbers} {locale} />
     {:else if weekView && timeGrid}
+    <div class="cal-timerow">
     <CalendarWeek
       bind:this={weekGrid}
       page={weekPage}
@@ -466,7 +500,23 @@
       onChooseDay={(day) => move.confirm(day)}
       onCancelChoose={() => move.cancel(true)}
       onGoToDay={(day) => goToWeek(day)}
+      onOpenDay={mode === 'week' ? openDay : null}
+      detailOf={mode === 'day' ? detailOf : null}
     />
+    {#if mode === 'day'}
+      <CalendarAgenda
+        label={dayName(anchor, locale)}
+        events={dayEvents(model.grid, anchor)}
+        timeOf={fmtTime}
+        {detailOf}
+        {hover}
+        {cardId}
+        {cardKey}
+        onOpen={onOpenNote}
+        onMenu={noteMenu ? onNoteMenu : null}
+      />
+    {/if}
+    </div>
     {:else}
     <!-- The days are the tab stops (a roving tabindex), not the grid itself. -->
     <!-- svelte-ignore a11y_interactive_supports_focus -->
@@ -526,7 +576,8 @@
                    what the cell shows, so the visible text is in the name. It
                    reads no more than the cell shows: past that, "+N more". -->
               <span class="visually-hidden">{dayName(day.start, locale)}, {n === 0 ? 'no events' : n === 1 ? '1 event' : `${n} events`}{n > 0 ? ':' : ''}</span>
-              <span class="cal-num" aria-hidden="true">{day.day}</span>
+              <!-- svelte-ignore a11y_no_static_element_interactions -->
+              <span class="cal-num" aria-hidden="true" ondblclick={(e) => { e.stopPropagation(); if (!move.moving) openDay(day.start); }}>{day.day}</span>
               {#each startingAt(r, c) as s (s.key)}
                 {@const ev = eventFor(s.key)}
                 {@const time = fmtTime(ev)}
@@ -680,7 +731,7 @@
     cursor: pointer;
   }
   .cal-btn:hover { border-color: var(--accent); }
-  /* Month | Week (#2951): pressed is bold and filled, not colour alone. */
+  /* Month | Week | Day (#2951, #2952): pressed is bold and filled, not colour alone. */
   .cal-modes { display: inline-flex; margin-left: auto; border: 1px solid var(--border); border-radius: 5px; overflow: hidden; }
   .cal-mode { padding: 2px 10px; border: none; background: var(--bg-button); color: var(--text); font-family: inherit; font-size: 11.5px; cursor: pointer; }
   .cal-mode + .cal-mode { border-left: 1px solid var(--border); }
@@ -688,7 +739,9 @@
   .cal-mode:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 
   /* The grid scrolls below its 64px row floor; the bands sit above it (order), after it in tab order. */
-  .cal-main { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .cal-main { flex: 1; min-height: 0; display: flex; flex-direction: column; container-type: inline-size; }
+  /* Week and Day: the time grid, and in Day the agenda beside it when there's room (#2952). */
+  .cal-timerow { flex: 1; min-height: 0; display: flex; }
   .cal-grid {
     flex: 1;
     min-height: 0;

@@ -19,6 +19,8 @@ export interface CalendarProps {
   type: { id: string; label: string; icon?: string; color?: string };
   /** Per note: its own type's icon colour (a subtype's, #2951). */
   colors?: Record<string, string>;
+  /** Per note: its card fields, as Minerva sends them (#2952's second line). */
+  fields?: Record<string, Array<{ name: string; label: string; text: string }>>;
   properties: ReadonlyArray<{ name: string; type: string; label?: string }>;
   instances: TypeInstanceRow[];
   month?: string | null;
@@ -42,7 +44,7 @@ export function calendarView(p: CalendarProps): PluginViewState {
     type: { id: p.type.id, label: p.type.label, ...(p.type.icon ? { icon: p.type.icon } : {}), ...(p.type.color ? { color: p.type.color } : {}) },
     properties: p.properties.map((x) => ({ name: x.name, type: x.type, ...(x.label ? { label: x.label } : {}) })),
     visible: null,
-    instances: p.instances.map((i) => ({ path: i.path, title: i.title, values: { ...i.values }, fields: [], ...(p.colors?.[i.path] ? { icon: { glyph: '•', color: p.colors[i.path]!, label: 'Sub' } } : {}) })),
+    instances: p.instances.map((i) => ({ path: i.path, title: i.title, values: { ...i.values }, fields: [...(p.fields?.[i.path] ?? [])], ...(p.colors?.[i.path] ? { icon: { glyph: '•', color: p.colors[i.path]!, label: 'Sub' } } : {}) })),
     sortColumn: null, sortDir: 'asc',
     spec: { month: p.month ?? null, mode: p.mode ?? null, date: p.date ?? null, dateBy: p.dateBy ?? null },
     filters: [],

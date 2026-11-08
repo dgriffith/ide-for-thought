@@ -25,6 +25,10 @@
    *   day's list — or, choosing a day for *Move to date…*, that day. Tab from
    *   a cell goes into the events it holds, in time order; Shift+Tab or
    *   Escape from an event back to its cell.
+   * - **Opening a day** (#2952, the week only): Alt+Enter on a cell, or a
+   *   double-click on a day's number, asks for that day (`onOpenDay`).
+   * - **One column** (the Day view): an event tall enough shows a second
+   *   line, `detailOf`'s (the note's first card field).
    */
   import { tick } from 'svelte';
   import { DAY_MS } from '../../../src/shared/time';
@@ -63,10 +67,15 @@
     onCancelChoose: () => void;
     /** Show the page holding `day` (focus moved past the page's edge). */
     onGoToDay: (day: number) => void;
+    /** Open `day` in the Day view; null where that isn't offered (the Day view itself). */
+    onOpenDay?: ((day: number) => void) | null;
+    /** An event's second line (the Day view); null for none. */
+    detailOf?: ((key: string) => string | null) | null;
   }
   let {
     page, layout, eventFor, colorOf, today, now, locale, labelledBy, movingKey, moveBarId,
     hover, cardId, cardKey, onOpen, onMenu, onDayList, onChooseDay, onCancelChoose, onGoToDay,
+    onOpenDay = null, detailOf = null,
   }: Props = $props();
   const uid = $props.id();
 
@@ -172,7 +181,13 @@
 
   function onGridKeydown(e: KeyboardEvent): void {
     const cell = (e.target as HTMLElement).closest<HTMLElement>('[role="gridcell"]');
-    if (!cell || e.target !== cell || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (!cell || e.target !== cell) return;
+    if (onOpenDay && e.altKey && e.key === 'Enter' && !e.metaKey && !e.ctrlKey && !choosing) {
+      e.preventDefault();
+      onOpenDay(tabDay);
+      return;
+    }
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
     const day = tabDay;
     const slot = tabSlot;
     const columnsCount = page.days.length;
@@ -263,7 +278,8 @@
       <div class="wk-corner" role="columnheader" aria-label="Time"></div>
       {#each columns as { day, names, dst } (day.start)}
         <div class="wk-colhead" class:wk-today={day.start === today} role="columnheader" aria-label="{dayName(day.start, locale)}{dst ? `. ${dstText(dst)}` : ''}">
-          <span aria-hidden="true"><span class="wk-wd">{names.short}</span> <span class="wk-num">{day.day}</span></span>
+          <!-- svelte-ignore a11y_no_static_element_interactions -->
+          <span aria-hidden="true"><span class="wk-wd">{names.short}</span> <span class="wk-num" ondblclick={onOpenDay && !choosing ? () => onOpenDay(day.start) : undefined}>{day.day}</span></span>
           {#if dst}<span class="wk-dst" aria-hidden="true" title={dstText(dst)}>{dst.kind === 'skipped' ? 'Clocks forward' : 'Clocks back'}</span>{/if}
         </div>
       {/each}
@@ -356,6 +372,7 @@
               {@const ev = eventFor(p.key)}
               {@const time = chipTime(p, ev)}
               {@const height = Math.max(MIN_EVENT_PX, (p.endMin - p.startMin) * PX_PER_MIN) - 1}
+              {@const detail = detailOf && height >= 3 * MIN_EVENT_PX ? detailOf(p.key) : null}
               <button
                 type="button"
                 class="wk-ev"
@@ -383,6 +400,7 @@
                 {#if p.continuesBefore}<span class="wk-mark" aria-hidden="true">‹</span>{/if}
                 {#if time}<span class="wk-time-text">{time}</span>{/if}
                 <span class="wk-title">{ev.title}</span>
+                {#if detail}<span class="wk-detail">{detail}</span>{/if}
                 {#if p.continuesAfter}<span class="wk-mark wk-mark-after" aria-hidden="true">›</span>{/if}
               </button>
             {/each}
@@ -401,7 +419,7 @@
 </div>
 
 <style>
-  .wk { flex: 1; min-height: 0; display: flex; flex-direction: column; border-top: 1px solid var(--border); background: var(--bg); }
+  .wk { flex: 1; min-height: 0; min-width: 0; display: flex; flex-direction: column; border-top: 1px solid var(--border); background: var(--bg); }
   .wk-row { display: grid; grid-template-columns: 5em repeat(var(--cols), minmax(0, 1fr)); }
   .wk-top { flex-shrink: 0; border-bottom: 1px solid var(--border); }
   .wk-head { border-bottom: 1px solid var(--border); }
@@ -468,6 +486,7 @@
   .wk-time-text { font-weight: 600; font-variant-numeric: tabular-nums; }
   .wk-title { overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
   .wk-short .wk-title { white-space: nowrap; }
+  .wk-detail { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; color: var(--text-muted); font-size: 11px; }
   .wk-mark { font-weight: 700; }
   .wk-mark-after { margin-left: auto; }
 
