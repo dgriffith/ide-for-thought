@@ -36,14 +36,18 @@ export interface LayoutOptions {
   every: number;
   /** Positions so far, as x/y pairs in node order; `done` on the last. */
   onPositions: (xy: Float64Array, done: boolean) => void;
+  /** How far apart linked notes settle (default 40), and how hard every note
+   *  pushes the rest away (default 60): a view's labelled cards (#2960) want more room than dots. */
+  distance?: number;
+  repulsion?: number;
 }
 
 type SimNode = SimulationNodeDatum & { id: string };
 
 /** Where each group starts: spread on a circle sized to the graph. */
-function seed(nodes: readonly LayoutNode[]): SimNode[] {
+function seed(nodes: readonly LayoutNode[], spread: number): SimNode[] {
   const groups = [...new Set(nodes.map((n) => n.group))];
-  const radius = Math.sqrt(nodes.length) * 20;
+  const radius = Math.sqrt(nodes.length) * spread;
   const centre = new Map(groups.map((g, i) => {
     const a = (2 * Math.PI * i) / Math.max(1, groups.length);
     return [g, { x: Math.cos(a) * radius, y: Math.sin(a) * radius }] as const;
@@ -54,18 +58,18 @@ function seed(nodes: readonly LayoutNode[]): SimNode[] {
     const c = centre.get(n.group)!;
     // A small, deterministic spiral around the group's centre, so no two start on top of each other.
     const a = k * 2.399963;
-    const r = Math.sqrt(k++ % 400) * 6;
+    const r = Math.sqrt(k++ % 400) * spread * 0.3;
     return { id: n.id, x: c.x + Math.cos(a) * r, y: c.y + Math.sin(a) * r };
   });
 }
 
 export function layoutGraph(nodes: readonly LayoutNode[], edges: readonly LayoutEdge[], opts: LayoutOptions): void {
-  const sim = seed(nodes);
+  const sim = seed(nodes, (opts.distance ?? 40) / 2);
   const ids = new Set(nodes.map((n) => n.id));
   const links = edges.filter((e) => ids.has(e.source) && ids.has(e.target) && e.source !== e.target).map((e) => ({ ...e }));
   const simulation = forceSimulation<SimNode>(sim)
-    .force('link', forceLink<SimNode, { source: string; target: string }>(links).id((d) => d.id).distance(40).strength(0.4))
-    .force('charge', forceManyBody<SimNode>().strength(-60).theta(0.9).distanceMax(800))
+    .force('link', forceLink<SimNode, { source: string; target: string }>(links).id((d) => d.id).distance(opts.distance ?? 40).strength(0.4))
+    .force('charge', forceManyBody<SimNode>().strength(-(opts.repulsion ?? 60)).theta(0.9).distanceMax(800))
     .force('center', forceCenter(0, 0))
     .stop();
   const xy = new Float64Array(sim.length * 2);

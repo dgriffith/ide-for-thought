@@ -18,10 +18,11 @@
   import type { LayoutView } from '../type-view/layout-view';
   import type { PluginFrameConnection } from '../../stores/plugin-sessions.svelte';
   import { layoutDef, type ViewLayout } from '../../../../shared/objects/view-layouts';
-  import type { PluginViewFilter, PluginViewInstance, PluginViewState } from '../../../../shared/plugins/api';
+  import type { PluginViewFilter, PluginViewInstance, PluginViewLink, PluginViewState } from '../../../../shared/plugins/api';
   import { isValuesFilter } from '../../../../shared/objects/view-spec';
   import { selectInstanceCardFields } from '../../../../shared/objects/card';
   import { columnKey } from '../../../../shared/objects/kanban';
+  import { parseGraphEdges, parseGraphOutside } from '../../../../shared/objects/graph-view';
   import type { TypeInstanceRow } from '../../../../shared/objects/type-def';
   import { logger } from '../../../../shared/logger';
   import { tick } from 'svelte';
@@ -62,10 +63,25 @@
     return { fields, ...(icon ? { icon } : {}) };
   }
 
-  const cards = $derived(view.sorted.map((inst) => ({ inst, ...card(inst) })));
+  /** Every note a note's link properties name, resolved wherever the view is shown (#2960): a graph's edges. */
+  function links(inst: TypeInstanceRow): PluginViewLink[] {
+    return view.properties.flatMap((p) => {
+      if (p.type !== 'link-to-type') return [];
+      const value = inst.values[p.name] ?? null;
+      const path = view.linkPath(p, value);
+      return path ? [{ property: p.name, path, title: view.display(p, value) || path }] : [];
+    });
+  }
+
+  const cards = $derived(view.sorted.map((inst) => ({ inst, ...card(inst), links: links(inst) })));
   // The view's notes, and the notes their link fields name — for those notes' menus.
   // A query row with no note (#2946) is drawn, but its synthetic path is never in the plugin's scope.
-  const scope = $derived([...new Set([...cards.filter((c) => !c.inst.noNote).map((c) => c.inst.path), ...cards.flatMap((c) => c.fields.flatMap((f) => (f.ref ? [f.ref] : [])))])]);
+  // A layout that draws linked notes (a graph's, #2960) is given those too: it previews and opens them.
+  const scope = $derived([...new Set([
+    ...cards.filter((c) => !c.inst.noNote).map((c) => c.inst.path),
+    ...cards.flatMap((c) => c.fields.flatMap((f) => (f.ref ? [f.ref] : []))),
+    ...(layoutDef(layout).linkedNotes ? cards.flatMap((c) => c.links.map((l) => l.path)) : []),
+  ])]);
 
   /** The view as the plugin sees it: plain data, nothing reactive. */
   const viewState = $derived<PluginViewState>({
@@ -83,8 +99,8 @@
       ...(p.options ? { options: [...p.options] } : {}),
     })),
     visible: view.visible ? [...view.visible] : null,
-    instances: cards.map(({ inst: i, fields, icon }) => ({
-      path: i.path, title: i.title, values: { ...i.values }, ...(i.tags ? { tags: [...i.tags] } : {}), fields, ...(icon ? { icon } : {}),
+    instances: cards.map(({ inst: i, fields, icon, links: l }) => ({
+      path: i.path, title: i.title, values: { ...i.values }, ...(i.tags ? { tags: [...i.tags] } : {}), fields, ...(icon ? { icon } : {}), ...(l.length > 0 ? { links: l } : {}),
     })),
     sortColumn: view.sortColumn,
     sortDir: view.sortDir,
@@ -154,6 +170,9 @@
     const allowed = new Set(layoutDef(layout).specFields);
     const kept = Object.fromEntries(Object.entries(patch).filter(([k]) => allowed.has(k)));
     if (Object.keys(kept).length === 0) return;
+    // A graph's fields arrive as the plugin wrote them: read them as the spec does (#2960).
+    if ('edges' in kept) kept['edges'] = parseGraphEdges(kept['edges']);
+    if ('outside' in kept) kept['outside'] = parseGraphOutside(kept['outside']);
     view.onStateChange(kept);
   }
 </script>

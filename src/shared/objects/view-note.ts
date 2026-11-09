@@ -16,6 +16,7 @@ import type { ViewLayout } from '../types';
 import { layoutDef } from './view-layouts';
 import type { ViewFilter } from './view-spec';
 import type { MapStyle } from './map-style';
+import type { GraphOutside } from './graph-view';
 import { viewHeightField } from './view-height';
 import { viewWidthField } from './view-width';
 import { sourceFields, type QuerySourceSpec } from '../views/view-source-spec';
@@ -66,6 +67,10 @@ export interface ViewNoteSpec {
   /** The date property the view places notes by (#2701); written only when
    *  chosen — absent means the type's default. */
   dateBy?: string | null | undefined;
+  /** Graph's drawn link properties (#2960); written only when chosen — absent means all. */
+  edges?: readonly string[] | null | undefined;
+  /** Graph's notes outside the view (#2960); written only when hidden — absent means shown. */
+  outside?: GraphOutside | undefined;
 }
 
 
@@ -101,6 +106,8 @@ export function buildViewEmbed(spec: ViewNoteSpec): string {
   if (spec.mode) body.mode = spec.mode;
   if (spec.date) body.date = spec.date;
   if (spec.dateBy) body.dateBy = spec.dateBy;
+  if (spec.edges) body.edges = [...spec.edges];
+  if (spec.outside === 'hide') body.outside = 'hide';
   const height = viewHeightField(spec.height);
   if (height !== undefined) body.height = height;
   const width = viewWidthField(spec.width);

@@ -144,6 +144,8 @@ async function renderAtWidth(spec: ReturnType<typeof parseObjectViewSpec>, width
           mode: spec.mode,
           date: spec.date,
           dateBy: spec.dateBy,
+          edges: spec.edges,
+          outside: spec.outside,
           revision: 0,
           chromeless: true,
           onStateChange: () => {},

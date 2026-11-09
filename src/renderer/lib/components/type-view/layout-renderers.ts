@@ -20,6 +20,7 @@ import MapLayout from './MapLayout.svelte';
 import KanbanLayout from './KanbanLayout.svelte';
 import TimelineLayout from './TimelineLayout.svelte';
 import CalendarLayout from './CalendarLayout.svelte';
+import GraphLayout from './GraphLayout.svelte';
 
 export interface LayoutRenderer {
   component: Component<{ view: LayoutView }>;
@@ -44,6 +45,8 @@ export const LAYOUT_RENDERERS: Record<ViewLayout, LayoutRenderer> = {
   // Time order (#2942): the plugins draw from these same models.
   timeline: { component: TimelineLayout, order: (v) => timelineOrder(buildTimelineModel(v.instances, timelineProperties(v.dateBy, v.properties))) },
   calendar: { component: CalendarLayout, order: (v) => calendarOrder(buildCalendarModel(v.instances, timelineProperties(v.dateBy, v.properties))) },
+  // The view's sort is the graph's keyboard order (#2960).
+  graph: { component: GraphLayout, order: (v) => v.sorted },
 };
 
 /** The notes in the order `layout` draws them. */

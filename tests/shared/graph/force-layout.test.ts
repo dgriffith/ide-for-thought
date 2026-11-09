@@ -3,7 +3,7 @@
  * back as it settles, with linked notes drawn nearer each other than unlinked.
  */
 import { describe, it, expect } from 'vitest';
-import { layoutGraph, ticksFor } from '../../../src/renderer/lib/graph/force-layout';
+import { layoutGraph, ticksFor } from '../../../src/shared/graph/force-layout';
 
 describe('layoutGraph (#2958)', () => {
   it('hands back finite positions for every node, every `every` ticks, the last marked done', () => {

@@ -9,7 +9,7 @@
  * `update_baseline: true`), never locally (#2211).
  */
 import { describe, test } from 'vitest';
-import { layoutGraph, ticksFor, type LayoutEdge, type LayoutNode } from '../../../src/renderer/lib/graph/force-layout';
+import { layoutGraph, ticksFor, type LayoutEdge, type LayoutNode } from '../../../src/shared/graph/force-layout';
 import { assertFixtureReaches } from '../../helpers/bench-fixture';
 
 function generated(n: number): { nodes: LayoutNode[]; edges: LayoutEdge[] } {

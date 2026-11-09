@@ -42,7 +42,7 @@ function fakeView(over: Partial<LayoutView> = {}): LayoutView {
     visible: null, instances: rows, sorted: [rows[1]!, rows[0]!], sortColumn: 'title', sortDir: 'desc',
     readOnly: false, exportMode: false, onStateChange: vi.fn(), openRowMenu: vi.fn(),
     display: (_p: unknown, v: string | null) => (v ? v.toUpperCase() : ''), rowType: () => null, pluginExport: undefined,
-    refPath: () => null, isSelected: (p: string) => p === 'a.md', selectable: true, rowMenu: true, group: null,
+    refPath: () => null, linkPath: () => null, isSelected: (p: string) => p === 'a.md', selectable: true, rowMenu: true, group: null,
     spec: { groupBy: 'status', columnOrder: [], showEmptyColumns: true, cardOrder: [] }, board: [], canUndoMove: false, lastMove: null, filters: [], week: { start: 1, numbers: false }, onReschedule: undefined, provideMoveToDate: vi.fn(),
     onMoveCard: undefined, onUndoMove: undefined, onMoveColumn: undefined,
     onRowClick: vi.fn(), onRowKey: vi.fn(), selectAll: vi.fn(), clearSelection: vi.fn(), selectPaths: vi.fn(),
@@ -61,7 +61,7 @@ beforeEach(() => {
 });
 afterEach(() => cleanup());
 
-async function mounted(view = fakeView(), layout: 'kanban' | 'timeline' | 'calendar' = 'kanban') {
+async function mounted(view = fakeView(), layout: 'kanban' | 'timeline' | 'calendar' | 'graph' = 'kanban') {
   const r = render(PluginLayout, { view, layout, pluginId: layout });
   await fireEvent.load(r.container.querySelector('iframe')!);
   await waitFor(() => expect(h.sendView).toHaveBeenCalled());
@@ -164,6 +164,7 @@ describe('prepared cards and the host\'s selection (#2828, C1)', () => {
     group: STATUS as LayoutView['group'],
     sorted: [{ path: 'a.md', title: 'Alpha', values: { status: 'todo', owner: 'Ann' }, cover: null }] as LayoutView['sorted'],
     refPath: (p: { name: string }, v: string | null) => (p.name === 'owner' && v ? `people/${v.toLowerCase()}.md` : null),
+    linkPath: (p: { name: string }, v: string | null) => (p.name === 'owner' && v ? `people/${v.toLowerCase()}.md` : null),
     rowType: () => ({ id: 'bug', label: 'Bug', classLocalName: 'Bug', properties: [], icon: '🐞', color: '#c00' }) as never,
   });
 
@@ -177,6 +178,21 @@ describe('prepared cards and the host\'s selection (#2828, C1)', () => {
   it('scopes the frame to the notes and the notes their links name', async () => {
     await mounted(withLinks());
     expect(h.connect.mock.calls.at(-1)![2]).toEqual(['a.md', 'people/ann.md']);
+  });
+
+  it('sends each note\'s links, resolved, with the linked note\'s title (#2960)', async () => {
+    await mounted(withLinks());
+    expect(h.sendView.mock.calls.at(-1)![0].instances[0].links).toEqual([{ property: 'owner', path: 'people/ann.md', title: 'ANN' }]);
+  });
+
+  it('a graph is given the notes its links name even where no card field shows them — an embed without note actions (#2960)', async () => {
+    await mounted(fakeView({
+      ...withLinks(),
+      visible: ['status'], // the owner isn't a card field…
+      refPath: () => null, // …and there are no note actions
+    }), 'graph');
+    expect(h.connect.mock.calls.at(-1)![2]).toEqual(['a.md', 'people/ann.md']);
+    expect(h.sendView.mock.calls.at(-1)![0].instances[0].links).toEqual([{ property: 'owner', path: 'people/ann.md', title: 'ANN' }]);
   });
 
   it("hands a click, ⌘A and Escape to the view's own selection", async () => {

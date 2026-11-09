@@ -374,13 +374,14 @@ function buildEditorStore() {
       showEmptyColumns: opts?.showEmptyColumns ?? true,
       cardOrder: opts?.cardOrder ?? [],
       from: opts?.from ?? null, to: opts?.to ?? null, month: opts?.month ?? null, mode: opts?.mode ?? null, date: opts?.date ?? null, dateBy: opts?.dateBy ?? null,
+      edges: opts?.edges ?? null, outside: opts?.outside ?? 'show',
     };
     // A view is its type AND its folder (#2531): two folders' views are two tabs.
     const found = locateTab((t) => isTypeView(t) && t.typeId === typeId && t.folder === folder);
     if (found) {
       // Re-apply the incoming projection so opening a saved view re-configures
       // the already-open tab (only when the caller passed explicit state).
-      if (opts && ('layout' in opts || 'sortColumn' in opts || 'columns' in opts || 'filters' in opts || 'mapStyle' in opts || 'groupBy' in opts || 'columnOrder' in opts || 'showEmptyColumns' in opts || 'cardOrder' in opts || 'from' in opts || 'to' in opts || 'month' in opts || 'mode' in opts || 'date' in opts || 'dateBy' in opts)) {
+      if (opts && ('layout' in opts || 'sortColumn' in opts || 'columns' in opts || 'filters' in opts || 'mapStyle' in opts || 'groupBy' in opts || 'columnOrder' in opts || 'showEmptyColumns' in opts || 'cardOrder' in opts || 'from' in opts || 'to' in opts || 'month' in opts || 'mode' in opts || 'date' in opts || 'dateBy' in opts || 'edges' in opts || 'outside' in opts)) {
         Object.assign(found.group.tabs[found.index] as TypeViewTab, state);
         schedulePersistTabs();
       }

@@ -373,6 +373,10 @@ export interface SavedTypeViewTab {
   /** The date property the view places notes by (#2701, `date-by.ts`);
    *  absent = the type's default. Read leniently on restore. */
   dateBy?: string;
+  /** Graph's drawn link properties (#2960); absent = all. Read leniently (`parseGraphEdges`). */
+  edges?: string[];
+  /** Graph's notes outside the view (#2960); absent = show. Read leniently (`parseGraphOutside`). */
+  outside?: string;
 }
 
 /** A plugin's global view in a tab (#2640). Restored as written; a plugin

@@ -160,6 +160,10 @@ const LIST = {
     description: shipped('calendar'),
     enabled: true, source: { kind: 'core' }, contributes: {}, capabilities: ['notes:read', 'notes:write-properties', 'notes:write', 'ui'],
   }, {
+    id: 'graph', name: 'Graph', version: '1.0.0',
+    description: shipped('graph'),
+    enabled: true, source: { kind: 'core' }, contributes: {}, capabilities: ['notes:read', 'ui'],
+  }, {
     id: 'reading-queue', name: 'Reading Queue', version: '1.0.0',
     description: shipped('reading-queue'),
     enabled: false, source: { kind: 'core' }, sample: true, contributes: {}, capabilities: ['graph:query', 'notes:write-properties', 'ui'],

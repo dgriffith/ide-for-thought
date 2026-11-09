@@ -12,6 +12,7 @@
  */
 import type { MapExportHooks } from '../../map/map-export';
 import type { MapStyle } from '../../../../shared/objects/map-style';
+import type { GraphOutside } from '../../../../shared/objects/graph-view';
 import type { ViewFilter } from '../../../../shared/objects/view-spec';
 import type { Weekday } from '../../../../shared/objects/calendar-grid';
 import type { KanbanColumn } from '../../../../shared/objects/kanban';
@@ -49,6 +50,9 @@ export interface ViewStatePatch {
   mode?: 'week' | 'day' | null;
   date?: string | null;
   dateBy?: string | null;
+  /** Graph's drawn link properties and its outside notes (#2960), read by `PluginLayout`. */
+  edges?: string[] | null;
+  outside?: GraphOutside;
 }
 
 export interface LayoutView {
@@ -87,6 +91,8 @@ export interface LayoutView {
   onRowContextMenu: (e: MouseEvent, path: string) => void;
   /** The note a `link-to-type` value names, when it's one that exists (#2775). */
   refPath: (prop: PropertyDef, value: string | null) => string | null;
+  /** The same, wherever the view is shown: a graph's edges (#2960), which an embed without note actions draws too. */
+  linkPath: (prop: PropertyDef, value: string | null) => string | null;
   /** Right-click that named note: the menu for it, not for the row. */
   onRefContextMenu: (e: MouseEvent, path: string, label: string) => void;
   /** The row menu for these notes at a point in the window — a plugin layout's

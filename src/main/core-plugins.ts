@@ -35,11 +35,12 @@ const CORE_PLUGIN_ACTIVATIONS: Readonly<Record<string, CorePluginActivation>> = 
   // Local MCP servers (#2891): the channels that add or change a program
   // Minerva runs, and leave for local servers to start.
   'local-mcp-servers': registerLocalMcpServers,
-  // Kanban (#2828), Timeline and Calendar (#2829) wire up nothing in main: a view is served from its built
-  // folder while it is active, which is what activating it marks.
+  // Kanban (#2828), Timeline and Calendar (#2829) and Graph (#2960) wire up nothing in main: a view is
+  // served from its built folder while it is active, which is what activating it marks.
   kanban: () => () => {},
   timeline: () => () => {},
   calendar: () => () => {},
+  graph: () => () => {},
   // The Reading Queue (#2640) is a global view: served the same way, its
   // query run by `plugin-sessions.ts` when its panel connects.
   'reading-queue': () => () => {},

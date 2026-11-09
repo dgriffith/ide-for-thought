@@ -7,7 +7,7 @@
  * One request at a time per worker: a new request (the filters changed) is
  * answered after the one in progress; the caller ignores a stale `seq`.
  */
-import { layoutGraph, ticksFor, type LayoutEdge, type LayoutNode } from './force-layout';
+import { layoutGraph, ticksFor, type LayoutEdge, type LayoutNode } from '../../../shared/graph/force-layout';
 
 export interface LayoutRequest {
   seq: number;
