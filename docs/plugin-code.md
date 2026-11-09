@@ -604,8 +604,13 @@ Selection, the note menu, the preview and the keyboard are the same API calls
 the timeline makes (`view.click`, `ui.showNoteMenu`, `ui.previewNote`).
 The model (`src/shared/objects/graph-view.ts`) and the force layout
 (`src/shared/graph/force-layout.ts`, shared with the thoughtbase graph) live
-in `src/shared/`, the only app code a plugin may import. Until #2961 draws the
-graph into an export, the export is its links table.
+in `src/shared/`, the only app code a plugin may import. So does the export's
+drawing (#2961): on `export` the plugin lays the view out at once and hands
+back a still SVG from `src/shared/graph/graph-svg.ts`, the serializer the
+thoughtbase graph tab saves with — plain shapes and attribute colours, polygon
+arrowheads, nothing the export sanitizer strips (no `<style>`, no `url(`). Its
+notes aren't links: `data-note-path` becomes an HTML `<a>`, which can't live
+inside an SVG.
 
 ### Global views (#2640)
 
