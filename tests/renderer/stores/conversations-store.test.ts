@@ -64,6 +64,7 @@ const h = vi.hoisted(() => {
       onNoteBodyDraft: cap('onNoteBodyDraft'),
       onAskUser: cap('onAskUser'),
       onTitleChanged: cap('onTitleChanged'),
+      onFork: cap('onFork'),
       onMcpConfirm: cap('onMcpConfirm'),
       // lifecycle / persistence
       loadUIState: vi.fn().mockResolvedValue({ visible: false, height: 320, activeTabId: null }),
@@ -1179,5 +1180,47 @@ describe('branches (#2970)', () => {
     conv().load.mockResolvedValue({ ...b, branch: { ...b.branch!, outcome: 'failed' } });
     const tab = await store.branchConversation(parent.id, { title: 'Risks', instructions: 'go' });
     await vi.waitFor(() => expect(tab!.conversation.branch?.outcome).toBe('failed'));
+  });
+
+  it('a fork\'s running branch opens in a tab under its parent, streams there live, and settles when the fork says (#2972)', async () => {
+    const parent = await freshTab();
+    const other = await freshTab();
+    const b = branchConv(parent.id, 'conv-fork-b1', 'user');
+    const fork = (state: string) => ({
+      conversationId: parent.id, forkId: 'f-1', estimateUSD: 0, joined: false, costUSD: 0,
+      branches: [{ title: 'Risks', conversationId: 'conv-fork-b1', state, startedAt: 1234 }],
+    });
+    h.cbs.onFork!(fork('starting'));
+    h.cbs.onFork!(fork('running'));
+    conv().load.mockResolvedValueOnce(b);
+    await store.openBranchTab('conv-fork-b1');
+    const ids = store.tabs.map((t) => t.id);
+    expect(ids.indexOf('conv-fork-b1')).toBe(ids.indexOf(parent.id) + 1);
+    expect(ids.indexOf(other.id)).toBeGreaterThan(ids.indexOf('conv-fork-b1'));
+    const tab = store.activeTab!;
+    expect(tab.id).toBe('conv-fork-b1');
+    expect(tab).toMatchObject({ streaming: true, turnStartedAt: 1234 });
+    h.cbs.onStream!({ conversationId: 'conv-fork-b1', text: 'The main risk' });
+    expect(tab.streamedChunks).toContain('The main risk');
+
+    // Opening it again just goes to it.
+    store.setActiveTab(parent.id);
+    await store.openBranchTab('conv-fork-b1');
+    expect(store.tabs.filter((t) => t.id === 'conv-fork-b1')).toHaveLength(1);
+    expect(store.activeTabId).toBe('conv-fork-b1');
+
+    const finished = { ...b, messages: [...b.messages, { role: 'assistant' as const, content: 'The main risk is cost.', timestamp: 't' }] };
+    conv().load.mockResolvedValueOnce(finished);
+    h.cbs.onFork!(fork('done'));
+    await vi.waitFor(() => expect(tab.streaming).toBe(false));
+    expect(tab.conversation.messages.at(-1)!.content).toBe('The main risk is cost.');
+    expect(tab.streamedChunks).toBe('');
+  });
+
+  it('a settled branch opens as an ordinary tab (#2972)', async () => {
+    const parent = await freshTab();
+    conv().load.mockResolvedValueOnce(branchConv(parent.id, 'conv-fork-b2', 'assistant'));
+    await store.openBranchTab('conv-fork-b2');
+    expect(store.activeTab).toMatchObject({ id: 'conv-fork-b2', streaming: false });
   });
 });

@@ -35,7 +35,7 @@ const h = vi.hoisted(() => {
       onReorgDraft: cap('onReorgDraft'),
       onDeleteDraft: cap('onDeleteDraft'),
       onNoteBodyDraft: cap('onNoteBodyDraft'),
-      onAskUser: noop, onTitleChanged: noop, onMcpConfirm: noop,
+      onAskUser: noop, onTitleChanged: noop, onMcpConfirm: noop, onFork: noop,
       saveUIState: vi.fn().mockResolvedValue(undefined),
       archive: vi.fn().mockResolvedValue(undefined),
       create: vi.fn(async (contextBundle: unknown) => {

@@ -190,6 +190,10 @@ export class OpenAIProvider implements LLMProvider {
       if (choice?.finish_reason) finishReason = choice.finish_reason;
       if (chunk.usage) usage = chunk.usage;
     }
+    // The SDK's stream ends QUIETLY when its signal aborts — it returns from
+    // the iterator rather than throwing — so a stopped turn would read as a
+    // short, finished one. Stop is a cancellation everywhere else; say so here.
+    req.signal?.throwIfAborted();
 
     const calls = [...toolAcc.values()];
     const toolCalls: ProviderToolCall[] = calls.map((t) => ({
@@ -254,6 +258,7 @@ export class OpenAIProvider implements LLMProvider {
       if (chunk.choices[0]?.finish_reason) finishReason = chunk.choices[0].finish_reason;
       if (chunk.usage) usage = chunk.usage;
     }
+    req.signal?.throwIfAborted(); // as runTurn: an aborted stream ends quietly
     return { text, usage: foldOpenAIUsage(usage), stopReason: mapFinishReason(finishReason) };
   }
 

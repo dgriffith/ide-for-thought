@@ -115,6 +115,8 @@ const EVENT_CHANNELS = new Set<string>([
   Channels.CONVERSATION_NOTE_BODY_DRAFT,
   Channels.CONVERSATION_ASK_USER,
   Channels.CONVERSATION_TITLE_CHANGED,
+  // main → renderer: a fork's progress, for its card (#2972).
+  Channels.CONVERSATION_FORK,
   Channels.PUBLISH_RENDER_LIVE_BLOCKS,
   Channels.CONVERSATION_MCP_CONFIRM,
 ]);

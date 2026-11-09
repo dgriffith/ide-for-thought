@@ -764,6 +764,8 @@ export interface ConversationsApi {
   setTitle(conversationId: string, title: string | null): Promise<Conversation>;
   /** A conversation got its model-written title after its first exchange. */
   onTitleChanged(cb: (change: { conversationId: string; title: string }) => void): () => void;
+  /** A fork's progress (#2972): sent whole on each change, for the card in its parent's transcript. */
+  onFork(cb: (progress: import('../../../shared/conversation').ForkProgress) => void): () => void;
   setEffort(
     conversationId: string,
     effort: import('../../../shared/tools/effort').Effort | undefined,

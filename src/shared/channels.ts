@@ -611,6 +611,8 @@ export const Channels = {
   CONVERSATION_COMPACT: 'conversation:compact',
   /** Fork a branch from a conversation (#2970): a child conversation linked to where it forked. */
   CONVERSATION_BRANCH: 'conversation:branch',
+  /** main → renderer: a fork's progress (#2972), for its card in the parent's transcript. */
+  CONVERSATION_FORK: 'conversation:fork',
   /** Load tool-window UI state (.minerva/conversations/_ui.json). */
   CONVERSATION_UI_STATE_LOAD: 'conversation:uiStateLoad',
   /** Persist tool-window UI state (visibility, height, last-active tab). */

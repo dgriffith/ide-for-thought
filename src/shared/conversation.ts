@@ -124,6 +124,37 @@ export interface ConversationBranch {
   outcome?: BranchOutcome;
 }
 
+/**
+ * A fork's progress (#2972), for the card in its parent's transcript. Sent
+ * whole on every change: once when the branches are about to start, as each
+ * one is created and as each settles, and once more at the join. Each branch's
+ * streaming text arrives on the ordinary stream channel under its own id.
+ */
+export type ForkBranchState = 'starting' | 'running' | BranchOutcome;
+export interface ForkCardBranch {
+  title: string;
+  /** Empty until the branch's conversation exists. */
+  conversationId: string;
+  state: ForkBranchState;
+  /** Epoch ms. */
+  startedAt: number;
+  endedAt?: number;
+  /** Once settled: what it cost, its final (or partial) answer, and why it stopped or failed. */
+  costUSD?: number;
+  answer?: string;
+  note?: string;
+}
+export interface ForkProgress {
+  /** The conversation that forked. */
+  conversationId: string;
+  forkId: string;
+  estimateUSD: number;
+  branches: ForkCardBranch[];
+  /** Every branch has settled and the answers went back to the parent. */
+  joined: boolean;
+  costUSD: number;
+}
+
 export interface BranchCreateOptions {
   /** The branch's name in the list. */
   title: string;

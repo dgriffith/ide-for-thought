@@ -6,6 +6,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { branchInstructions, estimateForkCost, runFork, type ForkBranchSpec, type ForkDeps } from '../../../src/main/llm/fork';
 import { formatForkResult } from '../../../src/main/llm/tools/fork';
+import { toLlmFailureError } from '../../../src/main/llm/classify-error';
 import type { Conversation } from '../../../src/shared/conversation';
 
 const conv = (id: string, over: Partial<Conversation> = {}): Conversation => ({
@@ -115,12 +116,23 @@ describe('runFork (#2971)', () => {
     pending.get('Supply')!.resolve();
     pending.get('Policy')!.reject(new Error('overloaded'));
     const out = await run;
+    // (A stop that crossed the request limiter arrives classified, not as an AbortError: see below.)
     if (!out.ok) throw new Error(out.reason);
     expect(out.results.map((r) => [r.title, r.status, r.answer, r.note])).toEqual([
       ['Supply', 'done', 'Answer about Supply', undefined],
       ['Demand', 'stopped', 'Half an ans', 'stopped'],
       ['Policy', 'failed', '', 'overloaded'],
     ]);
+  });
+
+  it('a branch stopped by id reports stopped, however the cancellation is worded (#2972)', async () => {
+    const { deps, pending, started } = harness();
+    const run = runFork(deps, SPECS.slice(0, 2));
+    await started(2);
+    pending.get('Supply')!.reject(toLlmFailureError(new Error('Request was aborted.'), 'local', { aborted: true }));
+    pending.get('Demand')!.reject(new DOMException('This operation was aborted', 'AbortError'));
+    const out = await run;
+    expect(out.ok && out.results.map((r) => r.status)).toEqual(['stopped', 'stopped']);
   });
 
   it('stopping the parent stops every branch; the time budget stops what\'s left', async () => {
@@ -135,6 +147,39 @@ describe('runFork (#2971)', () => {
     const slow = harness({ timeBudgetMs: 20 });
     const out = await runFork(slow.deps, SPECS.slice(0, 1));
     expect(out.ok && out.results[0]).toMatchObject({ status: 'stopped', note: expect.stringMatching(/time budget/) });
+  });
+
+  it('reports its progress on every change: starting, each branch running, each settled, then joined (#2972)', async () => {
+    const seen: { joined: boolean; costUSD: number; branches: { title: string; state: string; conversationId: string; endedAt?: number; answer?: string; note?: string }[] }[] = [];
+    let t = 1000;
+    const { deps, pending, started } = harness({ onProgress: (p) => seen.push(p), now: () => t++ });
+    const run = runFork(deps, SPECS.slice(0, 2));
+    await started(2);
+    pending.get('Supply')!.resolve();
+    await vi.waitFor(() => expect(seen.at(-1)!.branches[0]!.state).toBe('done'));
+    pending.get('Demand')!.reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+    await run;
+    expect(seen.map((p) => [p.branches.map((b) => b.state).join(','), p.joined])).toEqual([
+      ['starting,starting', false],
+      ['running,starting', false],
+      ['running,running', false],
+      ['done,running', false],
+      ['done,stopped', false],
+      ['done,stopped', true],
+    ]);
+    const last = seen.at(-1)!;
+    expect(last.branches[0]).toMatchObject({ title: 'Supply', conversationId: 'conv-b1', answer: 'Answer about Supply', endedAt: expect.any(Number) });
+    expect(last.branches[1]).toMatchObject({ title: 'Demand', note: 'stopped' });
+    expect(last.costUSD).toBeCloseTo(0.011 + 0.001);
+    // Each report is a copy: a later change doesn't rewrite what was already sent.
+    expect(seen[0]!.branches[0]!.state).toBe('starting');
+  });
+
+  it('a refused fork reports nothing (#2972)', async () => {
+    const onProgress = vi.fn();
+    const { deps } = harness({ onProgress, maxBranches: 1 });
+    await runFork(deps, SPECS);
+    expect(onProgress).not.toHaveBeenCalled();
   });
 
   it('a skill branch is told to run it with run_skill; every branch is told where its answer goes', () => {

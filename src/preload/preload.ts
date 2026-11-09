@@ -387,6 +387,8 @@ const api = {
       invoke(Channels.CONVERSATION_SET_TITLE, conversationId, title),
     onTitleChanged: (cb: (change: { conversationId: string; title: string }) => void) =>
       subscribe(Channels.CONVERSATION_TITLE_CHANGED, cb),
+    onFork: (cb: (progress: import('../shared/conversation').ForkProgress) => void) =>
+      subscribe(Channels.CONVERSATION_FORK, cb),
     compact: (conversationId: string) =>
       invoke(Channels.CONVERSATION_COMPACT, conversationId),
     branch: (parentId: string, options: import('../shared/conversation').BranchCreateOptions) =>

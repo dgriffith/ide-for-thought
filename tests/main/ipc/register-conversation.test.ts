@@ -913,5 +913,12 @@ describe('a fork from a conversation turn (#2971)', () => {
     // The parent's reply carries what the branch cost.
     const parentAppend = h.appendMessage.mock.calls.find((c) => c[1] === 'conv-1' && c[2] === 'assistant')!;
     expect(parentAppend[4]).toMatchObject({ addCostUSD: 0.02 });
+
+    // The window got the fork's progress for its card (#2972): one fork id, under the parent, ending joined.
+    const forkEvents = h.fakeWin.webContents.send.mock.calls.filter((c) => c[0] === Channels.CONVERSATION_FORK).map((c) => c[1] as { conversationId: string; forkId: string; joined: boolean; branches: { state: string; conversationId: string }[] });
+    expect(forkEvents.map((p) => [p.branches[0]!.state, p.joined])).toEqual([['starting', false], ['running', false], ['done', false], ['done', true]]);
+    expect(new Set(forkEvents.map((p) => p.forkId)).size).toBe(1);
+    expect(forkEvents.every((p) => p.conversationId === 'conv-1')).toBe(true);
+    expect(forkEvents.at(-1)!.branches[0]!.conversationId).toBe('conv-b');
   });
 });

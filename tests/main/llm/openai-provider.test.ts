@@ -175,6 +175,23 @@ describe('OpenAIProvider — runTurn (injected stream)', () => {
     expect(res.toolCalls).toEqual([]);
     expect(res.stopReason).toBe('end');
   });
+
+  it('a stream its signal stopped is a cancellation, not a short finished reply (#2972)', async () => {
+    // The SDK's iterator returns quietly on abort; the provider must not.
+    const ctrl = new AbortController();
+    const client = {
+      chat: { completions: { create: async () => (async function* () {
+        yield chunk({ content: 'Half an ' });
+        ctrl.abort();
+      })() } },
+    } as unknown as OpenAI;
+    const provider = new OpenAIProvider('sk-test', undefined, client);
+    const req = { model: 'gpt-5', system: 's', history: [], tools: [], web: { enabled: false }, maxTokens: 100, signal: ctrl.signal };
+    await expect(provider.runTurn(req, {})).rejects.toMatchObject({ name: 'AbortError' });
+    const again = new AbortController();
+    const client2 = { chat: { completions: { create: async () => (async function* () { again.abort(); yield chunk({ content: 'x' }); })() } } } as unknown as OpenAI;
+    await expect(new OpenAIProvider('sk-test', undefined, client2).complete({ model: 'gpt-5', system: 's', messages: [{ role: 'user', content: 'p' }], maxTokens: 10, signal: again.signal })).rejects.toMatchObject({ name: 'AbortError' });
+  });
 });
 
 describe('OpenAIProvider — complete', () => {
