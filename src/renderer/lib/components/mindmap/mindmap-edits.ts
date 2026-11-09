@@ -5,6 +5,8 @@
  * (an edit can change a node's id: a note's nodes are named by their path).
  */
 export interface MindmapEdits {
+  /** A new node arrives named (a note asked its title when it was made): the map doesn't name it in place. */
+  namesItself?: boolean;
   /** Add an empty last child; the new node's id, to name it in place. */
   addChild(id: string): Promise<string | null> | string | null;
   /** Add an empty sibling right after it. */

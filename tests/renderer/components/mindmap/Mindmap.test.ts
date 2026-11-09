@@ -94,8 +94,17 @@ describe('Mindmap (#2964)', () => {
     await fireEvent.click(item('b'));
     await fireEvent.dblClick(item('c'));
     await fireEvent.keyDown(item('a1'), { key: 'Enter' });
-    expect(onSelect).toHaveBeenCalledWith('b');
+    expect(onSelect).toHaveBeenCalledWith('b', expect.any(MouseEvent)); // the click, for a view's modifiers (#2966)
     expect(onActivate.mock.calls).toEqual([['c'], ['a1']]);
+  });
+
+  it('Copy as Mermaid puts the whole tree on the clipboard, as Mermaid mindmap text (#2967)', async () => {
+    const writeText = vi.fn(async () => {});
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    const { getByRole } = await draw({ folded: ['a'] });
+    await fireEvent.click(getByRole('button', { name: 'Copy as Mermaid' }));
+    expect(writeText).toHaveBeenCalledWith(expect.stringMatching(/^mindmap\n {2}root\(\("Node root"\)\)\n {4}n1\["Node a"\]\n {6}n2\["Node a1"\]/));
+    await waitFor(() => expect(getByRole('button', { name: 'Copied' })).toBeTruthy());
   });
 
   it('draws radially too', async () => {

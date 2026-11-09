@@ -26,6 +26,7 @@
   import { onMount, tick, untrack } from 'svelte';
   import type { MindmapLayout, MindmapLayoutNode, MindmapOrientation, MindmapTree } from '../../../../shared/mindmap/mindmap-layout';
   import type { MindmapEdits } from './mindmap-edits';
+  import { mindmapMermaid } from '../../../../shared/mindmap/mindmap-mermaid';
 
   interface Props {
     tree: MindmapTree;
@@ -34,14 +35,19 @@
     folded?: readonly string[];
     onFold?: (id: string, folded: boolean) => void;
     selected?: string | null;
-    onSelect?: (id: string) => void;
+    /** A click on a node, with the click (its modifiers: a view's multi-select, #2966). */
+    onSelect?: (id: string, e?: MouseEvent) => void;
+    /** More nodes marked selected (a view's selection); `selected` stays the one keyed to. */
+    marked?: ReadonlySet<string> | undefined;
+    /** Right-click on a node: a note menu. */
+    onContextMenu?: ((id: string, e: MouseEvent) => void) | undefined;
     onActivate?: (id: string) => void;
     /** What the tree is, for a screen reader. */
     label?: string;
     /** Editing (#2965): absent, the map is read-only. */
     edit?: MindmapEdits | undefined;
   }
-  let { tree, orientation = 'ltr', folded = [], onFold, selected = null, onSelect, onActivate, label = 'Mindmap', edit }: Props = $props();
+  let { tree, orientation = 'ltr', folded = [], onFold, selected = null, onSelect, marked, onContextMenu, onActivate, label = 'Mindmap', edit }: Props = $props();
 
   type LayoutFn = (root: MindmapTree, opts: { orientation: MindmapOrientation; folded?: ReadonlySet<string>; measure?: (t: string) => number }) => MindmapLayout;
   let layoutFn = $state<LayoutFn | null>(null);
@@ -201,7 +207,7 @@
     if (!id) return;
     await tick();
     await focusNode(id);
-    startRename(id, byId.get(id)?.label ?? '', true);
+    if (!edit?.namesItself) startRename(id, byId.get(id)?.label ?? '', true);
   }
 
   async function removed(n: MindmapLayoutNode, ed: MindmapEdits): Promise<void> {
@@ -263,12 +269,23 @@
     void Promise.resolve(edit.drop(d.id, d.over.id, d.over.where)).then((id) => keepFocus(id ?? d.id));
   }
 
+  // Copy as Mermaid (#2967): the whole tree as Mermaid `mindmap` text, folds and all.
+  let copied = $state(false);
+  async function copyMermaid(): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(mindmapMermaid(tree));
+      copied = true;
+      setTimeout(() => { copied = false; }, 1500);
+    } catch { /* the clipboard refused: nothing to say but that it didn't change */ }
+  }
+
   /** The node that takes Tab: the focused one, the selected one, or the root. */
   const tabStop = $derived(focusedId && byId.has(focusedId) ? focusedId : selected && byId.has(selected) ? selected : rootId);
 </script>
 
 <div class="mm" bind:clientWidth={width} bind:clientHeight={height}>
   <div class="mm-tools">
+    <button type="button" class="mm-btn" onclick={() => void copyMermaid()}>{copied ? 'Copied' : 'Copy as Mermaid'}</button>
     <button type="button" class="mm-btn" onclick={fit}>Fit</button>
     <button type="button" class="mm-btn" aria-label="Zoom in" onclick={() => zoomAt(1.25, width / 2, height / 2)}>+</button>
     <button type="button" class="mm-btn" aria-label="Zoom out" onclick={() => zoomAt(0.8, width / 2, height / 2)}>−</button>
@@ -290,10 +307,10 @@
           {@const sibs = siblingsOf(n)}
           <!-- svelte-ignore a11y_click_events_have_key_events -->
           <g
-            class="mm-node" class:selected={n.id === selected} class:root={n.depth === 0}
+            class="mm-node" class:selected={n.id === selected || !!marked?.has(n.id)} class:root={n.depth === 0}
             data-node-id={n.id} role="treeitem" tabindex={n.id === tabStop ? 0 : -1}
             aria-level={n.depth + 1} aria-setsize={sibs.length} aria-posinset={sibs.indexOf(n.id) + 1}
-            aria-expanded={n.hasChildren ? !n.folded : undefined} aria-selected={n.id === selected}
+            aria-expanded={n.hasChildren ? !n.folded : undefined} aria-selected={n.id === selected || !!marked?.has(n.id)}
             aria-label={n.folded ? `${n.label}, ${n.hiddenCount} hidden` : n.label}
             transform="translate({n.x - n.width / 2} {n.y - n.height / 2})"
             class:drop-before={dragging?.over?.id === n.id && dragging.over.where === 'before'}
@@ -301,7 +318,8 @@
             class:drop-child={dragging?.over?.id === n.id && dragging.over.where === 'child'}
             class:dragged={dragging?.moved && dragging.id === n.id}
             onpointerdown={(e) => onNodePointerDown(e, n)}
-            onclick={() => { if (dragging?.moved) return; focusedId = n.id; onSelect?.(n.id); }}
+            onclick={(e) => { if (dragging?.moved) return; focusedId = n.id; onSelect?.(n.id, e); }}
+            oncontextmenu={(e) => { if (!onContextMenu) return; e.preventDefault(); focusedId = n.id; onContextMenu(n.id, e); }}
             ondblclick={() => { if (edit && n.depth > 0) startRename(n.id, n.label, false); else onActivate?.(n.id); }}
             onkeydown={(e) => onKeydown(e, n)}
             onfocus={() => (focusedId = n.id)}

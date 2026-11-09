@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Minerva — Docs — Mindmap</title>
+<meta name="description" content="Mindmaps in Minerva — a note's outline as a map you can reshape, a hierarchy of notes drawn in a note, a type's notes as a mindmap view — and taking a mindmap out as a picture or as Mermaid text." />
+<link rel="stylesheet" href="../minerva.css" />
+<link rel="stylesheet" href="docs.css" />
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a href="../index.html" class="brand">
+      <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-label="Minerva">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1b2452"/><stop offset="45%" stop-color="#232a5e"/><stop offset="100%" stop-color="#3a2d6b"/></linearGradient>
+          <linearGradient id="plum" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e9b96a"/><stop offset="55%" stop-color="#cf9646"/><stop offset="100%" stop-color="#a9742f"/></linearGradient>
+          <linearGradient id="fc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f6e2b8"/><stop offset="100%" stop-color="#e3c489"/></linearGradient>
+          <radialGradient id="eg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff7e6"/><stop offset="60%" stop-color="#ffd97a"/><stop offset="100%" stop-color="#d99a3a"/></radialGradient>
+        </defs>
+        <rect width="1024" height="1024" rx="220" fill="url(#sky)"/>
+        <path d="M512 880 C 360 880, 300 760, 300 620 C 300 470, 380 380, 512 380 C 644 380, 724 470, 724 620 C 724 760, 664 880, 512 880 Z" fill="url(#plum)"/>
+        <ellipse cx="512" cy="455" rx="232" ry="200" fill="url(#plum)"/>
+        <path d="M512 290 C 408 290, 350 360, 350 460 C 350 560, 420 630, 512 630 C 604 630, 674 560, 674 460 C 674 360, 616 290, 512 290 Z" fill="url(#fc)"/>
+        <circle cx="438" cy="450" r="92" fill="#3a2a18"/><circle cx="586" cy="450" r="92" fill="#3a2a18"/>
+        <circle cx="438" cy="450" r="74" fill="url(#eg)"/><circle cx="586" cy="450" r="74" fill="url(#eg)"/>
+        <circle cx="438" cy="450" r="34" fill="#241608"/><circle cx="586" cy="450" r="34" fill="#241608"/>
+        <circle cx="452" cy="436" r="12" fill="#fffdf5"/><circle cx="600" cy="436" r="12" fill="#fffdf5"/>
+        <path d="M512 470 L490 540 C 490 562, 534 562, 534 540 Z" fill="#caa24a"/>
+      </svg>
+      <span>Minerva</span>
+    </a>
+    <div class="links">
+      <a href="../features.html" class="hide-sm">Features</a>
+      <a href="../getting-started.html" class="hide-sm">Getting Started</a>
+      <a href="index.html" class="active hide-sm">Docs</a>
+      <a href="../about.html" class="hide-sm">About</a>
+      <a href="../privacy.html" class="hide-sm">Privacy</a>
+      <a href="../getting-started.html" class="navcta">Download</a>
+    </div>
+  </div>
+</nav>
+
+<div class="docs">
+
+  <!-- ===== Left navigation (shared across all docs pages) ===== -->
+  <aside class="docs-nav">
+    <h4>Introduction</h4>
+    <a href="index.html">Overview</a>
+    <a href="thoughtbase.html">What is a thoughtbase?</a>
+    <a href="../getting-started.html">Getting started</a>
+
+    <h4>Using Minerva</h4>
+    <a href="notes.html">Notes</a>
+    <a href="navigation.html">Navigation</a>
+    <a href="graph.html">Graph</a>
+    <a href="mindmap.html" class="active">Mindmap</a>
+    <a href="viewing-options.html">Viewing options</a>
+    <a href="editor.html">Editor</a>
+
+    <h4>The workspace</h4>
+    <a href="left-sidebar.html">Left sidebar</a>
+    <a href="right-sidebar.html">Right sidebar</a>
+    <a href="conversations.html">Conversations</a>
+    <a href="settings.html">Settings</a>
+
+    <h4>Data &amp; workflows</h4>
+    <a href="refactoring.html">Refactoring</a>
+    <a href="thinking-tools.html">Thinking tools</a>
+    <a href="data.html">Data</a>
+    <a href="ingest.html">Ingest</a>
+    <a href="export.html">Export</a>
+    <a href="connecting.html">Connecting to Minerva</a>
+    <a href="maintenance.html">Maintenance</a>
+  </aside>
+
+  <!-- ===== Content ===== -->
+  <main class="docs-content">
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span>Mindmap</p>
+
+    <h1>Mindmap</h1>
+    <p class="lede">A mindmap draws a hierarchy as branches from a centre. Minerva draws three: a note's own outline, which you can reshape there; a hierarchy of notes, drawn in a note with a <code>:::mindmap</code> block; and a type's notes as a view, which you can grow and rearrange. They all fold, zoom and move the same way, and read the same to a screen reader.</p>
+
+    <h2 id="moving-around">Moving around a mindmap</h2>
+    <div class="deflist">
+      <div class="row"><div class="k">Pointer</div><div class="v">Scroll to zoom, drag the background to move, <b>Fit</b> to see it all. The button on a branch's edge folds it, and a folded branch shows how many it hides.</div></div>
+      <div class="row"><div class="k">Keyboard</div><div class="v">The map is one stop for <kbd>Tab</kbd>. <kbd>↑</kbd> and <kbd>↓</kbd> move between branches at the same level, <kbd>←</kbd> to the parent and <kbd>→</kbd> to the first child, <kbd>Home</kbd> and <kbd>End</kbd> to the ends; <kbd>Space</kbd> folds or unfolds.</div></div>
+      <div class="row"><div class="k"><b>Left to right</b> / <b>Radial</b></div><div class="v">Two shapes: the branches reading off to the right, or spread around the centre.</div></div>
+    </div>
+
+    <h2 id="note">A note as a mindmap</h2>
+    <p>Choose <b>Mindmap</b> above a note, or press <kbd>⌘</kbd><kbd>⇧</kbd><kbd>M</kbd> (again to go back). See <a href="viewing-options-view-modes.html">View modes</a> for the others.</p>
+    <p>The map is the note's outline: the note's title is the centre, its headings branch from it by level, and the list items under each heading branch from that heading by indentation. Frontmatter, code, tables and the rest of your writing aren't on the map, and nothing you do on the map touches them.</p>
+    <p>Every change you make on the map is a change to the note's text, made the same way as if you'd typed it: <kbd>⌘</kbd><kbd>Z</kbd> undoes it, on the map or in the editor, and the note shows as unsaved until you save it.</p>
+    <div class="deflist">
+      <div class="row"><div class="k"><kbd>Tab</kbd></div><div class="v">Add a child to the selected branch and name it. Under a heading with list items, it's a list item; otherwise a heading one level down.</div></div>
+      <div class="row"><div class="k"><kbd>Enter</kbd></div><div class="v">Add a branch after the selected one, at its level, and name it. A new branch you leave unnamed goes again.</div></div>
+      <div class="row"><div class="k"><kbd>F2</kbd> or double-click</div><div class="v">Rename the branch.</div></div>
+      <div class="row"><div class="k"><kbd>Delete</kbd></div><div class="v">Remove the branch. With branches under it, Minerva asks first, and they go too.</div></div>
+      <div class="row"><div class="k"><kbd>⌘</kbd><kbd>[</kbd> / <kbd>⌘</kbd><kbd>]</kbd></div><div class="v">Promote the branch out a level, to just after the branch it was in, or demote it under the branch before it. Everything under it moves with it.</div></div>
+      <div class="row"><div class="k">Drag</div><div class="v">Drop a branch on the middle of another to move it in, or on its top or bottom edge to move it before or after.</div></div>
+      <div class="row"><div class="k">Arrows, <kbd>Space</kbd></div><div class="v"><kbd>↑</kbd> and <kbd>↓</kbd> move between branches at the same level, <kbd>←</kbd> to the parent and <kbd>→</kbd> to the first child; <kbd>Space</kbd> folds or unfolds a branch, which then shows how many it hides. <kbd>⇧</kbd><kbd>Tab</kbd> leaves the map.</div></div>
+    </div>
+    <p>Headings and list items stay what they are: a list item can't be promoted into a heading, a heading can't move into a list, and nothing goes deeper than a sixth-level heading. When an edit can't be made, Minerva says why.</p>
+    <p>Choose <b>Left to right</b> or <b>Radial</b> for the map's shape. Scroll to zoom, drag the background to move around, and <b>Fit</b> to see it all. Which branches are folded, and the map's shape, are kept for each note on this computer, not in the note.</p>
+    <p>With <b>Side by side</b>, the text and the map follow each other: select a branch and the editor's cursor moves to its line; move the cursor and the map selects the branch it's in.</p>
+
+    <h2 id="block">A hierarchy of notes in a note</h2>
+    <p>A <code>:::mindmap</code> block draws a hierarchy of notes as a mindmap, out from one note. Name that note as a link on a line of its own, and say how its branches are joined:</p>
+    <pre><code>:::mindmap
+[[Launch plan]]
+relation: parent
+depth: 3
+:::</code></pre>
+    <div class="deflist">
+      <div class="row"><div class="k"><code>relation</code></div><div class="v">How a note's branches are joined to it. A field that links to another note, such as <code>parent</code> or <code>part-of</code>: a note's branches are the notes whose field points at it. <code>decomposes</code>: the notes that decompose it. <code>argument</code>: the claims that support, rebut or otherwise bear on it, each labelled with how. <code>headings</code>, or leaving it out: the note's own headings and list items.</div></div>
+      <div class="row"><div class="k"><code>direction</code></div><div class="v"><code>out</code> follows the field the other way, for one that points down at a note's parts rather than up at its parent.</div></div>
+      <div class="row"><div class="k"><code>depth</code></div><div class="v">How many levels to draw, 1 to 6 (3 if you leave it out). A branch with more beneath it says how many.</div></div>
+      <div class="row"><div class="k"><code>layout</code></div><div class="v"><code>radial</code> draws it around the note in the middle; otherwise it reads left to right.</div></div>
+    </div>
+    <p>A note with more than one parent is drawn under each, saying how many places it appears; a hierarchy that loops back on itself stops where it comes round, and says so. Double-click a branch, or press <kbd>Enter</kbd> on it, to open its note. Fold, zoom and move around it as you would <a href="#note">a note's own mindmap</a>; the block itself can't be edited, since it's drawn from many notes.</p>
+
+    <h2 id="view">A type's notes as a mindmap</h2>
+    <p>A type with a field that links to the same type, such as a task's <i>parent</i>, can be viewed as a mindmap: each note under its parent, and in its own tab you can make new notes, move them to another parent and rename them from the map. See <a href="left-sidebar-objects.html#mindmap-layout">The mindmap</a> on the Objects page.</p>
+
+    <h2 id="export">Taking a mindmap out</h2>
+    <div class="deflist">
+      <div class="row"><div class="k">In an export</div><div class="v">A <code>:::mindmap</code> block and a mindmap view embedded in a note export as a still picture of the map — in a web page, a PDF or a published site — with the view's branches folded as you left them. A note you're looking at in Mindmap mode exports as its text, like any note: the map is a way of seeing it, not part of it.</div></div>
+      <div class="row"><div class="k"><b>Copy as Mermaid</b></div><div class="v">Every mindmap has it. It copies the whole map, folded branches too, as Mermaid <code>mindmap</code> text, for pasting into another tool, or into a note as a <a href="notes-diagrams.html">diagram</a> that any Markdown editor with Mermaid can draw.</div></div>
+    </div>
+
+    <div class="box">
+      <span class="label">The Heading graph</span>
+      <p>The right sidebar's <a href="right-sidebar-heading-graph.html">Heading graph</a> stays as it is: a small map of the current note's headings to glance at and jump around while you write. The Mindmap mode is the one to reshape a note in, with its list items as well as its headings.</p>
+    </div>
+
+    <div class="pager">
+      <a class="prev" href="graph.html">
+        <span class="dir">Previous</span>
+        <span class="ttl">← Graph</span>
+      </a>
+      <a class="next" href="viewing-options.html">
+        <span class="dir">Next</span>
+        <span class="ttl">Viewing options →</span>
+      </a>
+    </div>
+  </main>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="brand" style="display:flex;align-items:center;gap:10px;font-weight:650;color:var(--text);margin-bottom:10px;"><span>Minerva</span></div>
+      <div class="note">A local-first desktop workspace for thinking with AI.</div>
+    </div>
+    <div class="cols">
+      <div class="col"><h4>Product</h4><a href="../features.html">Features</a><a href="../getting-started.html">Getting Started</a><a href="../getting-started.html">Download</a></div>
+      <div class="col"><h4>Learn</h4><a href="../about.html">About</a><a href="../privacy.html">Privacy</a><a href="index.html">Docs</a><a href="https://davegriffith.substack.com/">Dancing with Robots</a></div>
+      <div class="col"><h4>Source</h4><a href="https://github.com/dgriffith/ide-for-thought">GitHub</a><a href="https://github.com/dgriffith/ide-for-thought/releases">Releases</a><a href="https://github.com/dgriffith/ide-for-thought/blob/main/LICENSE">License</a></div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

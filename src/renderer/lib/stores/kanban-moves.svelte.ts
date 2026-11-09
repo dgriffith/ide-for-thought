@@ -57,8 +57,8 @@ export interface MoveCard {
   title: string;
 }
 
-/** Where a move came from — each has its own ⌘Z. */
-export type MoveSurface = 'board' | 'calendar';
+/** Where a move came from — each has its own ⌘Z. A mindmap's are reparenting (#2966). */
+export type MoveSurface = 'board' | 'calendar' | 'mindmap';
 
 /** One field a move changed: what it held before and what the move wrote (null = absent). */
 interface FieldChange {
@@ -152,7 +152,7 @@ async function finishMove(surface: MoveSurface, moved: MovedNote[], spoken: stri
  * paths actually written (empty when every card was already there, or every
  * write failed).
  */
-async function moveCards(cards: readonly MoveCard[], property: string, target: MoveTarget, opts: { cause?: string } = {}): Promise<string[]> {
+async function moveCards(cards: readonly MoveCard[], property: string, target: MoveTarget, opts: { cause?: string; surface?: MoveSurface } = {}): Promise<string[]> {
   const moved: MovedNote[] = [];
   const failures: { title: string; error: string }[] = [];
   for (const card of cards) {
@@ -168,7 +168,7 @@ async function moveCards(cards: readonly MoveCard[], property: string, target: M
       failures.push({ title: card.title, error: errorText(err) });
     }
   }
-  const paths = await finishMove('board', moved, `Moved ${cardsPhrase(moved)} to ${target.label}.`);
+  const paths = await finishMove(opts.surface ?? 'board', moved, `Moved ${cardsPhrase(moved)} to ${target.label}.`);
   reportFailures('move', failures);
   return paths;
 }
@@ -391,6 +391,8 @@ export function getKanbanMoveStore() {
     get canUndo(): boolean { return undoStack.some((r) => r.surface === 'board'); },
     /** Is there a calendar move to undo? */
     get canUndoReschedule(): boolean { return undoStack.some((r) => r.surface === 'calendar'); },
+    /** Is there a mindmap reparent to undo (#2966)? */
+    get canUndoReparent(): boolean { return undoStack.some((r) => r.surface === 'mindmap'); },
     moveCards,
     rescheduleEvent,
     rescheduleEvents,

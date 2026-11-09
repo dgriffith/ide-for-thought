@@ -44,6 +44,10 @@ description: The Objects panel — your project browsed by kind rather than by f
         <div class="v">A month of days in a grid, each note on its day, a bar for anything that runs across several. Drag an event to another day to reschedule it. Offered for the same types as Timeline: any type with a date field. See <a href="#calendar">The calendar</a> below.</div>
       </div>
       <div class="row">
+        <div class="k">Mindmap</div>
+        <div class="v">The notes as a hierarchy, each under the note its parent field names. Offered for a type with a field that links to its own kind, such as a task's parent. You can add, move and rename notes on it. See <a href="#mindmap-layout">The mindmap</a> below.</div>
+      </div>
+      <div class="row">
         <div class="k">Graph</div>
         <div class="v">The notes as a picture of how they connect: each note a box, each link between them a line, one colour for each field that links. Offered for any type with a field that links to another note. See <a href="#graph-layout">The graph</a> below.</div>
       </div>
@@ -336,6 +340,20 @@ description: The Objects panel — your project browsed by kind rather than by f
 
     <h3>Saving a calendar</h3>
     <p>The month you're on goes with the view: <a href="#saved-views">Save as note</a> (Minerva suggests <i>Event calendar</i>) and <b>Copy as markdown</b> keep it as a <code>month</code>, so the note opens on that month, and a Date by choice as <code>dateBy</code>. A calendar you've brought back with <b>Today</b> saves no month, and always opens on the current one. In a note, a calendar can still be paged from month to month, and its events opened, but nothing in it can be moved; open the type's calendar for that. A web page or PDF exported from the note, and a published site, show the saved month (or, with none saved, the month it was exported in) as a still grid, with every event listed in its day, however many there are, and long titles written out in full. A busy day just makes a taller row, and a week is never split across two pages. A saved week or day keeps its <code>mode</code> and <code>date</code>, and exports as an agenda instead: each day under its name, its all-day events first and then the rest by time, with <i>No events.</i> on an empty day so the week keeps its shape. An hour grid on paper is mostly empty boxes, and overlapping events side by side don't survive a page break. Each event is a link to its note, approximate days are hatched with a key underneath, and the bands and the Undated list follow the grid. The week starts on the day your own settings say, as in the preview you exported from. <a href="notes-object-views.html#calendar">Object views</a> shows what a saved calendar looks like in the editor.</p>
+
+    <h2 id="mindmap-layout">The mindmap</h2>
+    <p>The <b>Mindmap</b> layout draws a type's notes as a hierarchy. It's offered for any type with a field that links to the same type, such as a task's <i>parent</i>: each note sits under the note its field names, and the notes with no parent in the view hang from the view itself, in the middle. A note whose parent the view doesn't show (filtered out, or in another folder) is drawn at the top. If the type has more than one such field, <b>Branches by</b> picks which to follow.</p>
+    <p>It works like the other layouts: the view's filters and sort apply, a click opens a note, <b>⌘</b>-click and <b>⇧</b>-click select, and right-click opens the note menu. Fold, zoom and move around it as you would <a href="mindmap.html#note">a note's own mindmap</a>, and choose <b>Left to right</b> or <b>Radial</b>.</p>
+    <h3>Growing and reshaping it</h3>
+    <p>Open in its own tab, the mindmap changes your notes:</p>
+    <div class="deflist">
+      <div class="row"><div class="k"><kbd>Tab</kbd> / <kbd>Enter</kbd></div><div class="v">Make a new note under the selected one, or beside it. Minerva asks for its title and fills in the type's template, with its parent field already set.</div></div>
+      <div class="row"><div class="k">Drag</div><div class="v">Drop a note on another to put it under that one, or on its top or bottom edge to put it beside it. Every selected note moves together when you drag one of them. Drop it on the node with the type's name to put it at the top.</div></div>
+      <div class="row"><div class="k"><kbd>⌘</kbd><kbd>[</kbd> / <kbd>⌘</kbd><kbd>]</kbd></div><div class="v">Move a note out to its parent's level, or in under the note before it.</div></div>
+      <div class="row"><div class="k"><kbd>F2</kbd></div><div class="v">Rename the note's file. Links to it are updated, as when you rename it in the sidebar.</div></div>
+      <div class="row"><div class="k"><kbd>⌘</kbd><kbd>Z</kbd></div><div class="v">Undo the last move. Each move changes one field on each note it moves, and Local History shows it as <i>Moved by Mindmap</i>.</div></div>
+    </div>
+    <p>Notes aren't deleted from the map: use the Notes sidebar for that. A mindmap embedded in a note can be explored but not changed. Which field it follows, its shape and its folded branches are kept for each type on this computer.</p>
 
     <h2 id="graph-layout">The graph</h2>
     <p>The <b>Graph</b> layout draws a view's notes and the links between them. It's offered for any type with a field that links to another note (a task's <i>blocks</i>, a person's <i>employer</i>), and for a <a href="notes-object-views.html">query view</a> with a column of notes. Each note is a box, edged in its type's colour. Each link is an arrow from the note whose field it's in, coloured by that field, and the legend above names each field with how many links it holds.</p>
