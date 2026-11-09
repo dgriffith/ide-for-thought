@@ -19,7 +19,7 @@ import type { NeighborhoodEdge, WholeGraphNode, WholeGraphResult } from '../../s
 import type { ProjectContext } from '../project-context-types';
 import { indexedNotePaths } from './note-index';
 import { getExcerptSource, outgoingLinks, termNotePaths } from './queries';
-import { frontmatterEdges, noteTags, titleOf } from './queries/relation-edges';
+import { frontmatterOutEdges, noteIriIndex, noteTags, titleOf } from './queries/relation-edges';
 import { hopContext } from './neighborhood';
 import { getNoteTypeMap } from './note-properties';
 
@@ -44,6 +44,7 @@ export async function wholeGraph(ctx: ProjectContext, opts: { tags?: boolean; ce
   const types = await getNoteTypeMap(ctx);
   const hc = hopContext(ctx, { tags: opts.tags ?? false });
   const terms = termNotePaths(ctx);
+  const notesByIri = noteIriIndex(ctx, paths);
 
   const nodes = new Map<string, WholeGraphNode>();
   const edges = new Map<string, NeighborhoodEdge>();
@@ -56,7 +57,7 @@ export async function wholeGraph(ctx: ProjectContext, opts: { tags?: boolean; ce
   for (const p of paths) {
     const relationPairs = new Set<string>();
     // Argument relations (both forms) and frontmatter links: each edge once, from its source.
-    for (const e of [...(hc.argumentEdges.get(p) ?? []), ...frontmatterEdges(ctx, p)]) {
+    for (const e of [...(hc.argumentEdges.get(p) ?? []), ...frontmatterOutEdges(ctx, p, notesByIri)]) {
       if (e.source !== p || !inGraph.has(e.target)) continue;
       relationPairs.add(e.target);
       const kind = edgeKindForPredicate(e.predicate, hc.propertyLabel);

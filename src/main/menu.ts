@@ -435,6 +435,7 @@ function buildViewMenu(gate: Gate, isMac: boolean): Electron.MenuItemConstructor
       command('view.toggleConversations', gate),
       // "New Conversation" moved to Learning ▸ "Ask a Question" (buildToolMenus).
       command('view.togglePreview', gate),
+      command('view.openGraph', gate), // the whole thoughtbase as a graph (#2958)
       { type: 'separator' },
       // Editor split — pane focus & layout commands (#814).
       command('view.splitRight', gate),

@@ -119,6 +119,7 @@ export const COMMANDS = [
   { id: 'view.toggleRightSidebar', fromPluginViews: true, title: 'Toggle Right Sidebar', category: 'View', key: 'CmdOrCtrl+Shift+B', palette: { when: 'always' }, menu: {} },
   { id: 'view.togglePreview', title: 'Toggle Preview Mode', category: 'View', key: 'CmdOrCtrl+Shift+P', palette: { when: 'note' }, menu: { label: 'Cycle Preview Mode', gate: NOTE } },
   { id: 'view.toggleConversations', fromPluginViews: true, title: 'Toggle Conversations', category: 'View', key: 'CmdOrCtrl+Shift+K', palette: { when: 'always' }, menu: {} },
+  { id: 'view.openGraph', title: 'Open Graph', category: 'View', palette: { when: 'project' }, menu: { label: 'Graph of the Thoughtbase' } },
   // One directly selectable entry per theme (#1139); the menu's Theme submenu
   // is a radio group with the mode as its payload, so it isn't one of these.
   ...THEME_MODES.map((m) => ({ id: `view.theme.${m.value}` as const, title: `Theme: ${m.label}`, category: 'View', palette: { when: 'always' as const } })),

@@ -77,6 +77,7 @@ View
   Toggle Right Sidebar [CmdOrCtrl+Shift+B] → send menu:command ["view.toggleRightSidebar"]
   Toggle Conversations [CmdOrCtrl+Shift+K] → send menu:command ["view.toggleConversations"]
   Cycle Preview Mode [CmdOrCtrl+Shift+P] → send menu:command ["view.togglePreview"]
+  Graph of the Thoughtbase → send menu:command ["view.openGraph"]
   ---
   Split Editor Right [CmdOrCtrl+\\] → send menu:command ["view.splitRight"]
   Split Editor Down [CmdOrCtrl+Shift+\\] → send menu:command ["view.splitDown"]
@@ -273,6 +274,7 @@ View
   Toggle Right Sidebar [CmdOrCtrl+Shift+B] disabled → send menu:command ["view.toggleRightSidebar"]
   Toggle Conversations [CmdOrCtrl+Shift+K] disabled → send menu:command ["view.toggleConversations"]
   Cycle Preview Mode [CmdOrCtrl+Shift+P] disabled → send menu:command ["view.togglePreview"]
+  Graph of the Thoughtbase disabled → send menu:command ["view.openGraph"]
   ---
   Split Editor Right [CmdOrCtrl+\\] disabled → send menu:command ["view.splitRight"]
   Split Editor Down [CmdOrCtrl+Shift+\\] disabled → send menu:command ["view.splitDown"]

@@ -197,6 +197,7 @@ export function createCommandKeymap(ctx: CommandKeymapCtx): {
     'view.toggleSidebar': ctx.toggleSidebar,
     'view.toggleRightSidebar': ctx.toggleRightSidebar,
     'view.togglePreview': ctx.cycleViewMode,
+    'view.openGraph': () => editor.openGraph(),
     'view.toggleConversations': () => conversationsStore.toggle(),
     'view.theme.dark': theme('dark'),
     'view.theme.light': theme('light'),

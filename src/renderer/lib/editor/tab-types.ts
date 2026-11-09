@@ -2,6 +2,7 @@ import type { QuerySourceSpec } from '../../../shared/views/view-source-spec';
 import type { ViewFilter } from '../../../shared/objects/view-spec';
 import type { MapStyle } from '../../../shared/objects/map-style';
 import type { ViewLayout } from '../../../shared/objects/view-layouts';
+import type { ThoughtbaseGraphState } from '../graph/whole-graph-filter';
 /**
  * Tab/editor-group type definitions, extracted from `stores/editor.svelte.ts`
  * (#1919) so `editor/tab-session.ts` (the pure session-serialization module)
@@ -69,10 +70,13 @@ export interface PdfTab {
 
 export interface GraphTab {
   type: 'graph';
-  /** The note whose link neighborhood is shown (#847). */
+  /** The note whose link neighborhood is shown (#847); '' for the whole graph. */
   relativePath: string;
   /** Traversal depth (1–N). */
   depth: number;
+  /** The whole thoughtbase (#2958), with its filters, focus and camera kept here. */
+  whole?: true;
+  graph?: ThoughtbaseGraphState;
 }
 
 /**

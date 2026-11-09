@@ -6,6 +6,7 @@
   import OpenInMenu from './OpenInMenu.svelte';
   import TypeIcon from './TypeIcon.svelte';
   import { objectTypesStore } from '../stores/object-types.svelte';
+  import { getEditorStore } from '../stores/editor.svelte';
   import { formatRelativeTime } from '../utils/format-relative-time';
   import { api } from '../ipc/client';
   import { clampMenuToViewport } from '../utils/menuClamp';
@@ -356,6 +357,10 @@
       </button>
       {#if !contextMenu.targetIsDir}
         <button onclick={() => { onBookmark?.(contextMenu!.target!); contextMenu = null; }}>Bookmark</button>
+        {#if contextMenu.target?.endsWith('.md')}
+          <!-- The whole graph, centred on this note (#2958). -->
+          <button onclick={() => { getEditorStore().openGraph({ focus: contextMenu!.target! }); contextMenu = null; }}>Show in Graph</button>
+        {/if}
         {#if onToggleEntrypoint && contextMenu.target?.endsWith('.md')}
           <button onclick={() => { onToggleEntrypoint?.(contextMenu!.target!, contextMenu!.targetIsEntrypoint === true); contextMenu = null; }}>
             {#if contextMenu.targetIsEntrypoint === true}Unmark as Entrypoint{:else if contextMenu.targetIsEntrypoint === false}Mark as Entrypoint{:else}Toggle Entrypoint{/if}

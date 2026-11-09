@@ -25,6 +25,7 @@ import {
 } from './tab-types';
 import { extensionOf } from '../../../shared/file-capability';
 import { DEFAULT_VIEW_LAYOUT } from '../../../shared/objects/view-layouts';
+import { NEW_GRAPH_STATE, restoredGraphState } from '../graph/whole-graph-filter';
 import { api } from '../ipc/client';
 
 export function toSavedTab(t: Tab): SavedTab {
@@ -44,7 +45,8 @@ export function toSavedTab(t: Tab): SavedTab {
   } else if (isPdf(t)) {
     return { type: 'pdf', sourceId: t.sourceId, page: t.page };
   } else if (isGraph(t)) {
-    return { type: 'graph', relativePath: t.relativePath, depth: t.depth };
+    // The whole graph's state (#2958): a plain copy, since it can be a reactive Proxy.
+    return { type: 'graph', relativePath: t.relativePath, depth: t.depth, ...(t.whole ? { whole: true, graph: JSON.parse(JSON.stringify(t.graph ?? NEW_GRAPH_STATE)) as unknown } : {}) };
   } else if (isPluginView(t)) {
     return { type: 'plugin-view', pluginId: t.pluginId, viewId: t.viewId, title: t.title };
   } else if (isTypeView(t)) {
@@ -134,6 +136,7 @@ export async function reconstructTab(saved: SavedTab, nextQueryId: () => string)
   } else if (saved.type === 'pdf') {
     return { type: 'pdf', sourceId: saved.sourceId, page: saved.page ?? 1 };
   } else if (saved.type === 'graph') {
+    if (saved.whole) return { type: 'graph', relativePath: '', depth: 1, whole: true, graph: restoredGraphState(saved.graph) };
     return { type: 'graph', relativePath: saved.relativePath, depth: saved.depth ?? 1 };
   } else if (saved.type === 'plugin-view') {
     // Read leniently: a session file is ours, but a hand-edit shouldn't crash the restore.

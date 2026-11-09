@@ -330,6 +330,9 @@ export interface SavedGraphTab {
   relativePath: string;
   /** Traversal depth; restored on reload. */
   depth?: number;
+  /** The whole-thoughtbase graph (#2958) and its kept state, read back with care. */
+  whole?: boolean;
+  graph?: unknown;
 }
 
 export interface SavedTypeViewTab {
