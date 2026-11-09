@@ -752,7 +752,8 @@ describe('turns keyed by conversation, not window (#2969)', () => {
     await started();
     const qa = running.get('conv-a')!.params.callbacks.askUser({ question: 'a?' });
     let bSettled = false;
-    void running.get('conv-b')!.params.callbacks.askUser({ question: 'b?' }).finally(() => { bSettled = true; });
+    // Settled either way is what's watched; the rejection when conv-b stops below is expected.
+    void running.get('conv-b')!.params.callbacks.askUser({ question: 'b?' }).finally(() => { bSettled = true; }).catch(() => {});
     cancel(evt, 'conv-a');
     await expect(qa).rejects.toThrow('aborted');
     await expect(sends[0]).rejects.toThrow();
