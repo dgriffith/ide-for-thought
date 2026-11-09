@@ -12,16 +12,27 @@
 
   The filters, the focus and depth, and the camera are kept with the tab
   (`onState`).
+
+  Finding your way (#2959): a search box marks the matching notes and centres
+  on the first (Enter steps through them); selecting a note dims everything
+  beyond N steps of it; **Trace from here** then a second note shows the
+  shortest connection and lists its steps (`graph-analysis.ts`, over the
+  edges as drawn); dragging a note pins it (kept with the tab, **Release
+  all**); right-clicking a note opens the note menu (#2773) for it, or for
+  every picked note when it's one of them — ⌘/⇧-click picks several (#2935).
 -->
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, tick, untrack } from 'svelte';
   import type { Core, CytoscapeOptions, NodeSingular } from 'cytoscape';
   import { api } from '../ipc/client';
   import { loadCytoscape } from '../graph/load-cytoscape';
   import { readGraphTokens, buildGraphStyle, rgbGraphTokens } from '../graph/cytoscape-theme';
-  import { filterWholeGraph, type ThoughtbaseGraphState } from '../graph/whole-graph-filter';
+  import { filterWholeGraph, type ThoughtbaseGraphState, type WholeGraphFilters } from '../graph/whole-graph-filter';
   import type { LayoutRequest, LayoutResponse } from '../graph/force-layout.worker';
   import type { WholeGraphResult } from '../../../shared/types';
+  import { matchNodes, shortestPath, withinHops } from '../graph/graph-analysis';
+  import TypeViewRowMenu from './TypeViewRowMenu.svelte';
+  import type { TypeViewNoteActions } from './type-view/note-actions';
 
   interface Props {
     state: ThoughtbaseGraphState;
@@ -30,8 +41,10 @@
     revision?: number;
     onOpenNote: (relativePath: string) => void;
     onOpenSource?: (sourceId: string) => void;
+    /** The note menu's actions (#2773); absent, a right-click opens nothing. */
+    noteActions?: TypeViewNoteActions | undefined;
   }
-  let { state: graphState, onState, revision = 0, onOpenNote, onOpenSource }: Props = $props();
+  let { state: graphState, onState, revision = 0, onOpenNote, onOpenSource, noteActions }: Props = $props();
 
   let data = $state<WholeGraphResult>({ nodes: [], edges: [], total: 0, truncated: false });
   let loaded = $state(false);
@@ -43,6 +56,16 @@
   let seq = 0;
   /** Where each node was last drawn, so a filter change keeps the picture steady. */
   const positions = new Map<string, { x: number; y: number }>();
+  // Find, focus, trace, pick (#2959).
+  let query = $state('');
+  let matchAt = $state(0);
+  /** Notes picked for the note menu: ⌘/⇧-click adds or removes one (#2935's rules). */
+  let picked = $state<string[]>([]);
+  let traceFrom = $state<string | null>(null);
+  let menu = $state<{ x: number; y: number; paths: string[] } | null>(null);
+  /** The note the right button last went down on, for the `contextmenu` that follows; null on the background. */
+  let menuNote: string | null = null;
+  let accent = '#89b4fa';
 
   $effect(() => {
     void revision;
@@ -50,7 +73,13 @@
     void api.graph.whole({ tags }).then((g) => { if (tags === graphState.showTags) { data = g; loaded = true; } });
   });
 
-  const shown = $derived(filterWholeGraph(data, graphState));
+  // Only the filters decide what's drawn. The tab's state also carries the camera, pins and dim radius, which
+  // change on every pan and drag; keyed on the filters' values, those don't re-filter and re-lay out the graph.
+  const filters = $derived(JSON.stringify({
+    hiddenKinds: graphState.hiddenKinds, folder: graphState.folder, type: graphState.type, tag: graphState.tag,
+    hideOrphans: graphState.hideOrphans, focus: graphState.focus, depth: graphState.depth,
+  }));
+  const shown = $derived(filterWholeGraph(data, JSON.parse(filters) as WholeGraphFilters));
   const folders = $derived([...new Set(data.nodes.filter((n) => n.kind === 'note' || n.kind === 'term').map((n) => n.folder))].sort());
   const types = $derived([...new Set(data.nodes.map((n) => n.type).filter((t): t is string => t !== null))].sort());
   const tags = $derived([...new Set(data.nodes.flatMap((n) => n.tags))].sort());
@@ -69,6 +98,13 @@
     return m;
   });
   const focusLabel = $derived(graphState.focus ? labelOf.get(graphState.focus) ?? graphState.focus : null);
+  const matches = $derived(matchNodes(shown.nodes, query));
+  /** The shortest connection from the trace's start to the selected note; null when there is none. */
+  const path = $derived(traceFrom && selected && selected.id !== traceFrom ? shortestPath(shown.edges, traceFrom, selected.id) : undefined);
+  /** What stays bright around a selected note; null when nothing is selected or a trace is on. */
+  const bright = $derived(selected && !traceFrom ? withinHops(shown.edges, selected.id, graphState.dimHops) : null);
+  const pinCount = $derived(Object.keys(graphState.pins).length);
+  const isNoteKind = (kind: string) => kind === 'note' || kind === 'term';
 
   /** WebGL2 where the machine has it (a GPU-less VM or remote desktop may not, #3011): `getContext` answers null then. */
   function hasWebGl(): boolean {
@@ -80,28 +116,86 @@
     let cameraTimer: ReturnType<typeof setTimeout> | undefined;
     worker = new Worker(new URL('../graph/force-layout.worker.ts', import.meta.url), { type: 'module', name: 'graph-layout' });
     worker.onmessage = (e: MessageEvent<LayoutResponse>) => applyPositions(e.data);
+    // Cytoscape caches where its container is; when the tab is resized or moved
+    // (a sidebar, the toolbar wrapping) a click would hit the wrong node (#2959).
+    const resized = new ResizeObserver(() => cy?.resize());
+    if (container) resized.observe(container);
+    const onContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+      const id = menuNote;
+      menuNote = null;
+      if (!id || !noteActions) return;
+      if (!picked.includes(id)) picked = [id];
+      menu = { x: e.clientX, y: e.clientY, paths: [...picked] };
+    };
+    container?.addEventListener('contextmenu', onContextMenu);
     void (async () => {
       const cytoscape = await loadCytoscape();
       if (disposed || !container) return;
       const webgl = hasWebGl();
       // WebGL parses colours itself and doesn't read the theme's oklch: hand it rgb (#2958).
-      const base = buildGraphStyle(webgl ? rgbGraphTokens(readGraphTokens()) : readGraphTokens());
+      const tokens = webgl ? rgbGraphTokens(readGraphTokens()) : readGraphTokens();
+      const base = buildGraphStyle(tokens);
+      accent = tokens.accent;
       // `renderer.webgl` (Cytoscape 3.31+) isn't in its type definitions; the runtime reads it.
       const options: CytoscapeOptions & { renderer: { name: string; webgl?: boolean } } = {
         container,
-        style: [...base, { selector: 'node', style: { 'min-zoomed-font-size': 9 } }, { selector: 'edge', style: { 'curve-style': 'straight', width: 1 } }],
+        style: [
+          ...base,
+          { selector: 'node', style: { 'min-zoomed-font-size': 9 } },
+          { selector: 'edge', style: { 'curve-style': 'straight', width: 1 } },
+          // Find, focus, trace, pick, pin (#2959).
+          { selector: '.dim', style: { opacity: 0.12 } },
+          { selector: 'node.match', style: { 'border-width': 4, 'border-color': accent } },
+          { selector: 'node.picked', style: { 'border-width': 3, 'border-color': accent } },
+          { selector: 'node.pinned', style: { 'border-style': 'double', 'border-width': 4 } },
+          { selector: 'node.path', style: { 'border-width': 4, 'border-color': accent } },
+          { selector: 'edge.path', style: { width: 3, 'line-color': accent, 'target-arrow-color': accent } },
+        ],
         minZoom: 0.02,
         maxZoom: 4,
         wheelSensitivity: 0.2,
         renderer: { name: 'canvas', ...(webgl ? { webgl: true } : {}) },
       };
       cy = cytoscape(options);
+      // The last two taps' targets (null for the background), newest last.
+      const tapsBefore: (string | null)[] = [null, null];
+      cy.on('tap', (evt) => { tapsBefore.shift(); tapsBefore.push(evt.target === cy ? null : String((evt.target as NodeSingular).id())); });
       cy.on('tap', 'node', (evt) => {
         const n = evt.target as NodeSingular;
-        selected = { id: n.id(), label: String(n.data('label')), kind: String(n.data('kind')) };
+        const kind = String(n.data('kind'));
+        const mods = evt.originalEvent as MouseEvent | undefined;
+        menu = null;
+        // ⌘/⇧-click adds a note to the picked set, or takes it out (#2935's rules).
+        if (mods && (mods.metaKey || mods.ctrlKey || mods.shiftKey) && isNoteKind(kind)) {
+          picked = picked.includes(n.id()) ? picked.filter((p) => p !== n.id()) : [...picked, n.id()];
+          return;
+        }
+        selected = { id: n.id(), label: String(n.data('label')), kind };
+        picked = isNoteKind(kind) ? [n.id()] : [];
       });
-      cy.on('tap', (evt) => { if (evt.target === cy) selected = null; });
-      cy.on('dbltap', 'node', (evt) => open(String((evt.target as NodeSingular).id()), String((evt.target as NodeSingular).data('kind'))));
+      cy.on('tap', (evt) => { if (evt.target === cy) { selected = null; picked = []; menu = null; } });
+      cy.on('tapstart scrollzoom', () => { following = null; }); // the user has the camera now
+      // The note menu (#2773): for the picked notes when the right-click is on one of them, else for this note.
+      // The note menu opens on the page's own `contextmenu`, for the note the right button went down on.
+      // Not on Cytoscape's `cxttap` (button up): Windows fires `contextmenu` after the button comes up,
+      // and it landed on the just-opened menu's backdrop, which closes it — the menu never showed.
+      cy.on('cxttapstart', (evt) => {
+        const n = evt.target as NodeSingular;
+        menuNote = evt.target !== cy && isNoteKind(String(n.data('kind'))) ? n.id() : null;
+      });
+      // Dragging a note pins it there, kept with the tab (#2959).
+      cy.on('dragfree', 'node', (evt) => {
+        const n = evt.target as NodeSingular;
+        const p = n.position();
+        positions.set(n.id(), { x: p.x, y: p.y });
+        onState({ pins: { ...graphState.pins, [n.id()]: { x: p.x, y: p.y } } });
+      });
+      // Cytoscape calls any two quick taps a double tap, wherever they land: open only when both were on this note.
+      cy.on('dbltap', 'node', (evt) => {
+        const n = evt.target as NodeSingular;
+        if (tapsBefore[0] === n.id()) open(n.id(), String(n.data('kind')));
+      });
       cy.on('viewport', () => {
         clearTimeout(cameraTimer);
         cameraTimer = setTimeout(() => { if (cy) onState({ camera: { zoom: cy.zoom(), pan: { ...cy.pan() } } }); }, 400);
@@ -110,6 +204,8 @@
     })();
     return () => {
       disposed = true;
+      resized.disconnect();
+      container?.removeEventListener('contextmenu', onContextMenu);
       clearTimeout(cameraTimer);
       worker?.terminate();
       worker = null;
@@ -120,7 +216,7 @@
 
   $effect(() => {
     void shown;
-    draw();
+    untrack(draw); // draw reads the pins and focus; only a change in what's shown redraws
   });
 
   /** Put the shown notes on the canvas where they last were, then lay them out afresh. */
@@ -130,19 +226,88 @@
     cy.batch(() => {
       cy!.elements().remove();
       cy!.add([
-        ...nodes.map((n) => ({ data: { id: n.id, label: n.label, kind: n.kind, root: n.id === graphState.focus ? true : undefined }, position: positions.get(n.id) ?? { x: 0, y: 0 } })),
+        ...nodes.map((n) => ({ data: { id: n.id, label: n.label, kind: n.kind, root: n.id === graphState.focus ? true : undefined }, position: graphState.pins[n.id] ?? positions.get(n.id) ?? { x: 0, y: 0 } })),
         ...shown.edges.map((e) => ({ data: { id: `${e.source}\u0000${e.target}\u0000${e.linkType}`, source: e.source, target: e.target, linkColor: e.linkColor } })),
       ]);
     });
     const request: LayoutRequest = {
       seq: ++seq,
-      nodes: nodes.map((n) => ({ id: n.id, group: n.folder || n.kind })),
+      nodes: nodes.map((n) => ({ id: n.id, group: n.folder || n.kind, fixed: graphState.pins[n.id] })),
       edges: shown.edges.map((e) => ({ source: e.source, target: e.target })),
     };
+    settled = false;
     worker?.postMessage(request);
+    applyMarks();
+  }
+
+  // The marks follow what's found, selected, traced, picked and pinned.
+  $effect(() => {
+    void matches; void matchAt; void bright; void path; void picked; void graphState.pins;
+    applyMarks();
+  });
+
+  function applyMarks(): void {
+    if (!cy) return;
+    const c = cy;
+    c.batch(() => {
+      c.elements().removeClass('match dim path picked pinned');
+      for (const id of matches) c.getElementById(id).addClass('match');
+      if (bright) {
+        c.nodes().forEach((n) => { if (!bright.has(n.id())) n.addClass('dim'); });
+        c.edges().forEach((e) => { if (!bright.has(String(e.data('source'))) || !bright.has(String(e.data('target')))) e.addClass('dim'); });
+      }
+      if (path) {
+        for (const id of path.nodes) c.getElementById(id).addClass('path');
+        for (const e of path.edges) c.getElementById(`${e.source}\u0000${e.target}\u0000${e.linkType}`).addClass('path');
+      }
+      for (const id of picked) c.getElementById(id).addClass('picked');
+      for (const id of Object.keys(graphState.pins)) c.getElementById(id).addClass('pinned');
+    });
+  }
+
+  function centreOn(id: string | undefined): void {
+    following = null;
+    if (!cy || !id) return;
+    const n = cy.getElementById(id);
+    // At once, not animated: a click straight after finding lands on the note found.
+    if (n.nonempty()) cy.center(n);
+    following = id; // and kept there while the layout settles, rather than fitted away from
+  }
+  function onFind(e: Event & { currentTarget: HTMLInputElement }): void {
+    query = e.currentTarget.value;
+    matchAt = 0;
+    centreOn(matchNodes(shown.nodes, query)[0]);
+  }
+  function onFindKey(e: KeyboardEvent): void {
+    if (e.key !== 'Enter' || matches.length === 0) return;
+    e.preventDefault();
+    matchAt = (matchAt + (e.shiftKey ? matches.length - 1 : 1)) % matches.length;
+    centreOn(matches[matchAt]);
+  }
+  function releaseAll(): void {
+    onState({ pins: {} });
+    void tick().then(draw); // lay the freed notes out again
+  }
+  function onKeydown(e: KeyboardEvent): void {
+    if (e.key !== 'Escape') return;
+    if (menu) menu = null;
+    else if (traceFrom) traceFrom = null;
+    else if (selected || picked.length > 0) { selected = null; picked = []; }
+    else return;
+    e.preventDefault();
+  }
+  /** Remove Tag ▸: the picked notes' tags, with how many carry each. */
+  function tagChoices(paths: readonly string[]) {
+    const counts = new Map<string, number>();
+    for (const n of data.nodes) if (paths.includes(n.id)) for (const t of n.tags) counts.set(t, (counts.get(t) ?? 0) + 1);
+    return [...counts.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([t, count]) => ({ key: t, label: `#${t}`, count }));
   }
 
   let fitted = false;
+  /** The note Find centred on: the layout's settling keeps it centred instead of fitting the view. */
+  let following: string | null = null;
+  /** The layout has finished (`data-settled`): where the notes are now is where they stay. */
+  let settled = $state(false);
   function applyPositions(r: LayoutResponse): void {
     if (!cy || r.seq !== seq) return; // a stale layout: the filters moved on
     const nodes = shown.nodes;
@@ -153,7 +318,10 @@
         cy!.getElementById(n.id).position(p);
       });
     });
-    if (!r.done || fitted) return;
+    if (following) cy.center(cy.getElementById(following));
+    if (!r.done) return;
+    settled = true;
+    if (fitted || following) return;
     fitted = true;
     const cam = graphState.camera;
     if (cam) { cy.zoom(cam.zoom); cy.pan(cam.pan); return; }
@@ -177,8 +345,11 @@
   const optionOrNull = (v: string) => (v === '' ? null : v);
 </script>
 
-<div class="tb-graph">
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div class="tb-graph" onkeydown={onKeydown}>
   <div class="toolbar">
+    <input class="find" type="search" placeholder="Find a note" aria-label="Find a note" value={query} oninput={onFind} onkeydown={onFindKey} />
+    {#if query.trim() !== ''}<span class="found" aria-live="polite">{matches.length === 0 ? 'None' : `${matchAt + 1} of ${matches.length}`}</span>{/if}
     <label>Folder
       <select value={graphState.folder ?? ''} onchange={(e) => onState({ folder: optionOrNull(e.currentTarget.value) })}>
         <option value="">All</option>
@@ -209,6 +380,20 @@
     {:else if selected && selected.kind !== 'tag'}
       <button type="button" onclick={() => onState({ focus: selected!.id, depth: 1 })}>Focus on “{selected.label}”</button>
     {/if}
+    {#if selected && !traceFrom}
+      <span class="dim-control">Bright within
+        <button type="button" class="step" aria-label="Fewer steps bright" disabled={graphState.dimHops <= 1} onclick={() => onState({ dimHops: graphState.dimHops - 1 })}>−</button>
+        <span>{graphState.dimHops}</span>
+        <button type="button" class="step" aria-label="More steps bright" disabled={graphState.dimHops >= 6} onclick={() => onState({ dimHops: graphState.dimHops + 1 })}>+</button>
+      </span>
+      {#if isNoteKind(selected.kind)}<button type="button" onclick={() => (traceFrom = selected!.id)}>Trace from “{selected.label}”</button>{/if}
+    {/if}
+    {#if traceFrom}
+      <span class="trace">From <b>{labelOf.get(traceFrom) ?? traceFrom}</b>: select another note
+        <button type="button" onclick={() => (traceFrom = null)}>Clear</button>
+      </span>
+    {/if}
+    {#if pinCount > 0}<button type="button" onclick={releaseAll}>Release all ({pinCount})</button>{/if}
     <span class="spacer"></span>
     <span class="count" aria-live="polite">{shown.nodes.length} of {data.nodes.length} {data.nodes.length === 1 ? 'node' : 'nodes'}, {shown.edges.length} connections</span>
     <button type="button" class="toggle" class:on={showList} aria-pressed={showList} onclick={() => (showList = !showList)}>List</button>
@@ -222,11 +407,23 @@
       {/each}
     </div>
   {/if}
+  {#if path !== undefined && traceFrom && selected}
+    <p class="path-steps" aria-live="polite">
+      {#if path === null}
+        Nothing connects <b>{labelOf.get(traceFrom)}</b> and <b>{selected.label}</b> through the connections shown.
+      {:else}
+        {#each path.nodes as id, i (id)}
+          {#if i > 0}{@const e = path.edges[i - 1]!}<span class="step-kind"> {e.source === id ? '←' : '—'}{e.linkLabel}{e.source === id ? '—' : '→'} </span>{/if}<b>{labelOf.get(id) ?? id}</b>
+        {/each}
+        <span class="step-count"> · {path.edges.length} {path.edges.length === 1 ? 'step' : 'steps'}</span>
+      {/if}
+    </p>
+  {/if}
   {#if data.truncated}
     <p class="note">Showing the first {data.nodes.filter((n) => n.kind === 'note' || n.kind === 'term').length.toLocaleString()} of {data.total.toLocaleString()} notes. Narrow it with a folder, type or tag.</p>
   {/if}
   <div class="body">
-    <div class="canvas" bind:this={container} class:hidden={showList} role="img" aria-label="Graph of {shown.nodes.length} notes; use List for the same notes as text"></div>
+    <div class="canvas" bind:this={container} class:hidden={showList} data-settled={settled ? '' : undefined} role="img" aria-label="Graph of {shown.nodes.length} notes; use List for the same notes as text"></div>
     {#if showList}
       <ul class="list" aria-label="Notes in the graph">
         {#each shown.nodes as n (n.id)}
@@ -239,6 +436,17 @@
           </li>
         {/each}
       </ul>
+    {/if}
+    {#if menu && noteActions}
+      {@const paths = menu.paths}
+      <TypeViewRowMenu
+        x={menu.x} y={menu.y} count={paths.length}
+        onEdit={() => { menu = null; noteActions.editProperties(paths); }}
+        onClose={() => (menu = null)}
+        onAddTag={() => { menu = null; noteActions.addTag(paths); }}
+        removeTags={tagChoices(paths)}
+        onRemoveTag={(tag) => { menu = null; noteActions.removeTag(paths, tag); }}
+      />
     {/if}
     {#if loaded && data.nodes.length === 0}
       <div class="status">No notes to draw yet.</div>
@@ -258,6 +466,11 @@
   .step { min-width: 22px; }
   .spacer { flex: 1; }
   .count { font-variant-numeric: tabular-nums; }
+  .find { font: inherit; color: var(--text); background: var(--bg-button); border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px; width: 160px; }
+  .found { font-variant-numeric: tabular-nums; }
+  .dim-control, .trace { display: inline-flex; align-items: center; gap: 6px; color: var(--text); }
+  .path-steps { margin: 0; padding: 4px 10px; font-size: 12px; color: var(--text); border-bottom: 1px solid var(--border); }
+  .step-kind, .step-count { color: var(--text-muted); }
   .legend { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 10px; border-bottom: 1px solid var(--border); font-size: 11.5px; }
   .legend-item { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--border); border-radius: 10px; padding: 1px 8px; background: var(--bg-button); color: var(--text); cursor: pointer; font: inherit; }
   .legend-item.off { opacity: 0.45; text-decoration: line-through; }

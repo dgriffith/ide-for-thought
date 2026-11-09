@@ -20,6 +20,8 @@ export interface LayoutNode {
   id: string;
   /** Nodes of a group start together (a note's folder). */
   group: string;
+  /** Pinned where the user dragged it (#2959): the forces move the rest around it. */
+  fixed?: { x: number; y: number } | undefined;
 }
 
 export interface LayoutEdge {
@@ -48,6 +50,7 @@ function seed(nodes: readonly LayoutNode[]): SimNode[] {
   }));
   let k = 0;
   return nodes.map((n) => {
+    if (n.fixed) return { id: n.id, x: n.fixed.x, y: n.fixed.y, fx: n.fixed.x, fy: n.fixed.y };
     const c = centre.get(n.group)!;
     // A small, deterministic spiral around the group's centre, so no two start on top of each other.
     const a = k * 2.399963;
