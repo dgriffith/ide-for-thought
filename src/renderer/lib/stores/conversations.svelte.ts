@@ -5,6 +5,7 @@ import { ensureComputeConsent } from '../app/compute-ops';
 import { announce } from './announcer.svelte';
 import { extensionDraftsStore } from './extension-drafts.svelte';
 import { logger } from '../../../shared/logger';
+import type { RequestWaitStatus } from '../../../shared/tools/concurrent-requests';
 import type {
   Conversation,
   ConversationCreateOptions,
@@ -201,7 +202,11 @@ export interface TabRuntime {
    *  ends: main has already resolved it as cancelled by then. */
   pendingMcpConfirm: McpConfirmRequest | null;
   composer: string;
+  /** Mid-turn. Per conversation (#2969): several tabs in one window can each be running. */
   streaming: boolean;
+  /** What the turn's next model request is waiting on — a free slot, or a rate
+   *  limit to clear — or null while it runs (#2969). */
+  waiting: RequestWaitStatus;
   /** When the in-flight turn started (epoch ms), for the elapsed time on the
    *  turn-status line; null when idle. On the tab, not in the component, so
    *  switching tabs and back doesn't restart the clock. */
@@ -291,10 +296,17 @@ function draftHandler<T extends { conversationId: string; draftId: string }>(
 
 function ensureSubscriptions(): void {
   if (!streamSubscribed) {
-    api.conversations.onStream((chunk) => {
-      const t = activeTab();
+    // Routed by conversation, not to whichever tab is in front (#2969): a
+    // background tab keeps streaming into its own transcript.
+    api.conversations.onStream(({ conversationId, text }) => {
+      const t = findTab(conversationId);
       if (!t || !t.streaming) return;
-      t.streamedChunks += chunk;
+      t.streamedChunks += text;
+    });
+    api.conversations.onWait(({ conversationId, status }) => {
+      const t = findTab(conversationId);
+      if (!t || !t.streaming) return;
+      t.waiting = status;
     });
     streamSubscribed = true;
   }
@@ -569,6 +581,7 @@ async function send(content: string, currentNotePath?: string): Promise<void> {
     handleTurnFailure(tab, e, text);
   } finally {
     tab.streaming = false;
+    tab.waiting = null;
     tab.turnStartedAt = null;
     tab.streamedChunks = '';
     tab.pendingMcpConfirm = null;
@@ -601,6 +614,7 @@ async function retryLastTurn(tabId: string, currentNotePath?: string): Promise<v
     handleTurnFailure(tab, e, null);
   } finally {
     tab.streaming = false;
+    tab.waiting = null;
     tab.turnStartedAt = null;
     tab.streamedChunks = '';
     tab.pendingMcpConfirm = null;
@@ -620,9 +634,19 @@ function announceTurnStart(): void {
   announce('Generating response');
 }
 
+/** A reply in a tab the user isn't looking at (#2969) says which conversation finished, not its text. */
 function announceTurnComplete(tab: TabRuntime): void {
+  if (tab.id !== activeTabId) {
+    announce(`${conversationLabel(tab)} finished replying`);
+    return;
+  }
   const reply = [...tab.conversation.messages].reverse().find((m) => m.role === 'assistant');
   announce(reply?.content.trim() ? `Response complete. ${reply.content}` : 'Response complete');
+}
+
+function conversationLabel(tab: TabRuntime): string {
+  const title = tab.conversation.title?.trim();
+  return title ? `“${title}”` : 'A conversation';
 }
 
 /**
@@ -722,6 +746,7 @@ async function compactConversation(): Promise<void> {
     // If the tab was swapped out, this just touches the now-detached old tab
     // object; the new tab starts with streaming=false.
     tab.streaming = false;
+    tab.waiting = null;
     tab.turnStartedAt = null;
     tab.streamedChunks = '';
   }
@@ -829,6 +854,7 @@ function blankTabRuntime(conv: Conversation, extraTools: ConversationToolKey[]):
     pendingMcpConfirm: null,
     composer: '',
     streaming: false,
+    waiting: null,
     turnStartedAt: null,
     streamedChunks: '',
     failure: null,
@@ -889,8 +915,10 @@ async function clearConversation(): Promise<void> {
  * `streamedChunks` here — which is what this used to do — erased the partial
  * reply a few milliseconds before the code that wanted to keep it ran (#1809).
  */
-async function cancel(): Promise<void> {
-  await api.conversations.cancel();
+async function cancel(tabId?: string): Promise<void> {
+  const tab = tabId ? findTab(tabId) : activeTab();
+  if (!tab) return;
+  await api.conversations.cancel(tab.id);
 }
 
 /**

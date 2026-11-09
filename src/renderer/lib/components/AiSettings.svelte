@@ -9,6 +9,7 @@
    * together on Done) and binds it here. `providerViews` is the read-only
    * loaded status (never carries a plaintext key).
    */
+  import { DEFAULT_CONCURRENT_REQUESTS, MAX_CONCURRENT_REQUESTS, MIN_CONCURRENT_REQUESTS } from '../../../shared/tools/concurrent-requests';
   import { groupedModelOptions } from '../../../shared/tools/models';
   import { EFFORT_LEVELS, type Effort } from '../../../shared/tools/effort';
   import { PROVIDERS, PROVIDER_IDS, type ProviderId } from '../../../shared/tools/providers';
@@ -32,6 +33,8 @@
     effort: Effort | undefined;
     /** Name new conversations with a model-written title after the first reply. */
     autoTitle: boolean;
+    /** Model requests that may run at once per provider (#2969). */
+    concurrentRequests: number;
     /** Per-provider input state, keyed by provider id. */
     providerInputs: Record<ProviderId, ProviderInput>;
     /** Loaded per-provider status (no plaintext keys). */
@@ -50,6 +53,7 @@
     model = $bindable(),
     effort = $bindable(),
     autoTitle = $bindable(),
+    concurrentRequests = $bindable(),
     providerInputs = $bindable(),
     providerViews,
     secureStorageAvailable,
@@ -59,6 +63,11 @@
   }: Props = $props();
 
   const groups = $derived(groupedModelOptions(customModels));
+
+  function clampConcurrentRequests(n: number): number {
+    if (!Number.isFinite(n)) return DEFAULT_CONCURRENT_REQUESTS;
+    return Math.min(MAX_CONCURRENT_REQUESTS, Math.max(MIN_CONCURRENT_REQUESTS, Math.round(n)));
+  }
 
   function onEffortChange(e: Event) {
     const v = (e.currentTarget as HTMLSelectElement).value;
@@ -163,6 +172,24 @@
     After a conversation's first reply, a quick model call gives it a short title,
     using the provider's cheaper model (Sonnet, GPT-6 Luna, Gemini Flash). Double-click
     a conversation in the list to rename it; your name is always kept.
+  </p>
+</div>
+
+<div class="field">
+  <label for="ai-concurrent-requests">Requests at once, per provider</label>
+  <input
+    id="ai-concurrent-requests"
+    type="number"
+    min={MIN_CONCURRENT_REQUESTS}
+    max={MAX_CONCURRENT_REQUESTS}
+    step="1"
+    value={concurrentRequests}
+    onchange={(e) => (concurrentRequests = clampConcurrentRequests(Number(e.currentTarget.value)))}
+  />
+  <p class="hint">
+    Conversations can run at the same time. This many model requests go to one provider
+    at once; the rest wait their turn, and a conversation that's waiting says so.
+    Lower it if your key is rate limited often.
   </p>
 </div>
 
@@ -342,6 +369,7 @@
   .checkbox-row input { cursor: pointer; }
   .field input[type="password"],
   .field input[type="text"],
+  .field input[type="number"],
   .field select {
     padding: 5px 8px;
     background: var(--bg);

@@ -555,6 +555,8 @@ export const Channels = {
   CONVERSATION_RETRY: 'conversation:retry',
   CONVERSATION_STREAM: 'conversation:stream',
   CONVERSATION_CANCEL: 'conversation:cancel',
+  /** A turn's next request is waiting for a slot or a rate limit (#2969); `status: null` once it runs. */
+  CONVERSATION_WAIT: 'conversation:wait',
   /** main → renderer: a propose_notes tool call produced a draft for review. Payload is ConversationDraft. */
   CONVERSATION_DRAFT: 'conversation:draft',
   /** renderer → main: user approved a draft; file the bundle as a Proposal AND auto-approve it. */

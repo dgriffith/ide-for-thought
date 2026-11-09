@@ -109,6 +109,7 @@ import type { ConversationRefactorDraft, ConversationReorgDraft, ConversationDel
 import type { ConversationNoteBodyDraft, FileNoteBodyDraftResult } from './conversation-note-body-drafts';
 import type { VocabularyImportPreview, VocabularyStatus } from './ontology-vocabularies';
 import type { PluginList, PluginRecommendation, PluginSettingsPatch, PluginSettingsView } from './plugins/format';
+import type { RequestWaitStatus } from './tools/concurrent-requests';
 
 // `HeadingRenameCandidate` is part of the notebase wire contract (the
 // NOTEBASE_HEADING_RENAME_SUGGESTED event payload) but isn't an
@@ -648,7 +649,7 @@ export interface ChannelMap {
   'conversation:listActive': () => Conversation[];
   'conversation:send': (convId: string, userMessage: string, systemPrompt?: string, currentNotePath?: string, extraTools?: ConversationToolKey[]) => Conversation;
   'conversation:retry': (convId: string, systemPrompt?: string, currentNotePath?: string, extraTools?: ConversationToolKey[]) => Conversation;
-  'conversation:cancel': () => void;
+  'conversation:cancel': (conversationId: string) => void;
   'conversation:uiStateLoad': () => ConversationsUIState;
   'conversation:uiStateSave': (state: ConversationsUIState) => void;
   'conversation:askUserReply': (questionId: string, answer: string) => void;
@@ -731,7 +732,8 @@ export interface EventMap {
   'conversation:deleteDraft': (draft: ConversationDraftBase) => void;
   'conversation:noteBodyDraft': (draft: ConversationDraftBase) => void;
   // Conversation + tool streaming / prompts
-  'conversation:stream': (chunk: string) => void;
+  'conversation:stream': (chunk: { conversationId: string; text: string }) => void;
+  'conversation:wait': (wait: { conversationId: string; status: RequestWaitStatus }) => void;
   'conversation:askUser': (req: AskUserRequest) => void;
   'conversation:titleChanged': (change: { conversationId: string; title: string }) => void;
   /** Interleaved float32 PCM from the system-audio tap, whole frames (#2731). */

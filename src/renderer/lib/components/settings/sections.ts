@@ -52,6 +52,7 @@ export interface SettingsHost {
   model: string;
   effort: Effort | undefined;
   autoTitle: boolean;
+  concurrentRequests: number;
   providerInputs: Record<ProviderId, ProviderInput>;
   customModels: CustomModel[];
   readonly providerViews: Partial<Record<ProviderId, ProviderConfigView>>;

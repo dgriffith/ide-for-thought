@@ -27,40 +27,15 @@ import type { ConversationClaimsDraft } from '../../shared/conversation-claims-d
 import type { ConversationToolKey } from '../../shared/conversation-tools';
 import type { McpCallConfirmer } from '../mcp-servers/registry';
 import { formatToolCall } from './format-tool-call';
-import { toLlmFailureError } from './classify-error';
-import type { ProviderId } from '../../shared/tools/providers';
+import { withProviderErrors, type RequestWaitStatus } from './request-limiter';
 import { logger } from '../../shared/logger';
 import { withLLMContext } from '../graph/index';
-
-/**
- * Run one provider round-trip, classifying any throw into the shared failure
- * taxonomy before it leaves main (#1804).
- *
- * This is the single choke point: IPC strips an SDK error's `status`/`code`, so
- * a failure that isn't classified here can never be told apart from any other
- * downstream — which is how "the model is overloaded" and "your key is revoked"
- * both used to arrive in the renderer as an anonymous `console.error`.
- *
- * Wrap ONLY the provider call, never the surrounding tool execution.
- *
- * `signal` is the caller's abort signal, passed so a cancelled turn is reported
- * as cancelled whatever shape the SDK's error took (#1809).
- */
-async function withProviderErrors<T>(
-  providerId: ProviderId,
-  run: () => Promise<T>,
-  signal?: AbortSignal,
-): Promise<T> {
-  try {
-    return await run();
-  } catch (err) {
-    throw toLlmFailureError(err, providerId, { aborted: signal?.aborted ?? false });
-  }
-}
 
 export interface StreamCallbacks {
   onChunk: (text: string) => void;
   signal?: AbortSignal | undefined;
+  /** What the turn's next request is waiting on — a slot, or a rate limit to clear — and null once it runs (#2969). */
+  onWait?: ((status: RequestWaitStatus) => void) | undefined;
   /**
    * Fired when the propose_notes tool produces a ConversationDraft. The
    * conversation IPC handler forwards drafts to the renderer via
@@ -304,7 +279,7 @@ export async function complete(
     messages = [{ role: 'user', content: prompt }];
   }
 
-  const { provider, id: providerId, model, effort: defaultEffort } = await getProvider(modelOverride);
+  const { provider, id: providerId, model, effort: defaultEffort, concurrentRequests } = await getProvider(modelOverride);
   const effort = resolveEffort(model, effortOverride, defaultEffort);
 
   // `const` (not the outer `let`) so TS keeps the narrowing inside the closure.
@@ -323,7 +298,7 @@ export async function complete(
       signal: cb?.signal,
     },
     cb ? (delta) => cb.onChunk(delta) : undefined,
-  ), cb?.signal);
+  ), cb?.signal, { concurrentRequests, onWait: cb?.onWait });
   if (onUsage) onUsage(result.usage, model);
   if (result.stopReason === 'max_tokens' && onTruncated) onTruncated();
   return result.text;
@@ -341,7 +316,7 @@ export async function complete(
 export async function completeWithTools(
   options: CompleteWithToolsOptions,
 ): Promise<CompleteWithToolsResult> {
-  const { provider, id: providerId, model, web: providerWeb, effort: defaultEffort } = await getProvider(options.model);
+  const { provider, id: providerId, model, web: providerWeb, effort: defaultEffort, concurrentRequests } = await getProvider(options.model);
   // A per-call `web` override (a `web: false` skill in the eval harness; a
   // per-conversation web setting, #1533) merges over the global web — so a caller
   // that overrides just `enabled` keeps the user's global allow/block domain lists.
@@ -452,7 +427,7 @@ export async function completeWithTools(
         onTextDelta: callbacks ? (delta) => callbacks.onChunk(delta) : undefined,
         onToolCallStart,
       },
-    ), callbacks?.signal);
+    ), callbacks?.signal, { concurrentRequests, onWait: callbacks?.onWait });
 
     sumUsage(usage, turn.usage);
     lastIterationContextTokens = turn.usage.inputTokens + turn.usage.cacheReadTokens

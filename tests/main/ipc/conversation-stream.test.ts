@@ -46,7 +46,8 @@ function makeWin(destroyed = false) {
 function streamSends(win: ReturnType<typeof makeWin>): string[] {
   return win.webContents.send.mock.calls
     .filter((c) => c[0] === Channels.CONVERSATION_STREAM)
-    .map((c) => c[1] as string);
+    // Each send names its conversation (#2969); the text is what's under test here.
+    .map((c) => { const p = c[1] as { conversationId: string; text: string }; expect(p.conversationId).toBe('conv-1'); return p.text; });
 }
 
 function build(win: ReturnType<typeof makeWin>) {

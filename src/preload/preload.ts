@@ -30,6 +30,7 @@ import type { AskUserRequest, McpConfirmRequest } from '../shared/conversation-t
 import type { ExtensionDraftAction, ExtensionDraftOffer } from '../shared/extensions/drafts';
 import type { RemoteImagePolicy } from '../shared/remote-images';
 import type { McpServerDescriptor } from '../shared/mcp-servers';
+import type { RequestWaitStatus } from '../shared/tools/concurrent-requests';
 
 /**
  * Typed main→renderer event subscription (#1633). The channel + the `cb` payload
@@ -335,8 +336,9 @@ const api = {
       invoke(Channels.CONVERSATION_MCP_CONFIRM_REPLY, requestId, allow, remember),
     onExtensionDraft: (cb: (offer: ExtensionDraftOffer) => void) => subscribe(Channels.CONVERSATION_EXTENSION_DRAFT, cb),
     extensionDraftAction: (offerId: string, action: ExtensionDraftAction) => invoke(Channels.CONVERSATION_EXTENSION_DRAFT_ACTION, offerId, action),
-    onStream: (cb: (chunk: string) => void) => subscribe(Channels.CONVERSATION_STREAM, cb),
-    cancel: () => invoke(Channels.CONVERSATION_CANCEL),
+    onStream: (cb: (chunk: { conversationId: string; text: string }) => void) => subscribe(Channels.CONVERSATION_STREAM, cb),
+    onWait: (cb: (wait: { conversationId: string; status: RequestWaitStatus }) => void) => subscribe(Channels.CONVERSATION_WAIT, cb),
+    cancel: (conversationId: string) => invoke(Channels.CONVERSATION_CANCEL, conversationId),
     onDraft: (cb: (draft: ConversationDraftBase) => void) => subscribe(Channels.CONVERSATION_DRAFT, cb),
     fileDraft: (draft: Parameters<ChannelMap['conversation:fileDraft']>[0]) => invoke(Channels.CONVERSATION_FILE_DRAFT, draft),
     onSourceDraft: (cb: (draft: ConversationDraftBase) => void) =>

@@ -218,7 +218,9 @@
                 ondblclick={() => void renameTab(tab)}
                 title={`${tabTitle(tab)} — double-click to rename`}
               >
-                <span class="conv-item-title">{tabTitle(tab)}</span>
+                <span class="conv-item-title">
+                  {#if tab.streaming}<span class="conv-item-running" title="Replying" aria-label="Replying"></span>{/if}{tabTitle(tab)}
+                </span>
                 {#if tab.conversation.contextBundle.notePath}
                   <span class="conv-item-note">
                     <Icon name="notes" size={10} color="var(--text-faint)" />
@@ -422,6 +424,24 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  /* A conversation mid-turn (#2969), in front or not. */
+  .conv-item-running {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    margin-right: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    vertical-align: middle;
+    animation: conv-running 1.2s ease-in-out infinite;
+  }
+  @keyframes conv-running {
+    0%, 100% { opacity: 0.35; }
+    50% { opacity: 1; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .conv-item-running { animation: none; }
   }
   .conv-item.active .conv-item-title {
     font-weight: 500;
