@@ -21,6 +21,7 @@ import { buildSession, normalizeSession, resolveRestoredSession } from '../edito
 import { logger } from '../../../shared/logger';
 import { withSqlAccessHint } from '../../../shared/sql-access-hint';
 import { DEFAULT_VIEW_LAYOUT } from '../../../shared/objects/view-layouts';
+import { NEW_GRAPH_STATE, type ThoughtbaseGraphState } from '../graph/whole-graph-filter';
 
 // ── Tab types ───────────────────────────────────────────────────────────────
 // Moved to ../editor/tab-types.ts (#1919) so the session-serialization module
@@ -291,13 +292,44 @@ function buildEditorStore() {
   /** Open (or refocus) the link-neighborhood graph for a note (#847). One graph
    *  tab per note; reopening refocuses rather than duplicating. */
   function openNeighborhood(relativePath: string, opts?: { depth?: number; groupId?: string }) {
-    const found = locateTab((t) => isGraph(t) && t.relativePath === relativePath);
+    const found = locateTab((t) => isGraph(t) && !t.whole && t.relativePath === relativePath);
     if (found) { focusExistingTab(found); return; }
     const grp = resolveGroup(opts?.groupId);
     activeGroupId = grp.id;
     const tab: GraphTab = { type: 'graph', relativePath, depth: opts?.depth ?? 1 };
     grp.tabs.push(tab);
     grp.activeIndex = grp.tabs.length - 1;
+    schedulePersistTabs();
+  }
+
+  /**
+   * Open (or refocus) the whole-thoughtbase graph (#2958). One such tab; with
+   * `focus`, it centres on that note ("Show in Graph") at depth 1, else it keeps
+   * what the tab had.
+   */
+  function openGraph(opts?: { focus?: string; groupId?: string }) {
+    const focus = opts?.focus ? { focus: opts.focus, depth: 1 } : {};
+    const found = locateTab((t) => isGraph(t) && !!t.whole);
+    if (found) {
+      const tab = found.group.tabs[found.index] as GraphTab;
+      if (opts?.focus) tab.graph = { ...(tab.graph ?? NEW_GRAPH_STATE), ...focus, camera: null };
+      focusExistingTab(found);
+      schedulePersistTabs();
+      return;
+    }
+    const grp = resolveGroup(opts?.groupId);
+    activeGroupId = grp.id;
+    grp.tabs.push({ type: 'graph', relativePath: '', depth: 1, whole: true, graph: { ...NEW_GRAPH_STATE, ...focus } });
+    grp.activeIndex = grp.tabs.length - 1;
+    schedulePersistTabs();
+  }
+
+  /** Change what the whole graph tab keeps — its filters, focus and camera (#2958). */
+  function setGraphState(patch: Partial<ThoughtbaseGraphState>) {
+    const found = locateTab((t) => isGraph(t) && !!t.whole);
+    if (!found) return;
+    const tab = found.group.tabs[found.index] as GraphTab;
+    tab.graph = { ...(tab.graph ?? NEW_GRAPH_STATE), ...patch };
     schedulePersistTabs();
   }
 
@@ -950,6 +982,8 @@ function buildEditorStore() {
     openSource,
     openPdf,
     openNeighborhood,
+    openGraph,
+    setGraphState,
     openPluginView,
     setGraphDepth,
     openTypeView,

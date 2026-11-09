@@ -107,6 +107,36 @@ export function frontmatterEdges(ctx: ProjectContext, relativePath: string): Rel
   return out;
 }
 
+/**
+ * Every note's IRI, to its path (#2958): what the whole graph looks a target up
+ * in, once, instead of asking the store per statement — 22,000 store lookups
+ * for 2,000 notes took 5 s.
+ */
+export function noteIriIndex(ctx: ProjectContext, paths: readonly string[]): Map<string, string> {
+  const state = getState(ctx);
+  const index = new Map<string, string>();
+  if (!state) return index;
+  for (const p of paths) index.set(noteUri(state, p).value, p);
+  return index;
+}
+
+/**
+ * A note's outgoing frontmatter edges only, with targets looked up in `notes`
+ * (`noteIriIndex`): the whole graph's form of `frontmatterEdges`, which finds
+ * each edge once, from its source.
+ */
+export function frontmatterOutEdges(ctx: ProjectContext, relativePath: string, notes: ReadonlyMap<string, string>): RelationEdge[] {
+  const state = getState(ctx);
+  if (!state) return [];
+  const out: RelationEdge[] = [];
+  for (const st of state.store.statementsMatching(noteUri(state, relativePath), undefined, undefined)) {
+    if (st.object.termType !== 'NamedNode' || LINK_PREDICATES.has(st.predicate.value) || ARGUMENT_PREDICATES.has(st.predicate.value)) continue;
+    const target = notes.get(stripFragment(st.object.value));
+    if (target && target !== relativePath) out.push({ source: relativePath, target, predicate: st.predicate.value });
+  }
+  return out;
+}
+
 /** The tags a note carries, by name. */
 export function noteTags(ctx: ProjectContext, relativePath: string): string[] {
   const state = getState(ctx);

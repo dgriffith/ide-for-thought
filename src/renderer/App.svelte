@@ -11,6 +11,8 @@
   import { collectGroupIds } from './lib/editor/layout-tree';
   import QueryPanel from './lib/components/QueryPanel.svelte';
   import NeighborhoodGraph from './lib/components/NeighborhoodGraph.svelte';
+  import ThoughtbaseGraph from './lib/components/ThoughtbaseGraph.svelte';
+  import { NEW_GRAPH_STATE } from './lib/graph/whole-graph-filter';
   import TypeView from './lib/components/TypeView.svelte';
   import PluginViewTab from './lib/components/plugins/PluginViewTab.svelte';
   import { codePluginsStore } from './lib/stores/code-plugins.svelte';
@@ -1419,6 +1421,14 @@
                     />
                   {/await}
                 {/key}
+              {:else if active?.type === 'graph' && active.whole}
+                <ThoughtbaseGraph
+                  state={active.graph ?? NEW_GRAPH_STATE}
+                  onState={(patch) => editor.setGraphState(patch)}
+                  revision={graphRevision}
+                  onOpenNote={(p) => handleFileSelect(p)}
+                  onOpenSource={(id) => editor.openSource(id)}
+                />
               {:else if active?.type === 'graph'}
                 {#key active.relativePath}
                   <NeighborhoodGraph

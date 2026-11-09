@@ -34,6 +34,29 @@ export function readGraphTokens(): GraphTokens {
   };
 }
 
+/**
+ * The tokens as `rgb(…)` (#2958). The theme writes colours in `oklch(…)`; the
+ * canvas renderer hands them to the browser, which reads them, but Cytoscape's
+ * WebGL renderer parses colours itself and doesn't know oklch, so every node
+ * would fall back to its default grey. The browser resolves each one by
+ * painting a pixel of it.
+ */
+export function rgbGraphTokens(tokens: GraphTokens): GraphTokens {
+  const ctx = document.createElement('canvas').getContext('2d', { willReadFrequently: true });
+  if (!ctx) return tokens;
+  const rgb = (color: string): string => {
+    ctx.clearRect(0, 0, 1, 1);
+    ctx.fillStyle = '#000';
+    ctx.fillStyle = color;
+    ctx.fillRect(0, 0, 1, 1);
+    const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
+    return `rgb(${r}, ${g}, ${b})`;
+  };
+  const out = { ...tokens };
+  for (const k of Object.keys(out) as (keyof GraphTokens)[]) out[k] = rgb(out[k]);
+  return out;
+}
+
 /** Minimal shape we use from Cytoscape's stylesheet — avoids importing types. */
 export type GraphStylesheet = Array<{ selector: string; style: Record<string, unknown> }>;
 

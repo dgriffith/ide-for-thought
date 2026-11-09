@@ -39,6 +39,7 @@ export { relocationLinkIndexes, wikiLinkTargets } from './note-index';
 export type { RelocationLinkIndexes } from './note-index';
 export { getNoteTypedProperties, getTypeInstances, getNoteTypeMap } from './note-properties';
 export { neighborhood, expandNode } from './neighborhood';
+export { wholeGraph, WHOLE_GRAPH_CEILING } from './whole-graph';
 export type {
   NeighborhoodResult, NeighborhoodNode, NeighborhoodEdge, NeighborhoodOptions, NeighborhoodHop,
 } from './neighborhood';

@@ -202,6 +202,9 @@ importers:
       cytoscape:
         specifier: ^3.34.4
         version: 3.34.4
+      d3-force:
+        specifier: ^3.0.0
+        version: 3.0.0
       d3-time:
         specifier: 3.1.0
         version: 3.1.0
@@ -344,6 +347,9 @@ importers:
       '@types/cross-spawn':
         specifier: ^6.0.6
         version: 6.0.6
+      '@types/d3-force':
+        specifier: ^3.0.10
+        version: 3.0.10
       '@types/d3-time':
         specifier: 3.0.4
         version: 3.0.4

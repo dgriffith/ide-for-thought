@@ -133,7 +133,7 @@
             : tab.type === 'pdf'
               ? `PDF: ${sourceTabLabel(tab.sourceId)}`
               : tab.type === 'graph'
-                ? `Graph: ${tab.relativePath}`
+                ? (tab.whole ? 'Graph of the thoughtbase' : `Graph: ${tab.relativePath}`)
                 : tab.type === 'plugin-view'
                   ? tab.title
                 : tab.type === 'type-view'
@@ -169,7 +169,7 @@
           {#if tab.type === 'note'}{tab.fileName.replace(/\.md$/, '')}
           {:else if tab.type === 'query'}{tab.title}
           {:else if tab.type === 'pdf'}{sourceTabLabel(tab.sourceId)} (PDF)
-          {:else if tab.type === 'graph'}{(tab.relativePath.split('/').pop() ?? tab.relativePath).replace(/\.md$/, '')} (Graph)
+          {:else if tab.type === 'graph'}{tab.whole ? 'Graph' : `${(tab.relativePath.split('/').pop() ?? tab.relativePath).replace(/\.md$/, '')} (Graph)`}
           {:else if tab.type === 'plugin-view'}{tab.title}
           {:else if tab.type === 'type-view'}{tab.source ? queryViewTitle(tab.source) : tab.typeId.charAt(0).toUpperCase() + tab.typeId.slice(1)}{tab.folder ? ` · ${tab.folder}` : ''}
           {:else if tab.type === 'unsupported'}{tab.fileName}

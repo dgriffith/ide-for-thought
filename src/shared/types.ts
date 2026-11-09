@@ -251,6 +251,24 @@ export interface NeighborhoodOptions {
   tags?: boolean;
 }
 
+/** A node of the whole-thoughtbase graph (#2958), with what its filters read. */
+export interface WholeGraphNode extends NeighborhoodNode {
+  /** The note's folder ('' at the root, and for a source or tag). */
+  folder: string;
+  /** Its object type's id, or null. */
+  type: string | null;
+  tags: string[];
+}
+
+/** The whole thoughtbase as a graph (#2958): every note, every edge; `truncated` past the ceiling. */
+export interface WholeGraphResult {
+  nodes: WholeGraphNode[];
+  edges: NeighborhoodEdge[];
+  /** How many notes there are, drawn or not. */
+  total: number;
+  truncated: boolean;
+}
+
 /** One hop's worth of graph plus the note ids worth expanding next (#846). */
 export interface NeighborhoodHop {
   nodes: NeighborhoodNode[];
@@ -312,6 +330,9 @@ export interface SavedGraphTab {
   relativePath: string;
   /** Traversal depth; restored on reload. */
   depth?: number;
+  /** The whole-thoughtbase graph (#2958) and its kept state, read back with care. */
+  whole?: boolean;
+  graph?: unknown;
 }
 
 export interface SavedTypeViewTab {

@@ -37,6 +37,23 @@ const queryTab: QueryTab = {
   results: null, columns: [], error: null, executing: false, executionTime: null,
 };
 
+describe('the whole-thoughtbase graph tab (#2958)', () => {
+  const graph: Tab = {
+    type: 'graph', relativePath: '', depth: 1, whole: true,
+    graph: { hiddenKinds: ['tag'], folder: 'trip', type: null, tag: null, hideOrphans: true, focus: 'Plan.md', depth: 2, showTags: false, camera: { zoom: 0.8, pan: { x: 5, y: 6 } } },
+  };
+
+  it('keeps its filters, focus and camera across a restart', async () => {
+    expect(await reconstructTab(toSavedTab(graph), () => 'q')).toEqual(graph);
+  });
+
+  it('a neighbourhood graph tab is unchanged', async () => {
+    const hood: Tab = { type: 'graph', relativePath: 'a.md', depth: 2 };
+    expect(toSavedTab(hood)).toEqual({ type: 'graph', relativePath: 'a.md', depth: 2 });
+    expect(await reconstructTab(toSavedTab(hood), () => 'q')).toEqual(hood);
+  });
+});
+
 describe('type-view map style (#2665)', () => {
   const view = (mapStyle: 'auto' | 'light' | 'dark'): Tab => ({
     type: 'type-view', typeId: 'place', layout: 'map', sortColumn: null, sortDir: 'asc', columns: null, folder: null, filters: [], mapStyle, groupBy: null, columnOrder: [], showEmptyColumns: true, cardOrder: [], from: null, to: null, month: null, mode: null, date: null, dateBy: null,

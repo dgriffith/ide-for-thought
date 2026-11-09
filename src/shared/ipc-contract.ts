@@ -50,6 +50,7 @@ import type {
   SafeDeleteBlocker,
   NeighborhoodOptions,
   NeighborhoodResult,
+  WholeGraphResult,
   NeighborhoodHop,
   RelatedNotesResult,
   SourceDetail,
@@ -288,6 +289,7 @@ export interface ChannelMap {
   /** A malformed/failing query is the `{ ok: false }` arm, not a rejection
    *  (#2363) — see `shared/graph-query.ts`. No project open throws. */
   'graph:query': (sparql: string) => GraphQueryResult;
+  'graph:whole': (opts?: { tags?: boolean }) => WholeGraphResult;
   /** Rebase to a new base IRI + rebuild indexes (#1443 Part B); refuses when the
    *  review queue is non-empty. */
   'graph:setBaseUri': (uri: string) => { ok: true } | { ok: false; error: string };

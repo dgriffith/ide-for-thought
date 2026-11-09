@@ -20,6 +20,7 @@ import { patchProjectConfig, readProjectConfig } from '../project-config';
 import { checkRebase } from '../graph/rebase-guard';
 import { proposeExcerptEvidence, type AttachEvidenceResult } from '../llm/attach-evidence';
 import { withRootPath, withRootPathOr, withRootPathWin } from './helpers';
+import type { WholeGraphResult } from '../../shared/types';
 import { getInspectionSettings, saveInspectionSettings } from '../config/inspection-settings';
 import { exportKnowledgeGraph } from '../maintenance-commands';
 import { isA, labelOf } from '../graph/argument-patterns';
@@ -30,6 +31,11 @@ export function registerGraph(): void {
   // Graph
   handle(Channels.GRAPH_QUERY, withRootPath((rootPath, sparql: string) =>
     graph.queryGraph(projectContext(rootPath), sparql)));
+
+  // The whole thoughtbase as a graph (#2958): no project, no notes.
+  handle(Channels.GRAPH_WHOLE, withRootPathOr<[opts?: { tags?: boolean }], WholeGraphResult | Promise<WholeGraphResult>>(
+    { nodes: [], edges: [], total: 0, truncated: false },
+    (rootPath, opts) => graph.wholeGraph(projectContext(rootPath), { tags: opts?.tags === true })));
 
   // Rebase the graph to a new base IRI (#1443 Part B). No in-place triple
   // rewriting: persist the new base, point the live state at it, then rebuild
