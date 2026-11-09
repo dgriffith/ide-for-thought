@@ -57,9 +57,12 @@
   let view = $state({ x: 0, y: 0, k: 1 });
   let focusedId = $state<string | null>(null);
   let fittedFor = '';
+  /** False once the map is gone: a focus still waiting for its node stops there, not reading what was torn down. */
+  let mounted = true;
 
   onMount(() => {
     void import('../../../../shared/mindmap/mindmap-layout').then((m) => { layoutFn = m.layoutMindmap; });
+    return () => { mounted = false; };
   });
 
   // Labels measured as drawn (13px of the app's font); an estimate where nothing can measure.
@@ -145,11 +148,11 @@
   async function focusNode(id: string | null | undefined): Promise<void> {
     if (!id) return;
     // After an edit the node arrives with the host's next update, which can take a frame or two: wait for it.
-    for (let i = 0; i < 30 && !byId.has(id); i++) await new Promise((r) => requestAnimationFrame(() => r(null)));
-    if (!byId.has(id)) return;
+    for (let i = 0; i < 30 && mounted && !byId.has(id); i++) await new Promise((r) => requestAnimationFrame(() => r(null)));
+    if (!mounted || !byId.has(id)) return;
     focusedId = id;
     await tick();
-    const n = byId.get(id);
+    const n = mounted ? byId.get(id) : undefined;
     if (!n) return; // gone again meanwhile (deleted, or the map closed)
     const sx = view.x + n.x * view.k;
     const sy = view.y + n.y * view.k;
@@ -207,6 +210,7 @@
     if (!id) return;
     await tick();
     await focusNode(id);
+    if (!mounted) return;
     if (!edit?.namesItself) startRename(id, byId.get(id)?.label ?? '', true);
   }
 
