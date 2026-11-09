@@ -198,6 +198,11 @@ export const COMMANDS = [
   // Selection
   { id: 'editor.extendSelection', title: 'Extend Selection', category: 'Editor', editor: { key: 'Alt-ArrowUp' } },
   { id: 'editor.shrinkSelection', title: 'Shrink Selection', category: 'Editor', editor: { key: 'Alt-ArrowDown' } },
+  // The outline's edits (#2963): a section (or list item) past its sibling; a heading out or in a level, as a tree move.
+  { id: 'editor.moveSectionUp', title: 'Move Section Up', category: 'Editor', editor: { key: 'Mod-Alt-ArrowUp' } },
+  { id: 'editor.moveSectionDown', title: 'Move Section Down', category: 'Editor', editor: { key: 'Mod-Alt-ArrowDown' } },
+  { id: 'editor.promoteHeading', title: 'Promote Heading', category: 'Editor', editor: { key: 'Mod-Alt-Shift-ArrowLeft' } },
+  { id: 'editor.demoteHeading', title: 'Demote Heading', category: 'Editor', editor: { key: 'Mod-Alt-Shift-ArrowRight' } },
   // Accessibility — releases Tab so keyboard users can move focus out of the
   // editor now that Tab indents. CodeMirror's default is `Ctrl-m`, but its
   // `mac: 'Shift-Alt-m'` override can never fire: Option composes characters on
