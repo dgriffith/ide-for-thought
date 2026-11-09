@@ -42,6 +42,11 @@ const { NOTES, markerInstances, FakeMap, FakeMarker, FakeNavigationControl, Fake
     setCenter(): void {}
     setZoom(): void {}
     setStyle(): void {}
+    // The pins' keyboard (#2934): what's in view, easing to a pin, and the map's moves.
+    on(): void {}
+    getBounds(): { contains: () => boolean } { return { contains: () => true }; }
+    easeTo(): void {}
+    getCanvas(): HTMLCanvasElement { return document.createElement('canvas'); }
     remove(): void {}
   }
   return { NOTES, markerInstances, FakeMap, FakeMarker, FakeNavigationControl, FakeLngLatBounds };

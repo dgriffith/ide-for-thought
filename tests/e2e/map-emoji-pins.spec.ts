@@ -95,9 +95,9 @@ test('map pins carry their type\'s emoji, live and in an export (#2711)', async 
       await expect(markers).toHaveCount(3, { timeout: 15_000 });
       await group.getByRole('button', { name: 'Light' }).click();
       const map = win.locator('.type-view-map');
-      await expect(map.getByRole('img', { name: 'Kampa Museum' })).toContainText('📍');
-      await expect(map.getByRole('img', { name: 'Lokál' })).toContainText('🍕');
-      await expect(map.getByRole('img', { name: 'Kampa Museum' }).locator('svg g[fill="#1e66f5"]')).toHaveCount(1);
+      await expect(map.getByRole('button', { name: 'Kampa Museum' })).toContainText('📍');
+      await expect(map.getByRole('button', { name: 'Lokál' })).toContainText('🍕');
+      await expect(map.getByRole('button', { name: 'Kampa Museum' }).locator('svg g[fill="#1e66f5"]')).toHaveCount(1);
       // The icon-less Venue is MapLibre's own pin: no custom element, no text.
       const stock = markers.filter({ hasNot: win.locator('text') });
       await expect(win.locator('.type-view-map .minerva-emoji-pin')).toHaveCount(2);

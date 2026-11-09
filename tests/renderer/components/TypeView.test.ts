@@ -194,7 +194,7 @@ describe('TypeView (#1070)', () => {
     it('renders the map when the layout is map and the type has a geo property', async () => {
       instancesMock.mockResolvedValue({ type: PLACE, instances: PLACE_INSTANCES });
       const { container } = render(TypeView, props({ typeId: 'place', layout: 'map' }));
-      await waitFor(() => expect(container.querySelector('[aria-label="Map"]')).toBeTruthy());
+      await waitFor(() => expect(container.querySelector('.type-view-map')).toBeTruthy());
     });
 
     it('the panel offers a light/dark/auto map-style control that writes the view state (#2665)', async () => {
@@ -211,7 +211,7 @@ describe('TypeView (#1070)', () => {
     it('an embed renders the map with no map-style control (#2665, as #2534 dropped the filters)', async () => {
       instancesMock.mockResolvedValue({ type: PLACE, instances: PLACE_INSTANCES });
       const { container } = render(TypeView, props({ typeId: 'place', layout: 'map', mapStyle: 'dark', chromeless: true }));
-      await waitFor(() => expect(container.querySelector('[aria-label="Map"]')).toBeTruthy());
+      await waitFor(() => expect(container.querySelector('.type-view-map')).toBeTruthy());
       expect(screen.queryByRole('group', { name: 'Map style' })).toBeNull();
     });
 

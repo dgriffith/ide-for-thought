@@ -22,10 +22,20 @@
    * native tooltip was then the odd one out, showing a title and nothing else.
    * The pin keeps its enlarged hit target (the `::before` below), and its
    * accessible name is the instance's title (MapLibre's default is "Map
-   * marker"). Pins take no tab stop, as before; the preview is pointer-only
-   * here. An export mounts no preview. Right-clicking a pin opens the view's
-   * note menu for its note (#2930), where the view has one; with no tab stop
-   * that is pointer-only too, for now.
+   * marker"). An export mounts no preview. Right-clicking a pin opens the
+   * view's note menu for its note (#2930), where the view has one.
+   *
+   * **The pins from the keyboard** (#2934): one tab stop after the map itself
+   * (MapLibre's canvas, where its own keys pan and zoom, named like "Place
+   * map, 6 places" — the wrapper used to be a second, dead stop before it),
+   * a roving tabindex as on the
+   * timeline — the last pin focused, else the first in view, else the first.
+   * ←/→ step west → east and ↑/↓ north → south (`map/pin-order.ts`, a fixed
+   * order), Home/End to the ends; Enter opens, Shift+F10 / the menu key opens
+   * the note menu, Escape closes the preview or goes back to the map. A
+   * focused pin shows the preview, and one out of view is eased into it at
+   * the same zoom. The keys a pin takes stop there, so MapLibre doesn't pan
+   * as well. None of it in an export.
    *
    * The tile style is the view's `mapStyle` (#2665): `light` / `dark` pin
    * OpenFreeMap's named style, `auto` follows the app theme (`styleUrlForTheme`,
@@ -59,6 +69,8 @@
   import { objectTypesStore } from '../stores/object-types.svelte';
   import type { PropertyDef, TypeInfo, TypeInstanceRow } from '../../../shared/objects/type-def';
   import NoteHoverPreview from './NoteHoverPreview.svelte';
+  import { isMenuKey, openMenuAt } from './type-view/note-actions';
+  import { nextPin, eastwardOrder, type PinPoint } from '../map/pin-order';
   import { createNoteHover } from './note-hover/note-hover.svelte';
 
   type MapLibreModule = typeof maplibregl;
@@ -93,8 +105,20 @@
   const uid = $props.id();
   const hover = createNoteHover();
   const hoverId = `${uid}-preview`;
-  /** Each pin's element by note path — for `aria-describedby`. */
+  /** Each pin's element by note path — for `aria-describedby` and focus. */
   let pinElements = new Map<string, HTMLElement>();
+  /** The pins that take focus (#2934): note pins, not in an export. */
+  let pinPoints: PinPoint[] = [];
+  /** The pin focus was last on — the pins' tab stop while it's still drawn. */
+  let focusedPin: string | null = null;
+  /** An Escape has closed the focused pin's preview: the next one goes back to the map. (The
+   *  preview closes itself on Escape before the pin hears it, so `hover.current` can't say.) */
+  let previewDismissed = false;
+  /** The map's name, with how many places it shows: "Place map, 6 places". */
+  const mapLabel = $derived.by(() => {
+    const n = instances.filter((i) => parseLatLng(i.values[locationProperty] ?? null)).length;
+    return `${type?.label ?? 'Place'} map, ${n} ${n === 1 ? 'place' : 'places'}`;
+  });
   const hoverInst = $derived.by(() => {
     const key = hover.current?.key;
     return key ? instances.find((i) => i.path === key) ?? null : null;
@@ -139,6 +163,7 @@
     for (const marker of markers) marker.remove();
     markers = [];
     pinElements = new Map();
+    pinPoints = [];
     const bounds = new gl.LngLatBounds();
     for (const inst of instances) {
       const parsed = parseLatLng(inst.values[locationProperty] ?? null);
@@ -171,7 +196,14 @@
         const subject = { key: inst.path, target: inst.path, anchor: pin, fallbackTitle: inst.title };
         pin.addEventListener('pointerenter', () => hover.pointerEnter(subject));
         pin.addEventListener('pointerleave', () => hover.pointerLeave(inst.path));
+        // The keyboard (#2934): a roving tab stop, focus previews, keys step between pins.
+        pin.setAttribute('role', 'button');
+        pin.tabIndex = -1;
+        pin.addEventListener('focus', () => onPinFocus(inst.path, [lng, lat], subject));
+        pin.addEventListener('blur', () => hover.blur(inst.path));
+        pin.addEventListener('keydown', (e) => onPinKeydown(e, inst.path, pin));
         pinElements.set(inst.path, pin);
+        pinPoints.push({ path: inst.path, lat, lng });
       }
       markers.push(marker);
       bounds.extend([lng, lat]);
@@ -197,6 +229,45 @@
       map.setZoom(1);
     }
     placed = true;
+    updateTabStop();
+  }
+
+  /** The pins' tab stop: the last focused, else the first in view, else the first (#2934). */
+  function tabStop(): string | null {
+    if (pinPoints.length === 0) return null; // an export, or nothing to focus
+    if (focusedPin && pinElements.has(focusedPin)) return focusedPin;
+    const order = eastwardOrder(pinPoints);
+    const view = map?.getBounds();
+    const inView = view ? order.find((path) => { const p = pinPoints.find((x) => x.path === path)!; return view.contains([p.lng, p.lat]); }) : undefined;
+    return inView ?? order[0] ?? null;
+  }
+  function updateTabStop(): void {
+    const stop = tabStop();
+    for (const [path, pin] of pinElements) pin.tabIndex = path === stop ? 0 : -1;
+  }
+  function onPinFocus(path: string, lngLat: [number, number], subject: { key: string; target: string; anchor: Element; fallbackTitle: string }): void {
+    focusedPin = path;
+    previewDismissed = false;
+    updateTabStop();
+    hover.focus(subject);
+    // Out of view: bring it in, at the same zoom.
+    if (map && !map.getBounds().contains(lngLat)) map.easeTo({ center: lngLat });
+  }
+  function onPinKeydown(e: KeyboardEvent, path: string, pin: HTMLElement): void {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    let handled = true;
+    if (isMenuKey(e)) openMenuAt(pin); // the pin's own contextmenu listener opens the note menu
+    else if (e.key === 'Enter') onOpenNote(path);
+    else if (e.key === 'Escape') {
+      if (previewDismissed) map?.getCanvas().focus();
+      else { previewDismissed = true; hover.close(); }
+    } else if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key) && !e.shiftKey) {
+      const next = nextPin(pinPoints, path, e.key);
+      if (next) pinElements.get(next)?.focus();
+    } else handled = false;
+    if (!handled) return;
+    e.preventDefault();
+    e.stopPropagation(); // MapLibre's keyboard handler is on the container: it mustn't pan as well
   }
 
   onMount(() => {
@@ -248,6 +319,7 @@
     const m = new mod.Map({ container: el, style: url });
     appliedStyleUrl = url;
     m.addControl(new mod.NavigationControl(), 'top-right');
+    m.on('moveend', updateTabStop); // "the first pin in view" follows the map
     return m;
   }
 
@@ -344,6 +416,11 @@
     syncMarkers();
   });
 
+  // The map's name, on its tab stop: MapLibre's canvas, which calls itself "Map" (#2934).
+  $effect(() => {
+    if (ready && map && !exportHooks) map.getCanvas().setAttribute('aria-label', mapLabel);
+  });
+
   // The hovered pin names its preview (#2710).
   $effect(() => {
     const key = hover.current?.key;
@@ -385,8 +462,8 @@
       {/if}
     </div>
   {:else}
-    <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-    <div class="type-view-map" bind:this={container} role="application" aria-label="Map" tabindex="0"></div>
+    <!-- The map's tab stop is MapLibre's own canvas, where its keys pan and zoom; it carries `mapLabel` (#2934). -->
+    <div class="type-view-map" bind:this={container}></div>
   {/if}
   {#if onMapStyleChange && !exportHooks && !unavailable}
     <div class="map-style-switch" role="group" aria-label="Map style">
@@ -505,6 +582,13 @@
      a thin light halo keeps every pin's outline readable. */
   .dark-tiles :global(.maplibregl-marker svg) {
     filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.9)) drop-shadow(0 0 2px rgba(255, 255, 255, 0.5));
+  }
+
+  /* A pin with keyboard focus (#2934). */
+  .type-view-map :global(.maplibregl-marker:focus-visible) {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 4px;
   }
 
   :global(.maplibregl-marker::before) {

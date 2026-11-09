@@ -64,8 +64,8 @@ test('a Place map filtered to Restaurants shows Restaurant pins; the saved embed
       await expect(tree.getByRole('checkbox')).toHaveCount(3); // Museum, Restaurant → Pizzeria
       await tree.getByRole('checkbox', { name: /Restaurant/ }).check();
       await expect(liveMap.locator('.maplibregl-marker')).toHaveCount(2);
-      await expect(liveMap.getByRole('img', { name: 'Lokál' })).toBeVisible();
-      await expect(liveMap.getByRole('img', { name: 'Pizza Nuova' })).toBeVisible();
+      await expect(liveMap.getByRole('button', { name: 'Lokál' })).toBeVisible();
+      await expect(liveMap.getByRole('button', { name: 'Pizza Nuova' })).toBeVisible();
       await expect(win.locator('.tv-count')).toHaveText('2 of 4');
       await expect(win.getByRole('button', { name: 'Type: Restaurant', exact: true })).toBeVisible();
     });
@@ -85,8 +85,8 @@ test('a Place map filtered to Restaurants shows Restaurant pins; the saved embed
       await win.getByRole('button', { name: 'Side by side', exact: true }).click();
       const embed = win.locator('.preview').first().locator('.object-view-block[data-object-view-rendered="ok"]');
       await expect(embed.locator('.maplibregl-marker')).toHaveCount(2, { timeout: 15_000 });
-      await expect(embed.getByRole('img', { name: 'Lokál' })).toBeAttached();
-      await expect(embed.getByRole('img', { name: 'Pizza Nuova' })).toBeAttached();
+      await expect(embed.getByRole('button', { name: 'Lokál' })).toBeAttached();
+      await expect(embed.getByRole('button', { name: 'Pizza Nuova' })).toBeAttached();
       await expect(embed.locator('.tv-filters')).toHaveCount(0); // read-only
     });
   } finally {
