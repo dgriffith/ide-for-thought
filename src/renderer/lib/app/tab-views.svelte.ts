@@ -27,7 +27,7 @@
 import type Editor from '../components/Editor.svelte';
 import type Preview from '../components/Preview.svelte';
 import type QueryPanel from '../components/QueryPanel.svelte';
-import type NeighborhoodGraph from '../components/NeighborhoodGraph.svelte';
+import type ThoughtbaseGraph from '../components/ThoughtbaseGraph.svelte';
 
 /**
  * What every mounted view can do, whatever kind it is. Structural on purpose:
@@ -58,7 +58,7 @@ export type TabViews = {
   editor: Record<string, (Editor & ThemedView) | undefined>;
   preview: Record<string, (Preview & ThemedView) | undefined>;
   query: Record<string, (QueryPanel & ThemedView) | undefined>;
-  graph: Record<string, (NeighborhoodGraph & ThemedView) | undefined>;
+  graph: Record<string, (ThoughtbaseGraph & ThemedView) | undefined>;
 };
 
 export function createTabViews(): TabViews {

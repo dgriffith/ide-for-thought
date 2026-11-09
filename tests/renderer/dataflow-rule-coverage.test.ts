@@ -91,7 +91,7 @@ const READ_ALLOWLIST = new Set<string>([
   'showEmojiPanel',
   // graph / links reads
   'query', 'aliasMap', 'aliasEntries', 'frontmatterKeys', 'inspections', 'schemaForCompletion',
-  'sourceDetail', 'citationsForNote', 'expandNode', 'neighborhood',
+  'sourceDetail', 'citationsForNote',
   // graph.whole (#2958): every note and edge, for the graph tab — read-only.
   'whole',
   // tables.queryNote (#2448): note-embedded SQL under the registered-relations

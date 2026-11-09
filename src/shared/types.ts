@@ -237,20 +237,6 @@ export interface NeighborhoodEdge {
   direction: 'out' | 'in';
 }
 
-export interface NeighborhoodResult {
-  nodes: NeighborhoodNode[];
-  edges: NeighborhoodEdge[];
-  /** True when the node cap was hit — the UI shows "+N more". */
-  truncated: boolean;
-}
-
-export interface NeighborhoodOptions {
-  depth?: number;
-  cap?: number;
-  /** Draw the notes' tags as nodes, with "has tag" edges (#2957); off by default. */
-  tags?: boolean;
-}
-
 /** A node of the whole-thoughtbase graph (#2958), with what its filters read. */
 export interface WholeGraphNode extends NeighborhoodNode {
   /** The note's folder ('' at the root, and for a source or tag). */
@@ -267,13 +253,6 @@ export interface WholeGraphResult {
   /** How many notes there are, drawn or not. */
   total: number;
   truncated: boolean;
-}
-
-/** One hop's worth of graph plus the note ids worth expanding next (#846). */
-export interface NeighborhoodHop {
-  nodes: NeighborhoodNode[];
-  edges: NeighborhoodEdge[];
-  expandTo: string[];
 }
 
 export interface SearchResult {

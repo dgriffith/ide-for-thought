@@ -227,42 +227,30 @@ describe('executeQuery', () => {
   });
 });
 
-// ── Neighborhood (graph) tabs ─────────────────────────────────────────────────
+// ── The graph tab, focused on a note (#3056: the per-note graph is its focus mode) ──
 
-describe('neighborhood graph tabs (#847)', () => {
-  it('openNeighborhood opens a focused graph tab with the requested depth', () => {
-    editor.openNeighborhood('note.md', { depth: 2 });
+describe('the graph tab, focused on a note (#2958, #3056)', () => {
+  const graphOf = () => (editor.activeTab?.type === 'graph' ? editor.activeTab : null);
+
+  it('openGraph with a focus opens the whole graph centred on that note, at the depth asked for (default 1)', () => {
+    editor.openGraph({ focus: 'note.md', depth: 2 });
     expect(editor.tabs).toHaveLength(1);
-    const t = editor.activeTab;
-    expect(t?.type).toBe('graph');
-    expect(t?.type === 'graph' && t.relativePath).toBe('note.md');
-    expect(t?.type === 'graph' && t.depth).toBe(2);
+    expect(graphOf()).toMatchObject({ whole: true, graph: { focus: 'note.md', depth: 2 } });
   });
 
-  it('defaults depth to 1 and refocuses instead of duplicating', () => {
-    editor.openNeighborhood('note.md'); // depth default 1
-    const first = editor.activeTab;
-    expect(first?.type === 'graph' && first.depth).toBe(1);
-
-    // Open a second, different tab, then reopen the neighborhood — refocus.
+  it('reopening refocuses the one graph tab, centred on the new note, rather than opening another', () => {
+    editor.openGraph({ focus: 'a.md' });
     editor.openQuery('SELECT 1');
+    editor.openGraph({ focus: 'b.md' });
     expect(editor.tabs).toHaveLength(2);
-    editor.openNeighborhood('note.md');
-    expect(editor.tabs).toHaveLength(2); // no duplicate
-    expect(editor.activeTab?.type).toBe('graph');
+    expect(graphOf()).toMatchObject({ graph: { focus: 'b.md', depth: 1 } });
   });
 
-  it('setGraphDepth updates the tab depth and floors it at 1', () => {
-    editor.openNeighborhood('note.md', { depth: 1 });
-    editor.setGraphDepth('note.md', 4);
-    expect(editor.activeTab?.type === 'graph' && editor.activeTab.depth).toBe(4);
-    editor.setGraphDepth('note.md', 0); // clamped up to 1
-    expect(editor.activeTab?.type === 'graph' && editor.activeTab.depth).toBe(1);
-  });
-
-  it('setGraphDepth is a no-op for a path with no graph tab', () => {
-    editor.setGraphDepth('missing.md', 3); // nothing open — should not throw
-    expect(editor.tabs).toHaveLength(0);
+  it('setGraphState changes the tab it was changed in', () => {
+    editor.openGraph();
+    const tab = graphOf()!;
+    editor.setGraphState({ hideOrphans: true }, tab);
+    expect(graphOf()?.graph?.hideOrphans).toBe(true);
   });
 });
 
@@ -610,7 +598,7 @@ describe('persist + restore across every tab kind', () => {
     editor.saveEditorState('code.ts', 12, 120); // cursor/scroll fields
     editor.openQuery('SELECT 1', 'sql');
     editor.openPdf('src-1', { page: 4 });
-    editor.openNeighborhood('code.ts', { depth: 3 });
+    editor.openGraph({ focus: 'code.ts', depth: 3 });
     editor.openSource('src-2', { highlightExcerptId: 'ex-2' });
     await editor.openFile('bin.dat');   // unsupported
 
@@ -623,7 +611,7 @@ describe('persist + restore across every tab kind', () => {
     expect(note).toMatchObject({ type: 'note', relativePath: 'code.ts', plainText: true, cursorOffset: 12, scrollTop: 120 });
     expect(saved.groups[0].tabs[1]).toMatchObject({ type: 'query', title: expect.stringMatching(/SQL Query/), language: 'sql' });
     expect(saved.groups[0].tabs[2]).toMatchObject({ type: 'pdf', sourceId: 'src-1', page: 4 });
-    expect(saved.groups[0].tabs[3]).toMatchObject({ type: 'graph', relativePath: 'code.ts', depth: 3 });
+    expect(saved.groups[0].tabs[3]).toMatchObject({ type: 'graph', whole: true, graph: { focus: 'code.ts', depth: 3 } });
     expect(saved.groups[0].tabs[4]).toMatchObject({ type: 'source', sourceId: 'src-2', highlightExcerptId: 'ex-2' });
     expect(saved.groups[0].tabs[5]).toMatchObject({ type: 'unsupported', relativePath: 'bin.dat' });
   });
@@ -650,7 +638,8 @@ describe('persist + restore across every tab kind', () => {
     expect(tabs.map((t) => t.type)).toEqual(['query', 'pdf', 'graph', 'source', 'unsupported']);
     expect(tabs[0].type === 'query' && tabs[0].language).toBe('sql');
     expect(tabs[1].type === 'pdf' && tabs[1].page).toBe(6);
-    expect(tabs[2].type === 'graph' && tabs[2].depth).toBe(5);
+    // A per-note graph saved before #3056 reopens as the graph, focused on that note at its depth.
+    expect(tabs[2]).toMatchObject({ type: 'graph', whole: true, graph: { focus: 'g.md', depth: 5 } });
     expect(tabs[3].type === 'source' && tabs[3].highlightExcerptId).toBe('ex');
     expect(tabs[4].type === 'unsupported' && tabs[4].ext).toBe('.bin');
   });

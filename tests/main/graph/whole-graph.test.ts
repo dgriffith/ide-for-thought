@@ -65,3 +65,42 @@ describe('wholeGraph (#2958)', () => {
     for (const e of g.edges) { expect(ids.has(e.source)).toBe(true); expect(ids.has(e.target)).toBe(true); }
   });
 });
+
+// Carried over from the per-note graph's tests when it was retired onto this graph (#3056).
+describe('what each node and edge is (#3056, from #1142, #2957)', () => {
+  it('a property edge carries the label the catalog gives it', async () => {
+    await seed();
+    const g = await wholeGraph(ctx);
+    expect(g.edges.find((e) => e.source === 'events/Gig.md' && e.target === 'places/Lucerna.md')).toMatchObject({ linkType: 'property:location', linkLabel: 'Location' });
+  });
+
+  it('supports in both forms — a typed Claim\'s frontmatter and a Turtle block — is the one Supports kind', async () => {
+    write('claims/Big.md', '---\ntype: claim\n---\n# Big claim\n');
+    write('claims/Typed.md', '---\ntype: claim\nsupports: "[[Big]]"\n---\n# Typed support\n');
+    await indexAllNotes(ctx);
+    const { noteUriFor } = await import('../../../src/main/graph/index');
+    write('claims/Turtle.md', ['# Turtle support', '', '```turtle', `<#c1> a thought:Claim ; thought:label "A hand-written reason" ; thought:supports <${noteUriFor(ctx, 'claims/Big.md')}> .`, '```', ''].join('\n'));
+    await indexAllNotes(ctx);
+    const g = await wholeGraph(ctx);
+    expect(kinds(g, 'claims/Typed.md', 'claims/Big.md')).toEqual(['supports']);
+    expect(kinds(g, 'claims/Turtle.md', 'claims/Big.md')).toEqual(['supports']);
+    expect(g.edges.find((e) => e.linkType === 'supports')).toMatchObject({ linkLabel: 'Supports' });
+  });
+
+  it('a note typed thought:Term is a term', async () => {
+    write('glossary/Semigroup.md', ['---', 'term: Semigroup', '---', '', '# Semigroup', '', '```turtle', 'this: a thought:Term .', '```', ''].join('\n'));
+    write('notes/topic.md', '# Topic\n\nSee [[Semigroup]].\n');
+    await indexAllNotes(ctx);
+    const g = await wholeGraph(ctx);
+    expect(g.nodes.find((n) => n.id === 'glossary/Semigroup.md')?.kind).toBe('term');
+    expect(g.nodes.find((n) => n.id === 'notes/topic.md')?.kind).toBe('note');
+  });
+
+  it('a cited source is a node of its own, joined by a cite edge', async () => {
+    write('a.md', 'As [[cite::smith-2023]] argues.\n');
+    await indexAllNotes(ctx);
+    const g = await wholeGraph(ctx);
+    expect(g.nodes.find((n) => n.id === 'source:smith-2023')?.kind).toBe('source');
+    expect(kinds(g, 'a.md', 'source:smith-2023')).toEqual(['cite']);
+  });
+});

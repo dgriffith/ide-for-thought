@@ -23,7 +23,7 @@
 -->
 <script lang="ts">
   import { onMount, tick, untrack } from 'svelte';
-  import type { Core, CytoscapeOptions, NodeSingular } from 'cytoscape';
+  import type { Core, CytoscapeOptions, NodeSingular, StylesheetJson } from 'cytoscape';
   import { api } from '../ipc/client';
   import { loadCytoscape } from '../graph/load-cytoscape';
   import { readGraphTokens, buildGraphStyle, rgbGraphTokens } from '../graph/cytoscape-theme';
@@ -68,6 +68,31 @@
   /** The note the right button last went down on, for the `contextmenu` that follows; null on the background. */
   let menuNote: string | null = null;
   let accent = '#89b4fa';
+  let webgl = false;
+
+  /** The graph's style from the theme as it is now. */
+  function styleSheet(): StylesheetJson {
+    // WebGL parses colours itself and doesn't read the theme's oklch: hand it rgb (#2958).
+    const tokens = webgl ? rgbGraphTokens(readGraphTokens()) : readGraphTokens();
+    accent = tokens.accent;
+    return [
+      ...buildGraphStyle(tokens),
+      { selector: 'node', style: { 'min-zoomed-font-size': 9 } },
+      { selector: 'edge', style: { 'curve-style': 'straight', width: 1 } },
+      // Find, focus, trace, pick, pin (#2959).
+      { selector: '.dim', style: { opacity: 0.12 } },
+      { selector: 'node.match', style: { 'border-width': 4, 'border-color': accent } },
+      { selector: 'node.picked', style: { 'border-width': 3, 'border-color': accent } },
+      { selector: 'node.pinned', style: { 'border-style': 'double', 'border-width': 4 } },
+      { selector: 'node.path', style: { 'border-width': 4, 'border-color': accent } },
+      { selector: 'edge.path', style: { width: 3, 'line-color': accent, 'target-arrow-color': accent } },
+    ];
+  }
+
+  /** The app's theme changed (App calls this, as it did the per-note graph's, #3056): restyle in place. */
+  export function updateTheme(): void {
+    cy?.style(styleSheet());
+  }
   let exportMenu = $state(false);
 
   $effect(() => {
@@ -135,26 +160,11 @@
     void (async () => {
       const cytoscape = await loadCytoscape();
       if (disposed || !container) return;
-      const webgl = hasWebGl();
-      // WebGL parses colours itself and doesn't read the theme's oklch: hand it rgb (#2958).
-      const tokens = webgl ? rgbGraphTokens(readGraphTokens()) : readGraphTokens();
-      const base = buildGraphStyle(tokens);
-      accent = tokens.accent;
+      webgl = hasWebGl();
       // `renderer.webgl` (Cytoscape 3.31+) isn't in its type definitions; the runtime reads it.
       const options: CytoscapeOptions & { renderer: { name: string; webgl?: boolean } } = {
         container,
-        style: [
-          ...base,
-          { selector: 'node', style: { 'min-zoomed-font-size': 9 } },
-          { selector: 'edge', style: { 'curve-style': 'straight', width: 1 } },
-          // Find, focus, trace, pick, pin (#2959).
-          { selector: '.dim', style: { opacity: 0.12 } },
-          { selector: 'node.match', style: { 'border-width': 4, 'border-color': accent } },
-          { selector: 'node.picked', style: { 'border-width': 3, 'border-color': accent } },
-          { selector: 'node.pinned', style: { 'border-style': 'double', 'border-width': 4 } },
-          { selector: 'node.path', style: { 'border-width': 4, 'border-color': accent } },
-          { selector: 'edge.path', style: { width: 3, 'line-color': accent, 'target-arrow-color': accent } },
-        ],
+        style: styleSheet(),
         minZoom: 0.02,
         maxZoom: 4,
         wheelSensitivity: 0.2,

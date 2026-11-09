@@ -9,8 +9,9 @@
  * triple store:
  *
  *   - **headings** — a snapshot per note, for the rename-detection heuristic;
- *   - **frontmatter keys** — what the Properties panel's autocomplete offers;
- *   - **neighborhood** — an LRU memo of `neighborhood()` BFS results.
+ *   - **frontmatter keys** — what the Properties panel's autocomplete offers.
+ *
+ * (A third, an LRU memo of the per-note graph walk, went with that walk, #3056.)
  *
  * (The fourth, the wiki-link alias index, is a genuinely coupled trio —
  * `aliasMap`/`aliasesPerNote`/`indexedNotePaths` are maintained together by
@@ -26,7 +27,6 @@
  * object with twelve accessors (#2234's own "what not to do").
  */
 import type { ProjectContext } from '../project-context-types';
-import type { NeighborhoodResult } from '../../shared/types';
 import { createProjectStore } from '../project-store';
 
 /** One heading as the indexer last saw it, for rename detection. */
@@ -47,18 +47,6 @@ interface NoteCaches {
    * `removeNote` can shrink the union without scanning every note.
    */
   frontmatterKeys: Map<string, string[]>;
-  /**
-   * Memoized `neighborhood()` results keyed by `path\0depth\0cap` (perf #1113).
-   * The graph/citations panels re-run a neighborhood BFS on every note switch
-   * via a reactive `$effect`, and a build hops up to `cap` nodes × (outgoing +
-   * backlink) predicate fans — so re-selecting a note used to redo the whole
-   * traversal. A small LRU (bounded in `neighborhood()`) keeps back-and-forth
-   * navigation off the BFS. Cleared wholesale by `invalidate()` on every write,
-   * the same coarse always-correct invalidation `n3Cache` uses: any triple
-   * change can alter some note's link neighborhood, so a targeted eviction
-   * would be both fiddly and easy to get subtly wrong.
-   */
-  neighborhood: Map<string, NeighborhoodResult>;
 }
 
 const noteCacheStore = createProjectStore<NoteCaches>();
@@ -77,7 +65,6 @@ function caches(ctx: ProjectContext): NoteCaches {
   const fresh: NoteCaches = {
     headings: new Map(),
     frontmatterKeys: new Map(),
-    neighborhood: new Map(),
   };
   noteCacheStore.set(ctx, fresh);
   return fresh;
@@ -110,15 +97,6 @@ export function allFrontmatterKeys(ctx: ProjectContext): string[] {
   return [...seen].sort((a, b) => a.localeCompare(b));
 }
 
-// ── Neighborhood LRU ────────────────────────────────────────────────────────
-
-/** The memo map itself — `neighborhood()` owns the LRU policy (bounding and
- *  recency-refresh), so it needs the map rather than get/set wrappers that
- *  would hide the delete-then-set recency move. */
-export function neighborhoodCache(ctx: ProjectContext): Map<string, NeighborhoodResult> {
-  return caches(ctx).neighborhood;
-}
-
 // ── Lifecycle ───────────────────────────────────────────────────────────────
 
 /** Drop a note's cached derivations — `removeNote`'s half of the bookkeeping. */
@@ -129,12 +107,6 @@ export function forgetNote(ctx: ProjectContext, relativePath: string): void {
   store.frontmatterKeys.delete(relativePath);
 }
 
-/** Clear the neighborhood memo. Called by `invalidate()` on every graph write —
- *  any triple change can alter some note's link neighborhood. */
-export function clearNeighborhoodCache(ctx: ProjectContext): void {
-  noteCacheStore.get(ctx)?.neighborhood.clear();
-}
-
 /** Drop every cache for a project. Used by the full-rebuild path, which
  *  re-derives all of them from the files. */
 export function clearNoteCaches(ctx: ProjectContext): void {
@@ -142,5 +114,4 @@ export function clearNoteCaches(ctx: ProjectContext): void {
   if (!store) return;
   store.headings.clear();
   store.frontmatterKeys.clear();
-  store.neighborhood.clear();
 }

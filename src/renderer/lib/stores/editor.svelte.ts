@@ -289,26 +289,14 @@ function buildEditorStore() {
     schedulePersistTabs();
   }
 
-  /** Open (or refocus) the link-neighborhood graph for a note (#847). One graph
-   *  tab per note; reopening refocuses rather than duplicating. */
-  function openNeighborhood(relativePath: string, opts?: { depth?: number; groupId?: string }) {
-    const found = locateTab((t) => isGraph(t) && !t.whole && t.relativePath === relativePath);
-    if (found) { focusExistingTab(found); return; }
-    const grp = resolveGroup(opts?.groupId);
-    activeGroupId = grp.id;
-    const tab: GraphTab = { type: 'graph', relativePath, depth: opts?.depth ?? 1 };
-    grp.tabs.push(tab);
-    grp.activeIndex = grp.tabs.length - 1;
-    schedulePersistTabs();
-  }
-
   /**
    * Open (or refocus) the whole-thoughtbase graph (#2958). One such tab; with
-   * `focus`, it centres on that note ("Show in Graph") at depth 1, else it keeps
-   * what the tab had.
+   * `focus`, it centres on that note ("Show in Graph", a note's own graph
+   * from the sidebar, #3056) at `depth` (default 1), else it keeps what the
+   * tab had.
    */
-  function openGraph(opts?: { focus?: string; groupId?: string }) {
-    const focus = opts?.focus ? { focus: opts.focus, depth: 1 } : {};
+  function openGraph(opts?: { focus?: string; depth?: number; groupId?: string }) {
+    const focus = opts?.focus ? { focus: opts.focus, depth: opts.depth ?? 1 } : {};
     const found = locateTab((t) => isGraph(t) && !!t.whole);
     if (found) {
       const tab = found.group.tabs[found.index] as GraphTab;
@@ -325,10 +313,11 @@ function buildEditorStore() {
   }
 
   /** Change what the whole graph tab keeps — its filters, focus and camera (#2958). */
-  function setGraphState(patch: Partial<ThoughtbaseGraphState>) {
-    const found = locateTab((t) => isGraph(t) && !!t.whole);
-    if (!found) return;
-    const tab = found.group.tabs[found.index] as GraphTab;
+  function setGraphState(patch: Partial<ThoughtbaseGraphState>, target?: GraphTab) {
+    // The tab it was changed in: a session restored from before #3056 can hold more than one graph tab.
+    const found = target ? null : locateTab((t) => isGraph(t) && !!t.whole);
+    const tab = target ?? (found ? (found.group.tabs[found.index] as GraphTab) : null);
+    if (!tab) return;
     tab.graph = { ...(tab.graph ?? NEW_GRAPH_STATE), ...patch };
     schedulePersistTabs();
   }
@@ -346,14 +335,6 @@ function buildEditorStore() {
     schedulePersistTabs();
   }
 
-  /** Update a graph tab's traversal depth (the depth control). */
-  function setGraphDepth(relativePath: string, depth: number) {
-    const found = locateTab((t) => isGraph(t) && t.relativePath === relativePath);
-    if (found) {
-      (found.group.tabs[found.index] as GraphTab).depth = Math.max(1, depth);
-      schedulePersistTabs();
-    }
-  }
 
   /** Open (or refocus) the multi-view over a type's instances (#1070). One tab
    *  per type; reopening refocuses rather than duplicating. A saved view (#1072)
@@ -982,11 +963,9 @@ function buildEditorStore() {
     openFile,
     openSource,
     openPdf,
-    openNeighborhood,
     openGraph,
     setGraphState,
     openPluginView,
-    setGraphDepth,
     openTypeView,
     openQueryView,
     setTypeViewState,

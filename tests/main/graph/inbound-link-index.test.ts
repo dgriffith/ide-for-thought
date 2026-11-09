@@ -8,8 +8,8 @@
  * find the anchored (`<note>#heading`) objects rdflib's object index can't
  * reach by prefix. Measured on a synthetic 3,000-note × 5-link thoughtbase:
  * one `backlinks()` call examined 15,016 statements to return 5 rows, and
- * `neighborhood()` runs one per BFS node up to `cap = 200`, so a depth-5 walk
- * examined 3,007,200.
+ * the per-note graph's walk (retired in #3056) ran one per node it reached, so
+ * a depth-5 walk examined 3,007,200.
  *
  * ── Why these gates count scans and not milliseconds ────────────────────────
  *
@@ -43,7 +43,6 @@ import {
   backlinks,
   findNotesLinkingTo,
   findExternalInboundLinks,
-  neighborhood,
   parseIntoStore,
 } from '../../../src/main/graph/index';
 import { findNotesLinkingToAnchor } from '../../../src/main/graph/queries';
@@ -120,19 +119,6 @@ describe('#2215 — inbound-link lookups are O(inbound degree)', () => {
       const second = backlinks(ctx, 'hub.md');
       expect(second.length).toBe(12);
       expect(counts.projectWideScans).toBe(0);
-    });
-
-    it('neighborhood() issues ONE index build, not one project scan per BFS node', async () => {
-      await buildHub(ctx, 24);
-
-      const { counts } = countScans(ctx);
-      const result = neighborhood(ctx, 'hub.md', { depth: 2 });
-      // The walk really does expand many nodes — otherwise the gate below
-      // would pass vacuously on a one-node neighborhood.
-      expect(result.nodes.length).toBeGreaterThan(20);
-      // Before #2215 this was 12 × (number of expanded nodes). The whole point
-      // is that it no longer scales with the walk at all.
-      expect(counts.projectWideScans).toBe(NOTE_TARGETED_LINK_TYPES.length);
     });
 
     it('findNotesLinkingTo() over many targets scans the project once, not once per target', async () => {

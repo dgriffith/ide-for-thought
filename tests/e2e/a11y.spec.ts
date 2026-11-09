@@ -15,7 +15,7 @@
  *
  *  - **Surfaces** (#2375 added the last five): welcome screen, workspace shell
  *    + editor, source viewer, PDF viewer, proposals panel, conversation panel,
- *    Settings dialog (every section), Query panel (with results), neighborhood
+ *    Settings dialog (every section), Query panel (with results), the
  *    graph, the `:::argument` map, the preview's fenced-block toolbars
  *    (#2679), the Kanban board, the Timeline (#2608) and the Calendar (#2702) — each with its
  *    shared hover preview open (#2710).
@@ -319,16 +319,17 @@ for (const theme of THEMES) {
       });
     });
 
-    test('neighborhood graph', async () => {
+    // A note's own graph opens the graph tab focused on it (#3056).
+    test('graph', async () => {
       await withApp({ theme, withProject: true }, async ({ win }) => {
         await openFirstNote(win);
         await win.getByTitle('Toggle Right Sidebar (Cmd+Shift+B)').first().click();
         await win.locator('.right-sidebar .group-tab[title="Links"]').click();
         await win.locator('.right-sidebar .sub-tab[title="Outgoing"]').click();
         await win.locator('.right-sidebar').getByTitle('Open as graph').click();
-        await expect(win.locator('.neighborhood-graph')).toBeVisible({ timeout: 10_000 });
-        await expect(win.locator('.neighborhood-graph svg, .neighborhood-graph canvas').first()).toBeVisible({ timeout: 10_000 });
-        await expectNoSerious(win, 'neighborhood graph', theme);
+        await expect(win.locator('.tb-graph .focus')).toContainText('Around', { timeout: 10_000 });
+        await expect(win.locator('.tb-graph .canvas canvas').first()).toBeVisible({ timeout: 10_000 });
+        await expectNoSerious(win, 'graph', theme);
       });
     });
 
