@@ -63,6 +63,8 @@
   let picked = $state<string[]>([]);
   let traceFrom = $state<string | null>(null);
   let menu = $state<{ x: number; y: number; paths: string[] } | null>(null);
+  /** The note the right button last went down on, for the `contextmenu` that follows; null on the background. */
+  let menuNote: string | null = null;
   let accent = '#89b4fa';
 
   $effect(() => {
@@ -118,6 +120,15 @@
     // (a sidebar, the toolbar wrapping) a click would hit the wrong node (#2959).
     const resized = new ResizeObserver(() => cy?.resize());
     if (container) resized.observe(container);
+    const onContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+      const id = menuNote;
+      menuNote = null;
+      if (!id || !noteActions) return;
+      if (!picked.includes(id)) picked = [id];
+      menu = { x: e.clientX, y: e.clientY, paths: [...picked] };
+    };
+    container?.addEventListener('contextmenu', onContextMenu);
     void (async () => {
       const cytoscape = await loadCytoscape();
       if (disposed || !container) return;
@@ -166,12 +177,12 @@
       cy.on('tap', (evt) => { if (evt.target === cy) { selected = null; picked = []; menu = null; } });
       cy.on('tapstart scrollzoom', () => { following = null; }); // the user has the camera now
       // The note menu (#2773): for the picked notes when the right-click is on one of them, else for this note.
-      cy.on('cxttap', 'node', (evt) => {
+      // The note menu opens on the page's own `contextmenu`, for the note the right button went down on.
+      // Not on Cytoscape's `cxttap` (button up): Windows fires `contextmenu` after the button comes up,
+      // and it landed on the just-opened menu's backdrop, which closes it — the menu never showed.
+      cy.on('cxttapstart', (evt) => {
         const n = evt.target as NodeSingular;
-        if (!noteActions || !isNoteKind(String(n.data('kind')))) return;
-        const at = evt.originalEvent;
-        if (!picked.includes(n.id())) picked = [n.id()];
-        menu = { x: at.clientX, y: at.clientY, paths: [...picked] };
+        menuNote = evt.target !== cy && isNoteKind(String(n.data('kind'))) ? n.id() : null;
       });
       // Dragging a note pins it there, kept with the tab (#2959).
       cy.on('dragfree', 'node', (evt) => {
@@ -194,6 +205,7 @@
     return () => {
       disposed = true;
       resized.disconnect();
+      container?.removeEventListener('contextmenu', onContextMenu);
       clearTimeout(cameraTimer);
       worker?.terminate();
       worker = null;
