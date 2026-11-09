@@ -285,19 +285,17 @@
     }
   }
 
-  // Multi-select (#2431): ⌘/⇧-click, ⌘A, Escape, right-click — the sidebar's semantics.
-  const selectable = $derived(!!noteActions && !chromeless);
+  // Multi-select (#2431): ⌘/⇧-click, ⌘A, Escape, right-click — the sidebar's semantics. In a
+  // note's embed too (#2940, reversing #2774); moves stay the tab's (`inTab`): an embedded board is read-only (#2604).
+  const selectable = $derived(!!noteActions && !exportMode);
+  const inTab = $derived(selectable && !chromeless);
   const notebase = getNotebaseStore();
   // Notes a link value can name (#2775), to map its IRI back to a path.
   const knownNotePaths = $derived(new Set(flattenNotePaths(notebase.files)));
   let refLabel = $state('');
-  // An embed with note actions (#2774): the menu for one note, no multi-select —
-  // and no Move to ▸, since an embedded board stays read-only (#2604).
-  const menuOnly = $derived(!!noteActions && chromeless && !exportMode);
   const sel = createTypeViewSelection({
     order: () => layoutOrder(shown, view).filter((i) => !i.noNote).map((i) => i.path),
     enabled: () => selectable,
-    menuOnly: () => menuOnly,
     onOpen: (p) => onOpenNote(p),
     onEdit: (paths) => noteActions?.editProperties(paths),
   });
@@ -356,7 +354,7 @@
   // A calendar's moves are its own surface: ⌘Z there undoes the calendar's last move, never a board's.
   const onCalendar = $derived(layoutDef(shown).moves === 'calendar');
   // Moves write a note's own fields, so only a type source offers them in this epic (#2943).
-  const movesHere = $derived(typeId !== null && (onCalendar ? !chromeless && !exportMode : selectable));
+  const movesHere = $derived(typeId !== null && (onCalendar ? !chromeless && !exportMode : inTab));
   const calendarSettings = getCalendarSettings();
   // The calendar plugin's moves and new events, Minerva's half (#2829, #2953, #2954).
   const calendar = calendarHost(moves, () => ({
@@ -404,7 +402,7 @@
     rowType,
     summary,
     get selectable() { return selectable; },
-    get rowMenu() { return selectable || menuOnly; },
+    get rowMenu() { return selectable; },
     isSelected: (p) => !noNote.has(p) && sel.has(p),
     onRowClick: (e, p) => { if (!noNote.has(p)) sel.click(e, p); },
     onRowKey: (e, p, steps) => { if (!noNote.has(p)) sel.rowKey(e, p, steps); },
@@ -432,7 +430,7 @@
     get pluginExport() { return pluginExport; },
     get group() { return groupProp; },
     get board() { return board; },
-    get onMoveCard() { return selectable && typeId !== null ? (p: string, t: MoveTarget, paths?: string[]) => moveTo(paths && paths.length > 1 ? paths : [p], t) : undefined; },
+    get onMoveCard() { return inTab && typeId !== null ? (p: string, t: MoveTarget, paths?: string[]) => moveTo(paths && paths.length > 1 ? paths : [p], t) : undefined; },
     get onUndoMove() { return movesHere ? () => void moves.undoLastMove(onCalendar ? 'calendar' : 'board', moveCause ? { cause: moveCause } : {}) : undefined; },
     get canUndoMove() { return onCalendar ? moves.canUndoReschedule : moves.canUndo; },
     get onReschedule() { return onCalendar && movesHere ? calendar.reschedule : undefined; },
@@ -526,7 +524,7 @@
       x={sel.menu.x} y={sel.menu.y} count={sel.menu.target ? 1 : sel.selectedPaths.length} onEdit={sel.editSelected} onClose={sel.closeMenu}
       {...(noteActions ? noteMenu(noteActions, sel.selectedPaths) : {})}
       {...moveToDateItem(sel.selectedPaths)}
-      {...(renderer.rowMenuMove && groupProp && selectable && !sel.menu.target ? { moveTargets: moveTargets(groupProp, board), moveFrom: sharedColumnValue(board, sel.selectedPaths), onMove: (t: MoveTarget) => moveTo(sel.selectedPaths, t) } : {})}
+      {...(renderer.rowMenuMove && groupProp && inTab && !sel.menu.target ? { moveTargets: moveTargets(groupProp, board), moveFrom: sharedColumnValue(board, sel.selectedPaths), onMove: (t: MoveTarget) => moveTo(sel.selectedPaths, t) } : {})}
     />
   {/if}
 </div>

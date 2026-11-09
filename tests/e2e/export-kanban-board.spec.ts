@@ -92,7 +92,9 @@ test('a Kanban board exports as the preview shows it: wrapped, read-only, linked
       const embed = win.locator('.preview .object-view-block');
       const board = embed.locator('[data-plugin-layout="kanban"] iframe').contentFrame();
       await expect(board.locator('.kb-card')).toHaveCount(5, { timeout: 15_000 });
-      await expect(board.locator('.kb-col-menu-btn, [data-draggable], [aria-pressed]')).toHaveCount(0);
+      // Read-only: no column menus, nothing drags. Its cards do select (#2940), so they say whether they are.
+      await expect(board.locator('.kb-col-menu-btn, [data-draggable]')).toHaveCount(0);
+      await expect(board.locator('.kb-card[aria-pressed="false"]')).toHaveCount(5);
       await expect(embed.locator('.tv-header')).toHaveCount(0);
       // Right-click offers the note actions for that card (#2774), but never
       // Move to: an embedded board stays read-only (#2604).
