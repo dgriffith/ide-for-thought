@@ -418,7 +418,7 @@
         sel.openMenuForTarget(paths[0], x, y);
       } else sel.openMenuFor(paths, x, y);
     },
-    selectAll: () => sel.selectAll(), clearSelection: () => sel.clear(),
+    selectAll: () => sel.selectAll(), clearSelection: () => sel.clear(), selectPaths: (paths, toggle) => sel.selectPaths(paths.filter((p) => !noNote.has(p)), toggle),
     onOpenNote: (p) => { if (!noNote.has(p)) onOpenNote(p); },
     onStateChange: (p) => onStateChange(p),
     get readOnly() { return chromeless; },

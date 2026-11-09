@@ -5,6 +5,12 @@
   import type { LayoutView } from './layout-view';
 
   let { view }: { view: LayoutView } = $props();
+  // The view's selection (#2939): a map has no range order, so ⇧-click toggles as ⌘-click does.
+  const selection = $derived(view.selectable && !view.exportMode ? {
+    onPinClick: (e: MouseEvent, p: string) => view.onRowClick(e.shiftKey ? new MouseEvent('click', { metaKey: true }) : e, p),
+    isSelected: (p: string) => view.isSelected(p),
+    onBoxSelect: (paths: string[], toggle: boolean) => view.selectPaths(paths, toggle),
+  } : {});
 </script>
 
 {#if view.locationProperty}
@@ -14,6 +20,7 @@
     onOpenNote={view.onOpenNote}
     mapStyle={view.mapStyle} type={view.type} properties={view.properties} display={view.display}
     {...(view.rowMenu && !view.exportMode ? { onPinContextMenu: view.onRowContextMenu } : {})}
+    {...selection}
     {...(view.mapExport ? { exportHooks: view.mapExport } : {})}
     {...(view.readOnly || view.mapExport ? {} : { onMapStyleChange: (next: MapStyle) => view.onStateChange({ mapStyle: next }) })}
   />

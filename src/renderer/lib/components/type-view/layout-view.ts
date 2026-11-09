@@ -95,6 +95,8 @@ export interface LayoutView {
   /** ⌘A and Escape from a plugin layout (#2828): the view's own selection. */
   selectAll: () => void;
   clearSelection: () => void;
+  /** Several notes into the selection at once — a map's box (#2939); `toggle` flips each instead. */
+  selectPaths: (paths: readonly string[], toggle: boolean) => void;
 
   onOpenNote: (path: string) => void;
   onStateChange: (patch: ViewStatePatch) => void;

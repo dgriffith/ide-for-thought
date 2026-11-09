@@ -86,6 +86,16 @@ export function createTypeViewSelection(opts: TypeViewSelectionOptions) {
   }
 
   /** ⌘A and Escape from a plugin layout (#2828), with the keydown's rules. */
+  /**
+   * Several notes at once (#2939): a map's box. Adds each to the selection,
+   * or with `toggle` (⌘ held) flips each in or out. Announced as a count.
+   */
+  function selectPaths(paths: readonly string[], toggle: boolean): void {
+    if (!opts.enabled() || menuOnly() || paths.length === 0) return;
+    for (const p of paths) if (toggle || !selection.has(p)) selection.toggle(p);
+    say();
+  }
+
   function selectAll(): void {
     if (opts.enabled() && !menuOnly()) selection.selectAll(opts.order());
   }
@@ -169,6 +179,7 @@ export function createTypeViewSelection(opts: TypeViewSelectionOptions) {
     openMenuFor,
     openMenuForTarget,
     selectAll,
+    selectPaths,
     clear,
     keydown,
     editSelected,

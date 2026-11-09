@@ -61,6 +61,9 @@ const { mapInstances, markerInstances, FakeMap, FakeMarker, FakeNavigationContro
     on = vi.fn();
     getBounds() { return { contains: (ll: [number, number]) => this.inView(ll) }; }
     easeTo = vi.fn();
+    // The ⇧-drag box (#2939): drag-pan held off, and a pin's drawn point — 10px per degree.
+    dragPan = { disable: vi.fn(), enable: vi.fn() };
+    project(ll: [number, number]) { return { x: (ll[0] + 180) * 10, y: (90 - ll[1]) * 10 }; }
   }
   return { mapInstances, markerInstances, FakeMap, FakeMarker, FakeNavigationControl, FakeLngLatBounds };
 });
@@ -482,5 +485,78 @@ describe('the pins from the keyboard (#2934)', () => {
     expect(map.easeTo).not.toHaveBeenCalled();
     pin('New York').focus();
     expect(map.easeTo).toHaveBeenCalledWith({ center: [-74.006, 40.7128] });
+  });
+});
+
+describe('selecting several pins (#2939)', () => {
+  // Projected (10px a degree): SF ≈ (575, 522), Chicago ≈ (924, 481), NYC ≈ (1060, 493).
+  const THREE = [
+    { path: 'SF.md', title: 'San Francisco', values: { location: '37.7749,-122.4194' }, cover: null },
+    { path: 'CHI.md', title: 'Chicago', values: { location: '41.8781,-87.6298' }, cover: null },
+    { path: 'NYC.md', title: 'New York', values: { location: '40.7128,-74.0060' }, cover: null },
+  ];
+  const pin = (title: string) => markerInstances.find((m) => m.getElement().getAttribute('aria-label') === title)!.getElement();
+  async function mounted(over: Record<string, unknown> = {}) {
+    const utils = render(TypeViewMap, { instances: THREE, locationProperty: 'location', onOpenNote: vi.fn(), ...over });
+    await waitFor(() => expect(markerInstances.length).toBe(3));
+    return utils;
+  }
+  const drag = async (from: { x: number; y: number }, to: { x: number; y: number }, mods: Record<string, boolean> = {}) => {
+    const map = document.querySelector<HTMLElement>('.type-view-map')!;
+    await fireEvent.pointerDown(map, { button: 0, pointerId: 1, clientX: from.x, clientY: from.y, shiftKey: true });
+    await fireEvent.pointerMove(window, { pointerId: 1, clientX: to.x, clientY: to.y });
+    await fireEvent.pointerUp(window, { pointerId: 1, clientX: to.x, clientY: to.y, ...mods });
+  };
+
+  it('a click goes to the view with its modifiers where it selects; Space toggles the focused pin', async () => {
+    const onPinClick = vi.fn();
+    const onOpenNote = vi.fn();
+    await mounted({ onPinClick, onOpenNote });
+    await fireEvent.click(pin('Chicago'), { metaKey: true });
+    expect(onPinClick).toHaveBeenCalledWith(expect.objectContaining({ metaKey: true }), 'CHI.md');
+    expect(onOpenNote).not.toHaveBeenCalled();
+    pin('New York').focus();
+    await fireEvent.keyDown(pin('New York'), { key: ' ' });
+    expect(onPinClick).toHaveBeenLastCalledWith(expect.objectContaining({ metaKey: true }), 'NYC.md');
+  });
+
+  it('draws the selection: a ring, and aria-pressed on every pin', async () => {
+    await mounted({ onPinClick: vi.fn(), isSelected: (p: string) => p === 'CHI.md' });
+    expect(pin('Chicago').classList.contains('pin-selected')).toBe(true);
+    expect(pin('Chicago').getAttribute('aria-pressed')).toBe('true');
+    expect(pin('New York').getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('⇧-drag draws a box and selects the pins inside it, with drag-pan held off; MapLibre\'s box zoom is off', async () => {
+    const onBoxSelect = vi.fn();
+    await mounted({ onPinClick: vi.fn(), onBoxSelect });
+    const map = mapInstances[0]!;
+    expect(map.opts).toMatchObject({ boxZoom: false });
+    const surface = document.querySelector<HTMLElement>('.type-view-map')!;
+    await fireEvent.pointerDown(surface, { button: 0, pointerId: 1, clientX: 900, clientY: 450, shiftKey: true });
+    expect(map.dragPan.disable).toHaveBeenCalled();
+    await fireEvent.pointerMove(window, { pointerId: 1, clientX: 1100, clientY: 520 });
+    expect(surface.querySelector('.map-select-box')).not.toBeNull();
+    await fireEvent.pointerUp(window, { pointerId: 1, clientX: 1100, clientY: 520 });
+    expect(onBoxSelect).toHaveBeenCalledWith(['CHI.md', 'NYC.md'], false);
+    expect(map.dragPan.enable).toHaveBeenCalled();
+    expect(surface.querySelector('.map-select-box')).toBeNull();
+    await drag({ x: 500, y: 450 }, { x: 600, y: 600 }, { metaKey: true });
+    expect(onBoxSelect).toHaveBeenLastCalledWith(['SF.md'], true); // with ⌘: toggle
+  });
+
+  it('a ⇧-click on empty map, or a drag without ⇧, selects nothing; where the view doesn\'t select, no box', async () => {
+    const onBoxSelect = vi.fn();
+    await mounted({ onPinClick: vi.fn(), onBoxSelect });
+    await drag({ x: 900, y: 450 }, { x: 901, y: 451 });
+    const surface = document.querySelector<HTMLElement>('.type-view-map')!;
+    await fireEvent.pointerDown(surface, { button: 0, pointerId: 2, clientX: 900, clientY: 450 });
+    await fireEvent.pointerUp(window, { pointerId: 2, clientX: 1100, clientY: 520 });
+    expect(onBoxSelect).not.toHaveBeenCalled();
+    cleanup();
+    markerInstances.length = 0;
+    mapInstances.length = 0;
+    await mounted();
+    expect(mapInstances[0]!.opts).not.toHaveProperty('boxZoom');
   });
 });
