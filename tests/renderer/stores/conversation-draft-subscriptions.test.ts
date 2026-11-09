@@ -24,6 +24,7 @@ const h = vi.hoisted(() => {
   const api = {
     conversations: {
       onStream: noop,
+      onWait: noop,
       onDraft: cap('onDraft'),
       onSourceDraft: cap('onSourceDraft'),
       onPropertyDraft: cap('onPropertyDraft'),

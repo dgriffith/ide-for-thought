@@ -381,6 +381,9 @@ export interface LLMSettings {
   /** Name new conversations with a short model-written title after their first
    *  exchange, on the provider's cheap tier. Absent ⇒ on. */
   autoTitleConversations?: boolean;
+  /** Model requests that may run at once per provider (#2969); more wait their
+   *  turn. Absent ⇒ 4 (`request-limiter.ts`). */
+  concurrentRequests?: number;
 }
 
 /**
@@ -394,6 +397,8 @@ export interface LLMSettingsView {
   model: string;
   /** See `LLMSettings.autoTitleConversations`. Absent ⇒ on. */
   autoTitleConversations?: boolean;
+  /** See `LLMSettings.concurrentRequests`; main always resolves it, so the field shows the number in force. */
+  concurrentRequests?: number;
   web?: WebSettings;
   effort?: import('./effort').Effort;
   toolModelOverrides?: Record<string, string>;
@@ -433,6 +438,8 @@ export interface LLMSettingsUpdate {
   toolModelOverrides?: Record<string, string>;
   /** See `LLMSettings.autoTitleConversations`. */
   autoTitleConversations?: boolean;
+  /** See `LLMSettings.concurrentRequests`. Omitted ⇒ the default. */
+  concurrentRequests?: number;
 }
 
 /** Source-scoped tools (#103) live in the Source viewer; everything else is

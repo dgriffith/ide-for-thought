@@ -8,6 +8,8 @@
  * model is doing at that instant (the transcript's tool lines already say
  * what it is actually doing).
  */
+import type { RequestWaitStatus } from '../../../shared/tools/concurrent-requests';
+
 export const TURN_VERBS: readonly string[] = [
   'Thinking',
   'Pondering',
@@ -52,4 +54,17 @@ export function formatElapsed(ms: number): string {
   const s = total % 60;
   if (m < 60) return `${m}m ${String(s).padStart(2, '0')}s`;
   return `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, '0')}m`;
+}
+
+/**
+ * What a turn waiting on the request limiter says in place of its verb
+ * (#2969): its place in line for a slot, or how long until a rate-limited
+ * request is tried again, counted down from `sinceMs` into the wait.
+ */
+export function waitingText(status: NonNullable<RequestWaitStatus>, sinceMs: number): string {
+  if (status.kind === 'queued') {
+    return status.ahead > 0 ? `Waiting for a slot (${status.ahead} ahead)…` : 'Waiting for a slot…';
+  }
+  const left = Math.max(0, Math.ceil((status.retryInMs - sinceMs) / 1000));
+  return left > 0 ? `Rate limited — retrying in ${left}s…` : 'Rate limited — retrying…';
 }

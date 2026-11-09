@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { DEFAULT_CONCURRENT_REQUESTS } from '../../../shared/tools/concurrent-requests';
   import { onMount } from 'svelte';
   import { getEditorSettings, type EditorSettings } from '../editor/settings';
   import { api } from '../ipc/client';
@@ -61,6 +62,7 @@
   let model = $state(DEFAULT_MODEL);
   let effort = $state<import('../../../shared/tools/effort').Effort | undefined>(undefined);
   let autoTitle = $state(true);
+  let concurrentRequests = $state(DEFAULT_CONCURRENT_REQUESTS);
   // Per-provider credential inputs + loaded status (BYOM #1498).
   let providerInputs = $state<Record<ProviderId, ProviderInput>>(emptyProviderInputs());
   let providerViews = $state<Partial<Record<ProviderId, ProviderConfigView>>>({});
@@ -82,6 +84,7 @@
     get model() { return model; }, set model(v) { model = v; },
     get effort() { return effort; }, set effort(v) { effort = v; },
     get autoTitle() { return autoTitle; }, set autoTitle(v) { autoTitle = v; },
+    get concurrentRequests() { return concurrentRequests; }, set concurrentRequests(v) { concurrentRequests = v; },
     get providerInputs() { return providerInputs; }, set providerInputs(v) { providerInputs = v; },
     get customModels() { return customModels; }, set customModels(v) { customModels = v; },
     get providerViews() { return providerViews; },
@@ -101,6 +104,7 @@
       model = s.model;
       effort = s.effort;
       autoTitle = s.autoTitleConversations !== false;
+      concurrentRequests = s.concurrentRequests ?? DEFAULT_CONCURRENT_REQUESTS;
       providerViews = s.providers ?? {};
       customModels = s.customModels ? [...s.customModels] : [];
       // Prefill base-URL inputs from stored config so the user sees/edits them.
@@ -172,6 +176,7 @@
       },
       ...(effort ? { effort } : {}),
       autoTitleConversations: autoTitle,
+      concurrentRequests,
       ...(Object.keys(toolModelOverrides).length > 0 ? { toolModelOverrides } : {}),
       ...(Object.keys(providerUpdates).length > 0 ? { providers: providerUpdates } : {}),
       customModels,

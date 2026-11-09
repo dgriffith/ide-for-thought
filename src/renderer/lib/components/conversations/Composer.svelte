@@ -208,7 +208,7 @@
       {/if}
       <span class="composer-hint">{tab.streaming ? 'Reply in progress — send when it finishes' : `⏎ send · ${formatAccelerator('Shift+Return')} newline`}</span>
       {#if tab.streaming}
-        <button type="button" class="send-btn" onclick={() => store.cancel()}>Cancel</button>
+        <button type="button" class="send-btn" onclick={() => store.cancel(tab.id)}>Cancel</button>
       {:else}
         <button type="button" class="send-btn" onclick={handleSend} disabled={!tab.composer.trim()}>
           <Icon name="send" size={11} />
