@@ -47,9 +47,13 @@
     /** Message index this stack is anchored to; `null` renders the orphans —
      *  cards anchored past the current message list (in-flight / post-cancel). */
     index: number | null;
+    /** Render only this fork branch's drafts, wherever they're anchored (#2973):
+     *  the fork card shows them under the branch's row. Without it, a stack
+     *  leaves branch drafts out. */
+    fromBranch?: string;
   }
 
-  let { tab, index }: Props = $props();
+  let { tab, index, fromBranch }: Props = $props();
 
   const store = getConversationsStore();
   const editor = getEditorStore();
@@ -60,12 +64,16 @@
   // anchored to. `pick` selects the drafts/results for this stack's anchor —
   // an exact index, or (index === null) every card anchored past the current
   // message list, which render as orphans at the bottom.
-  function pick<T extends { afterMessageIndex: number }>(arr: T[]): T[] {
+  function pick<T extends { afterMessageIndex: number; conversationId: string; branch?: unknown }>(arr: T[]): T[] {
+    if (fromBranch !== undefined) return arr.filter((d) => d.branch && d.conversationId === fromBranch);
+    const own = arr.filter((d) => !d.branch);
     return index === null
-      ? arr.filter((d) => d.afterMessageIndex >= tab.conversation.messages.length)
-      : arr.filter((d) => d.afterMessageIndex === index);
+      ? own.filter((d) => d.afterMessageIndex >= tab.conversation.messages.length)
+      : own.filter((d) => d.afterMessageIndex === index);
   }
   function pickResults<E extends { afterMessageIndex: number }>(rec: Record<string, E>): [string, E][] {
+    // What an approved branch draft filed shows in the transcript's own stack, where it's anchored.
+    if (fromBranch !== undefined) return [];
     const entries = Object.entries(rec);
     return index === null
       ? entries.filter(([, e]) => e.afterMessageIndex >= tab.conversation.messages.length)

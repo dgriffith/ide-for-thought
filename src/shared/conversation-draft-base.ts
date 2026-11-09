@@ -13,6 +13,10 @@ export interface ConversationDraftBase {
   conversationId: string;
   /** ISO timestamp when the draft was created. */
   createdAt: string;
+  /** A fork's branch drafted it (#2973): the card shows in the parent's
+   *  transcript, under the fork card; `conversationId` stays the branch, which
+   *  is who proposed it. */
+  branch?: import('./conversation').ForkBranchLabel;
 }
 
 /**

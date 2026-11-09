@@ -732,3 +732,28 @@ describe('DraftCards — a new note at the thoughtbase guide\'s path (#2837)', (
     expect(other!.querySelector('.draft-preview')).toBeNull();
   });
 });
+
+describe('DraftCards — a fork branch\'s drafts (#2973)', () => {
+  const branchDraft = (id: string, path: string) => ({
+    ...noteDraft(id, path, 0), conversationId: 'conv-branch', branch: { parentId: 'conv-1', title: 'Supply' },
+  });
+
+  it('the transcript\'s own stack leaves them out; the branch\'s stack shows only them, wherever anchored', () => {
+    const t = tab({ drafts: [noteDraft('own', 'notes/own.md', 0), branchDraft('mine', 'notes/branch.md'), { ...branchDraft('later', 'notes/later.md'), afterMessageIndex: 5 }] });
+    const own = renderStack(t, 0);
+    expect(own.queryByText(/notes\/own\.md|own\.md/)).toBeTruthy();
+    expect(own.queryByText(/branch\.md/)).toBeNull();
+    cleanup();
+    const fromBranch = render(DraftCards, { tab: t, index: null, fromBranch: 'conv-branch' });
+    expect(fromBranch.queryByText(/branch\.md/)).toBeTruthy();
+    expect(fromBranch.queryByText(/later\.md/)).toBeTruthy();
+    expect(fromBranch.queryByText(/own\.md/)).toBeNull();
+  });
+
+  it('Approve on a branch\'s draft files that draft, from the parent\'s tab', async () => {
+    const t = tab({ drafts: [branchDraft('mine', 'notes/branch.md')] });
+    const r = render(DraftCards, { tab: t, index: null, fromBranch: 'conv-branch' });
+    await fireEvent.click(r.getByRole('button', { name: /Approve/ }));
+    await waitFor(() => expect(h.store.approveDraft).toHaveBeenCalledWith('tab-7', expect.objectContaining({ draftId: 'mine', conversationId: 'conv-branch' })));
+  });
+});

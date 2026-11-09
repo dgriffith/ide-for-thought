@@ -46,6 +46,15 @@ describe('revision causes for approved proposals (#1158)', () => {
     expect(revs[0]!.cause).toBe('Antithesize');
   });
 
+  it('names the fork branch whose conversation proposed it (#2973)', async () => {
+    const parent = await conversation.create(root, {});
+    const branch = await conversation.create(root, {}, undefined, undefined, {
+      title: 'Supply', branch: { parentId: parent.id, atMessage: 0, context: 'summary' }, messages: [],
+    });
+    await fileAndApprove(`llm:conversation:${branch.id}`, 'notes/from-branch.md');
+    expect((await listRevisions(root, 'notes/from-branch.md'))[0]!.cause).toBe('Branch “Supply”');
+  });
+
   it('falls back to "Conversation" for a freeform chat with no skill', async () => {
     const conv = await conversation.create(root, {});
     await fileAndApprove(`llm:conversation:${conv.id}`, 'notes/from-chat.md');

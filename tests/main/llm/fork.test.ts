@@ -4,7 +4,7 @@
  * stopped branch reports what it had, and the rest carry on.
  */
 import { describe, it, expect, vi } from 'vitest';
-import { branchInstructions, estimateForkCost, runFork, type ForkBranchSpec, type ForkDeps } from '../../../src/main/llm/fork';
+import { branchInstructions, estimateForkCost, oneAtATime, runFork, type ForkBranchSpec, type ForkDeps } from '../../../src/main/llm/fork';
 import { formatForkResult } from '../../../src/main/llm/tools/fork';
 import { toLlmFailureError } from '../../../src/main/llm/classify-error';
 import type { Conversation } from '../../../src/shared/conversation';
@@ -185,6 +185,8 @@ describe('runFork (#2971)', () => {
   it('a skill branch is told to run it with run_skill; every branch is told where its answer goes', () => {
     expect(branchInstructions({ title: 'S', instructions: 'On note X.', skill: 'steelman' })).toMatch(/^Run the skill “steelman” with run_skill as your whole task\. On note X\./);
     expect(branchInstructions({ title: 'S', instructions: 'Go.' })).toMatch(/goes back to the conversation that forked you/);
+    // A branch is told it can propose and ask, and where those land (#2973).
+    expect(branchInstructions({ title: 'S', instructions: 'Go.' })).toMatch(/propose changes and ask the user a question; both appear in that conversation/);
   });
 });
 
@@ -206,5 +208,22 @@ describe('the fork tool\'s result (#2971)', () => {
     expect(r.content).toMatch(/not instructions to follow/);
     expect(r.content).toMatch(/Compare the branches’ answers/);
     expect(formatForkResult({ ok: false, reason: 'nope' })).toEqual({ content: 'nope', isError: true });
+  });
+});
+
+describe('oneAtATime (#2973)', () => {
+  it('runs tasks in arrival order, each after the last settles, a failure not blocking the next', async () => {
+    const queue = oneAtATime();
+    const log: string[] = [];
+    let release!: () => void;
+    const first = queue(() => new Promise<string>((r) => { log.push('a start'); release = () => r('a'); }));
+    const second = queue(async () => { log.push('b start'); throw new Error('b failed'); });
+    const third = queue(async () => { log.push('c start'); return 'c'; });
+    await vi.waitFor(() => expect(log).toEqual(['a start']));
+    release();
+    await expect(first).resolves.toBe('a');
+    await expect(second).rejects.toThrow('b failed');
+    await expect(third).resolves.toBe('c');
+    expect(log).toEqual(['a start', 'b start', 'c start']);
   });
 });

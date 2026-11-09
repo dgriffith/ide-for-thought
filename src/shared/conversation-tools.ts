@@ -29,6 +29,8 @@ export interface AskUserRequest {
   conversationId: string;
   question: string;
   choices?: string[];
+  /** A fork's branch is asking (#2973): shown in the parent, labelled with the branch. */
+  branch?: import('./conversation').ForkBranchLabel;
 }
 
 /**
@@ -52,4 +54,6 @@ export interface McpConfirmRequest {
   argsJson: string;
   /** The server's own `destructiveHint`, when it sent one. Informational only. */
   destructiveHint?: boolean;
+  /** A fork's branch is calling (#2973): shown in the parent, labelled with the branch. */
+  branch?: import('./conversation').ForkBranchLabel;
 }

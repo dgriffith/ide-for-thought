@@ -25,6 +25,7 @@ import {
   type PendingMcpConfirm,
 } from '../../../src/main/ipc/conversation-stream';
 import { pendingExtensionDrafts } from '../../../src/main/ipc/extension-draft-offers';
+import { oneAtATime } from '../../../src/main/llm/fork';
 
 function makeWin(destroyed = false) {
   const listeners = new Map<string, Set<() => void>>();
@@ -339,5 +340,63 @@ describe('drafted-extension card (#2652)', () => {
     await expect(buildOffer(gone).callbacks.offerExtensionDraft!(DRAFT)).resolves.toEqual({ kind: 'no-ui' });
     expect(gone.webContents.send).not.toHaveBeenCalled();
     expect(pendingExtensionDrafts.size).toBe(0);
+  });
+});
+
+describe('a fork branch\'s drafts, questions and confirms go to its parent (#2973)', () => {
+  const LABEL = { parentId: 'conv-p', title: 'Supply' };
+  function buildBranch(win: ReturnType<typeof makeWin>, oneAtATime = createQueue(), controller = new AbortController()) {
+    const pendingAsk: PendingAskUser = new Map();
+    const pendingMcp: PendingMcpConfirm = new Map();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const handle = buildStreamCallbacks(win as any, 'conv-1', controller.signal, pendingAsk, pendingMcp, { label: LABEL, oneAtATime });
+    return { ...handle, pendingAsk, pendingMcp, controller };
+  }
+  const createQueue = () => oneAtATime();
+  const sent = (win: ReturnType<typeof makeWin>, channel: string) =>
+    win.webContents.send.mock.calls.filter((c) => c[0] === channel).map((c) => c[1] as Record<string, unknown>);
+
+  it('a draft carries the branch label and keeps the branch as its conversation', () => {
+    const win = makeWin();
+    buildBranch(win).callbacks.onDraft!({ draftId: 'd1', conversationId: 'conv-1', createdAt: 't', note: 'n', payloads: [] });
+    expect(sent(win, Channels.CONVERSATION_DRAFT)).toEqual([expect.objectContaining({ draftId: 'd1', conversationId: 'conv-1', branch: LABEL })]);
+  });
+
+  it('two branches asking at once: the second question waits until the first is answered', async () => {
+    const win = makeWin();
+    const queue = createQueue();
+    const a = buildBranch(win, queue);
+    const b = buildBranch(win, queue);
+    const qa = a.callbacks.askUser!({ question: 'A?' });
+    const qb = b.callbacks.askUser!({ question: 'B?', choices: ['x'] });
+    await vi.waitFor(() => expect(sent(win, Channels.CONVERSATION_ASK_USER)).toHaveLength(1));
+    expect(sent(win, Channels.CONVERSATION_ASK_USER)[0]).toMatchObject({ question: 'A?', conversationId: 'conv-1', branch: LABEL });
+    [...a.pendingAsk.values()][0]!.resolve('yes');
+    await expect(qa).resolves.toBe('yes');
+    await vi.waitFor(() => expect(sent(win, Channels.CONVERSATION_ASK_USER)).toHaveLength(2));
+    expect(sent(win, Channels.CONVERSATION_ASK_USER)[1]).toMatchObject({ question: 'B?', choices: ['x'], branch: LABEL });
+    [...b.pendingAsk.values()][0]!.resolve('x');
+    await expect(qb).resolves.toBe('x');
+  });
+
+  it('a branch stopped while its question waits never asks it; the line moves on', async () => {
+    const win = makeWin();
+    const queue = createQueue();
+    const a = buildBranch(win, queue);
+    const b = buildBranch(win, queue);
+    const c = buildBranch(win, queue);
+    const qa = a.callbacks.askUser!({ question: 'A?' });
+    const qb = b.callbacks.askUser!({ question: 'B?' });
+    const qc = c.callbacks.confirmMcpCall!(PROMPT);
+    b.controller.abort();
+    await vi.waitFor(() => expect(a.pendingAsk.size).toBe(1));
+    [...a.pendingAsk.values()][0]!.resolve('ok');
+    await qa;
+    await expect(qb).rejects.toThrow(/aborted/);
+    await vi.waitFor(() => expect(sent(win, Channels.CONVERSATION_MCP_CONFIRM)).toHaveLength(1));
+    expect(sent(win, Channels.CONVERSATION_ASK_USER).map((q) => q.question)).toEqual(['A?']);
+    expect(sent(win, Channels.CONVERSATION_MCP_CONFIRM)[0]).toMatchObject({ ...PROMPT, conversationId: 'conv-1', branch: LABEL });
+    [...c.pendingMcp.values()][0]!.settle({ allow: false, reason: 'denied' });
+    await expect(qc).resolves.toEqual({ allow: false, reason: 'denied' });
   });
 });

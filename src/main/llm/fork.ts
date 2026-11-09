@@ -75,12 +75,28 @@ export interface ForkDeps {
 
 export const FORK_TIME_BUDGET_MS = 10 * 60_000;
 
+/**
+ * Run tasks one at a time, in the order they arrive (#2973): a fork's
+ * branches put their questions and MCP confirms to the user through it, so
+ * the parent shows one card at a time however many branches ask at once. A
+ * task that fails doesn't stop the next one.
+ */
+export function oneAtATime(): <T>(fn: () => Promise<T>) => Promise<T> {
+  let tail: Promise<unknown> = Promise.resolve();
+  return <T>(fn: () => Promise<T>): Promise<T> => {
+    const run = tail.then(fn, fn);
+    tail = run.then(settled, settled);
+    return run;
+  };
+}
+function settled(): void {}
+
 /** A branch's opening instructions: the fork's, a skill to run when it names one, and where its answer goes. */
 export function branchInstructions(spec: ForkBranchSpec): string {
   const task = spec.skill
     ? `Run the skill “${spec.skill}” with run_skill as your whole task. ${spec.instructions}`
     : spec.instructions;
-  return `${task}\n\nYou are one branch of a fork. You can read the thoughtbase but can't change it or ask the user anything. Answer in your reply: your final answer goes back to the conversation that forked you, which reads only that and can propose any changes.`;
+  return `${task}\n\nYou are one branch of a fork. Your final answer goes back to the conversation that forked you, which reads only that, so put what you found in your reply. You can propose changes and ask the user a question; both appear in that conversation, labelled with this branch, and the user reviews them there. You can't fork.`;
 }
 const GO = 'Start the branches';
 const STOP = 'Don’t fork';
