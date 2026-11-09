@@ -163,10 +163,13 @@ export async function sendPluginSessionEvent(win: BrowserWindow, sessionId: stri
     return;
   }
   if (event.kind === 'moveToDate') {
-    // Only a note the session may reach.
+    // Only notes the session may reach; `paths`, a selection moved together (#2938).
     const path = String(event.path);
-    if (!entry.session.scope().includes(path)) throw new Error('That note isn’t in this view.');
-    entry.session.emit('moveToDate', { path });
+    const scope = entry.session.scope();
+    if (!scope.includes(path)) throw new Error('That note isn’t in this view.');
+    const paths = Array.isArray(event.paths) ? [...new Set(event.paths.map(String))] : [];
+    if (paths.some((p) => !scope.includes(p))) throw new Error('That note isn’t in this view.');
+    entry.session.emit('moveToDate', paths.length > 1 ? { path, paths } : { path });
     return;
   }
   if (event.kind === 'refreshQuery') {

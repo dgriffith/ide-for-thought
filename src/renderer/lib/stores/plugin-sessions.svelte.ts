@@ -50,7 +50,8 @@ export interface PluginFrameConnection {
   /** A global view's or live block's (#2640, #2641): run its query again and send the plugin the results; resolves once they're sent. */
   refreshQuery(): Promise<void>;
   /** *Move to date…* from the app's note menu (#2929): the plugin lets the user choose the day. */
-  startMoveToDate(path: string): Promise<void>;
+  /** `paths`: a selection, moved together by the day chosen for `path` (#2938). */
+  startMoveToDate(path: string, paths?: readonly string[]): Promise<void>;
   close(): Promise<void>;
 }
 
@@ -74,8 +75,9 @@ export interface PluginFrameHost {
   moveColumn?(key: string, target: string, side: 'before' | 'after'): void;
   /** A card put beside another in the view's order (#2922). */
   reorderCard?(path: string, target: string, side: 'before' | 'after'): void;
-  /** A calendar's reschedule (#2829): the host moves the note's dates by whole days, with its own undo. */
-  reschedule?(path: string, days: number): void;
+  /** A calendar's reschedule (#2829): the host moves the note's dates by whole days, with its own undo;
+   *  `paths`, a group moved together with one undo (#2938). */
+  reschedule?(path: string, days: number, paths?: string[]): void;
   /** …and by time (#2953): a move of start and end, or of the end alone, by whole minutes. */
   retime?(path: string, minutes: number, kind: 'move' | 'resize'): void;
   /** …and a new event drawn on it (#2954): the host asks for a title and creates the note. */
@@ -176,7 +178,7 @@ function onIntent({ sessionId, pluginId, intent }: PluginIntentEvent): void {
       hosts.get(sessionId)?.reorderCard?.(intent.path, intent.target, intent.side);
       return;
     case 'reschedule':
-      hosts.get(sessionId)?.reschedule?.(intent.path, intent.days);
+      hosts.get(sessionId)?.reschedule?.(intent.path, intent.days, intent.paths);
       return;
     case 'retime':
     case 'resize':
@@ -265,7 +267,7 @@ export async function connectPluginFrame(
     requestExport: (requestId) => api.plugins.sendSessionEvent(sessionId, { kind: 'exportRequest', requestId }),
     sendPreview: (path, description) => api.plugins.sendSessionEvent(sessionId, { kind: 'preview', path, description }),
     refreshQuery: () => api.plugins.sendSessionEvent(sessionId, { kind: 'refreshQuery' }),
-    startMoveToDate: (path) => api.plugins.sendSessionEvent(sessionId, { kind: 'moveToDate', path }),
+    startMoveToDate: (path, paths) => api.plugins.sendSessionEvent(sessionId, paths && paths.length > 1 ? { kind: 'moveToDate', path, paths: [...paths] } : { kind: 'moveToDate', path }),
     close: () => {
       hosts.delete(sessionId);
       return api.plugins.closeSession(sessionId);

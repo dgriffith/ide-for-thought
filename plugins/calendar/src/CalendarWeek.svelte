@@ -49,6 +49,7 @@
   import type { TimelineEvent } from '../../../src/shared/timeline/timeline-events';
   import type { NoteHover } from './hover.svelte';
   import { isMenuKey, openMenuAt } from './drag-keys';
+  import { useSelection } from './selection.svelte';
   import { clockLabel, clockRange } from './week-nav';
   import { SNAP_MINUTES, timeDrag, type TimeDragKind, type TimeMoves } from './time-drag';
   import { DEFAULT_TIMED_MINUTES } from '../../../src/shared/calendar/time-grid';
@@ -71,7 +72,8 @@
     hover: NoteHover;
     cardId: string;
     cardKey: string | null;
-    onOpen: (key: string) => void;
+    /** The click that asked, for its modifiers (#2938). */
+    onOpen: (key: string, e?: MouseEvent) => void;
     /** Minerva's note menu for an event; null where the view has none. */
     onMenu: ((e: MouseEvent, key: string) => void) | null;
     onDayList: (day: number, anchor: HTMLElement) => void;
@@ -307,8 +309,9 @@
     focusedSlot = slot;
     if (choosing) onChooseDay(day);
   }
+  const selection = useSelection();
   const eventHandlers = (key: string, ev: TimelineEvent) => ({
-    onclick: (e: MouseEvent) => { e.stopPropagation(); onOpen(key); },
+    onclick: (e: MouseEvent) => { e.stopPropagation(); onOpen(key, e); },
     oncontextmenu: (e: MouseEvent) => onMenu?.(e, key),
     onpointerenter: (e: PointerEvent) => { if (!dragging) hover.pointerEnter({ key, target: key, anchor: e.currentTarget as Element, fallbackTitle: ev.title }); },
     onpointerleave: () => hover.pointerLeave(key),
@@ -391,6 +394,8 @@
               data-calendar-event
               data-note-path={s.key}
               data-moving={movingKey === s.key || undefined}
+              class:wk-selected={selection.has(s.key)}
+              aria-pressed={selection.selectable ? selection.has(s.key) : undefined}
               aria-describedby={describe(s.key)}
               {...eventHandlers(s.key, ev)}
             >
@@ -468,6 +473,8 @@
                 data-lane={p.lane}
                 data-lanes={p.lanes}
                 data-moving={movingKey === p.key || undefined}
+                class:wk-selected={selection.has(p.key)}
+                aria-pressed={selection.selectable ? selection.has(p.key) : undefined}
                 aria-describedby={describe(p.key)}
                 aria-keyshortcuts={timeMoves ? 'Alt+ArrowUp Alt+ArrowDown Alt+Shift+ArrowUp Alt+Shift+ArrowDown' : undefined}
                 {...eventHandlers(p.key, ev)}
@@ -549,6 +556,8 @@
     cursor: pointer;
   }
   .wk-ev { flex-direction: column; align-items: flex-start; }
+  /* Selected (#2938): an accent ring. */
+  .wk-ev.wk-selected, .wk-bar.wk-selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
   .wk-ev.wk-short { flex-direction: row; align-items: center; white-space: nowrap; padding-top: 0; padding-bottom: 0; }
   .wk-ev:hover, .wk-bar:hover, .wk-ev:focus-visible, .wk-bar:focus-visible { border-color: var(--ev-color, var(--accent)); outline: none; }
   .wk-ev[data-moving], .wk-bar[data-moving] { outline: 2px dashed var(--accent); outline-offset: 1px; }

@@ -358,3 +358,45 @@ describe('retime by minutes (#2953)', () => {
     expect(h.writeFile).toHaveBeenCalledWith('standup.md', expect.any(String), { cause: 'Moved by Calendar' });
   });
 });
+
+describe('reschedule a group (#2938)', () => {
+  const A = '---\ntype: event\ndate: 2026-10-05\n---\n# Dentist\n';
+  const B = '---\ntype: event\ndate: 2026-10-07\nend: 2026-10-09\n---\n# Trip\n';
+  const MONTH = '---\ntype: event\ndate: 2026-10\n---\n# Offsite\n';
+  const FIELDS = { start: 'date', end: 'end' };
+  const LABELS = { to: 'Wednesday, 7 October 2026', back: 'Monday, 5 October 2026' };
+  const ev = (path: string, title: string) => ({ path, title });
+  const sentence = async () => (await import('../../../src/shared/calendar/reschedule-refusal')).groupRefusal;
+
+  it('moves every event by the same days, keeping their spacing, as ONE undo step', async () => {
+    const store = await freshStore();
+    h.disk.set('a.md', A);
+    h.disk.set('b.md', B);
+    const out = await store.rescheduleEvents([ev('a.md', 'Dentist'), ev('b.md', 'Trip')], 'a.md', FIELDS, 2, LABELS, await sentence());
+    expect(out).toEqual({ ok: true, paths: ['a.md', 'b.md'] });
+    expect(h.disk.get('a.md')).toContain('date: 2026-10-07');
+    expect(h.disk.get('b.md')).toContain('date: 2026-10-09\nend: 2026-10-11');
+    expect(h.announce).toHaveBeenLastCalledWith('Moved 2 events, Dentist to Wednesday, 7 October 2026.');
+    expect(store.revision).toBe(1);
+    // One ⌘Z puts both back.
+    expect(await store.undoLastMove('calendar')).toEqual(['a.md', 'b.md']);
+    expect(h.disk.get('a.md')).toBe(A);
+    expect(h.disk.get('b.md')).toBe(B);
+    expect(h.announce).toHaveBeenLastCalledWith('Undid the move: 2 events.');
+    expect(store.canUndoReschedule).toBe(false);
+  });
+
+  it('moves none when any can\'t move, and says which', async () => {
+    const store = await freshStore();
+    h.disk.set('a.md', A);
+    h.disk.set('m.md', MONTH);
+    const out = await store.rescheduleEvents([ev('a.md', 'Dentist'), ev('m.md', 'Offsite')], 'a.md', FIELDS, 2, LABELS, await sentence());
+    expect(out.ok).toBe(false);
+    const refusal = (out as { refusal: string }).refusal;
+    expect(refusal).toBe("Can't move these 2 events together. Offsite: 2026-10 has no day to move; open it to edit. Deselect it to move the rest.");
+    expect(h.announce).toHaveBeenLastCalledWith(refusal);
+    expect(h.writeFile).not.toHaveBeenCalled();
+    expect(h.disk.get('a.md')).toBe(A);
+    expect(store.canUndoReschedule).toBe(false);
+  });
+});

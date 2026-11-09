@@ -29,6 +29,18 @@ export function refusalFor(ev: Pick<TimelineEvent, 'inst' | 'title'>, dates: Tim
   return reason === null ? null : rescheduleRefusalText(reason, { title: ev.title, start, end });
 }
 
+/**
+ * Why a group of events can't be moved together (#2938), or null when every
+ * one can: the whole move is refused, each event that can't move named by its
+ * own sentence, rather than moving the rest and losing part of the group.
+ */
+export function groupRefusal(events: readonly { title: string; refusal: string | null }[]): string | null {
+  // Some sentences lead with the date ("2026-10 has no day to move…"): in a group, say whose.
+  const why = events.flatMap((e) => (e.refusal === null ? [] : [e.refusal.startsWith(e.title) ? e.refusal : `${e.title}: ${e.refusal}`]));
+  if (why.length === 0) return null;
+  return `Can't move these ${events.length} events together. ${why.join(' ')} Deselect ${why.length === 1 ? 'it' : 'them'} to move the rest.`;
+}
+
 /** Why `ev` can't be moved by time (`move`) or have its end changed (`resize`) (#2953); null when it can. */
 export function timeRefusalFor(ev: Pick<TimelineEvent, 'inst' | 'title'>, dates: TimelineProperties, kind: 'move' | 'resize'): string | null {
   const { start, end } = writtenDates(ev, dates);

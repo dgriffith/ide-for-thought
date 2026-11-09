@@ -217,8 +217,11 @@ describe("a card's hover preview (#2710, #2828)", () => {
     const onReschedule = vi.fn();
     await mounted(fakeView({ onReschedule, week: { start: 7, numbers: true } }), 'timeline');
     expect(h.sendView.mock.calls.at(-1)![0]).toMatchObject({ week: { start: 7, numbers: true }, movable: true });
-    (h.host as unknown as { reschedule(p: string, d: number): void }).reschedule('a.md', 3);
-    expect(onReschedule).toHaveBeenCalledWith('a.md', 3);
+    const host = h.host as unknown as { reschedule(p: string, d: number, paths?: string[]): void };
+    host.reschedule('a.md', 3);
+    expect(onReschedule).toHaveBeenCalledWith('a.md', 3, undefined);
+    host.reschedule('a.md', 3, ['a.md', 'b.md']); // a selection moved together (#2938)
+    expect(onReschedule).toHaveBeenLastCalledWith('a.md', 3, ['a.md', 'b.md']);
   });
 
   it('where the view reschedules, it hands the row menu a Move to date that asks the plugin (#2929)', async () => {
@@ -230,8 +233,11 @@ describe("a card's hover preview (#2710, #2828)", () => {
     });
     const { unmount } = await mounted(fakeView({ onReschedule: vi.fn(), provideMoveToDate }), 'calendar');
     await vi.waitFor(() => expect(provideMoveToDate).toHaveBeenCalledWith(expect.any(Function)));
-    (provideMoveToDate.mock.calls.at(-1)![0] as (p: string) => void)('a.md');
-    expect(startMoveToDate).toHaveBeenCalledWith('a.md');
+    const start = provideMoveToDate.mock.calls.at(-1)![0] as (p: string, paths?: string[]) => void;
+    start('a.md');
+    expect(startMoveToDate).toHaveBeenCalledWith('a.md', undefined);
+    start('a.md', ['a.md', 'b.md']); // for a selection (#2938)
+    expect(startMoveToDate).toHaveBeenLastCalledWith('a.md', ['a.md', 'b.md']);
     unmount();
     expect(provideMoveToDate).toHaveBeenLastCalledWith(null);
   });

@@ -16,6 +16,7 @@
   import type { BandEntry } from '../../../src/shared/calendar/calendar-model';
   import type { NoteHover } from './hover.svelte';
   import { isMenuKey, openMenuAt } from './drag-keys';
+  import { useSelection } from './selection.svelte';
 
   interface Band {
     id: 'year' | 'month';
@@ -29,11 +30,13 @@
     cardId: string;
     cardKey: string | null;
     exportMode: boolean;
-    onOpenNote: (path: string) => void;
+    /** The click that asked, for its modifiers (#2938). */
+    onOpenNote: (path: string, e?: MouseEvent) => void;
     /** Minerva's note menu for an entry, at the pointer; absent → no menu. */
     onMenu?: ((e: MouseEvent, key: string) => void) | null;
   }
   let { bands, hover, cardId, cardKey, exportMode, onOpenNote, onMenu = null }: Props = $props();
+  const selection = useSelection();
 
   const uid = $props.id();
   const shown = $derived(bands.filter((b) => b.entries.length > 0));
@@ -63,7 +66,9 @@
                   data-note-path={b.ev.key}
                   aria-describedby={cardKey === b.ev.key ? cardId : undefined}
                   aria-haspopup={onMenu ? 'menu' : undefined}
-                  onclick={() => onOpenNote(b.ev.key)}
+                  class:cal-chip-selected={selection.has(b.ev.key)}
+                  aria-pressed={selection.selectable ? selection.has(b.ev.key) : undefined}
+                  onclick={(e) => onOpenNote(b.ev.key, e)}
                   oncontextmenu={onMenu ? (e) => onMenu(e, b.ev.key) : undefined}
                   onkeydown={onMenu ? (e) => { if (isMenuKey(e)) { e.preventDefault(); openMenuAt(e.currentTarget); } } : undefined}
                   onfocus={(e) => { if (!exportMode) hover.focus(subject(b, e.currentTarget)); }}
@@ -108,6 +113,7 @@
     cursor: pointer;
   }
   .cal-chip:hover { border-style: solid; }
+  .cal-chip.cal-chip-selected { border-style: solid; border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
   .cal-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .cal-chip-title { font-weight: 500; }
   .cal-chip-date, .cal-chip-mark { font-size: 11px; }

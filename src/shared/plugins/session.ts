@@ -33,7 +33,7 @@ export type PluginIntent =
   | { kind: 'moveColumn'; key: string; target: string; side: 'before' | 'after' }
   /** A card put beside another in the view's order (#2922): the host changes the view, no note. */
   | { kind: 'reorderCard'; path: string; target: string; side: 'before' | 'after' }
-  | { kind: 'reschedule'; path: string; days: number }
+  | { kind: 'reschedule'; path: string; days: number; paths?: string[] }
   /** A calendar's move or resize by time (#2953): the host writes, with its own undo. */
   | { kind: 'retime'; path: string; minutes: number }
   | { kind: 'resize'; path: string; minutes: number }
@@ -67,7 +67,7 @@ export type PluginHostEvent =
   /** Run a global view's declared query again and send its results (#2640). */
   | { kind: 'refreshQuery' }
   /** *Move to date…* chosen in the app's note menu (#2929): the plugin chooses the day. */
-  | { kind: 'moveToDate'; path: string };
+  | { kind: 'moveToDate'; path: string; paths?: string[] };
 
 export interface PluginIntentEvent {
   sessionId: string;

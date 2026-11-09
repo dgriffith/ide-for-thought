@@ -21,6 +21,7 @@
   import type { TimelineEvent } from '../../../src/shared/timeline/timeline-events';
   import type { NoteHover } from './hover.svelte';
   import { isMenuKey, openMenuAt } from './drag-keys';
+  import { useSelection } from './selection.svelte';
 
   interface Props {
     /** "Tuesday, 6 October 2026". */
@@ -34,13 +35,15 @@
     /** The hover preview's id, and the event it shows (for `aria-describedby`). */
     cardId: string;
     cardKey: string | null;
-    onOpen: (key: string) => void;
+    /** The click that asked, for its modifiers (#2938). */
+    onOpen: (key: string, e?: MouseEvent) => void;
     onClose: (returnFocus: boolean) => void;
     /** Minerva's note menu for an event, at the pointer; absent → no menu. */
     onMenu?: ((e: MouseEvent, key: string) => void) | null;
   }
   let { label, events, anchor, timeOf, hover, cardId, cardKey, onOpen, onClose, onMenu = null }: Props = $props();
   const uid = $props.id();
+  const selection = useSelection();
 
   let el = $state<HTMLDivElement>();
   let pos = $state<{ left: number; top: number } | null>(null);
@@ -95,6 +98,8 @@
       onClose(true);
       return;
     }
+    // Space and ⇧+↑/↓ build a selection (#2938), in the list's order.
+    if (item && selection.key(e, item.dataset['notePath']!, events.map((ev) => ev.key), ['ArrowUp', 'ArrowDown'], (key) => items().find((el) => el.dataset['notePath'] === key)?.focus())) return;
     const list = items();
     const i = list.indexOf(document.activeElement as HTMLElement);
     let next: HTMLElement | undefined;
@@ -151,7 +156,9 @@
             data-note-path={ev.key}
             aria-describedby={[`${uid}-desc-${i}`, cardKey === ev.key ? cardId : null].filter(Boolean).join(' ')}
             aria-haspopup={onMenu ? 'menu' : undefined}
-            onclick={() => onOpen(ev.key)}
+            class:cal-pop-selected={selection.has(ev.key)}
+            aria-pressed={selection.selectable ? selection.has(ev.key) : undefined}
+            onclick={(e) => onOpen(ev.key, e)}
             oncontextmenu={onMenu ? (e) => onMenu(e, ev.key) : undefined}
             onfocus={(e) => hover.focus({ key: ev.key, target: ev.key, anchor: e.currentTarget, fallbackTitle: ev.title })}
             onblur={() => hover.blur(ev.key)}
@@ -217,6 +224,7 @@
   }
   .cal-pop-item.approx { border-left-style: dashed; }
   .cal-pop-item:hover { background: color-mix(in oklch, var(--text) 8%, transparent); }
+  .cal-pop-item.cal-pop-selected { background: color-mix(in oklch, var(--accent) 16%, transparent); box-shadow: inset 3px 0 0 var(--accent); }
   .cal-pop-item:focus-visible { outline: 2px solid var(--accent); outline-offset: -1px; }
   .cal-pop-time { grid-row: span 2; font-size: 11px; font-variant-numeric: tabular-nums; white-space: nowrap; padding-top: 1px; }
   .cal-pop-name { font-size: 12.5px; font-weight: 500; overflow-wrap: anywhere; }

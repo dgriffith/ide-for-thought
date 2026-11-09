@@ -182,7 +182,7 @@ const CORE_PLUGIN_DEFINITIONS: readonly CorePluginDefinition[] = [
         "- A calendar embedded in a note is read-only.",
       ].join('\n'),
       contributes: {},
-      code: { capabilities: ['notes:read', 'notes:write-properties', 'notes:write', 'ui'], api: '^1.15.0' },
+      code: { capabilities: ['notes:read', 'notes:write-properties', 'notes:write', 'ui'], api: '^1.16.0' },
     },
     defaultEnabled: true,
   },

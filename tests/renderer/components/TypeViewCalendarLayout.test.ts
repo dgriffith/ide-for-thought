@@ -12,7 +12,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, fireEvent, cleanup, waitFor, screen } from '@testing-library/svelte';
 
 const h = vi.hoisted(() => ({
-  instances: vi.fn(), list: vi.fn(), noteTypeMap: vi.fn(), reschedule: vi.fn(), retime: vi.fn(), create: vi.fn(), undo: vi.fn(),
+  instances: vi.fn(), list: vi.fn(), noteTypeMap: vi.fn(), reschedule: vi.fn(), rescheduleMany: vi.fn(), retime: vi.fn(), create: vi.fn(), undo: vi.fn(),
   loop: {} as import('./plugin-loopback').LoopbackState,
 }));
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({
@@ -21,7 +21,7 @@ vi.mock('../../../src/renderer/lib/ipc/client', () => ({
 vi.mock('../../../src/renderer/lib/stores/plugin-sessions.svelte', () => ({ connectPluginFrame: (...a: unknown[]) => h.loop.connect(...a) }));
 // The move store's own test covers the write; here, what the view asks of it.
 vi.mock('../../../src/renderer/lib/stores/kanban-moves.svelte', () => ({
-  getKanbanMoveStore: () => ({ revision: 0, lastMove: null, canUndo: true, canUndoReschedule: false, moveCards: vi.fn(), rescheduleEvent: h.reschedule, retimeEvent: h.retime, undoLastMove: h.undo }),
+  getKanbanMoveStore: () => ({ revision: 0, lastMove: null, canUndo: true, canUndoReschedule: false, moveCards: vi.fn(), rescheduleEvent: h.reschedule, rescheduleEvents: h.rescheduleMany, retimeEvent: h.retime, undoLastMove: h.undo }),
 }));
 vi.mock('../../../src/renderer/lib/app/calendar-create', () => ({ createCalendarEvent: (...a: unknown[]) => h.create(...a) }));
 vi.mock('../../../src/renderer/lib/stores/settings-calendar.svelte', () => ({
@@ -283,6 +283,68 @@ describe('calendar layout (#2701, #2702)', () => {
       await fireEvent.click(move);
       expect(screen.getByRole('menu')).toBeTruthy(); // stays open, having said why
       expect(container.querySelector('[data-calendar-move-bar]')).toBeNull();
+    });
+
+    // Several at once (#2938): the selection's menu, and its Move to date… moving every one.
+    const OCT = [
+      { path: 'j2.md', title: 'Autumn issue', values: { published: '2026-10-01', revised: null, editor: 'Bo' }, cover: null },
+      { path: 'j4.md', title: 'Late issue', values: { published: '2026-10-05', revised: null, editor: null }, cover: null },
+    ];
+
+    it('⌘-click two events, right-click one: the menu is for both, and Move to date… moves both by one day', async () => {
+      h.instances.mockResolvedValue({ type: JOURNAL, instances: OCT });
+      const noteActions = actions();
+      const { container } = render(TypeView, props({ typeId: 'journal', layout: 'calendar', month: '2026-10', noteActions }));
+      await waitFor(() => expect(drawn(container)).toEqual(['j2.md', 'j4.md']));
+      await fireEvent.click(event(container, 'j2.md'), { metaKey: true });
+      await fireEvent.click(event(container, 'j4.md'), { metaKey: true });
+      await waitFor(() => expect(event(container, 'j4.md').getAttribute('aria-pressed')).toBe('true'));
+      expect(event(container, 'j2.md').getAttribute('aria-pressed')).toBe('true');
+      await fireEvent.contextMenu(event(container, 'j4.md'));
+      await fireEvent.click(await screen.findByRole('menuitem', { name: 'Add Tag… (2 notes)' }));
+      expect(noteActions.addTag).toHaveBeenCalledWith(['j2.md', 'j4.md']);
+
+      await fireEvent.contextMenu(event(container, 'j4.md'));
+      await fireEvent.click(await screen.findByRole('menuitem', { name: 'Move to date…' }));
+      const bar = await waitFor(() => { const b = container.querySelector('[data-calendar-move-bar]'); expect(b).toBeTruthy(); return b!; });
+      // The day is chosen for the event the menu was opened on.
+      expect(bar.textContent).toContain('Moving 2 events: choose a day for Late issue');
+      const oct5 = document.activeElement as HTMLElement;
+      await fireEvent.keyDown(oct5, { key: 'ArrowRight' });
+      await waitFor(() => expect(document.activeElement).not.toBe(oct5));
+      await fireEvent.keyDown(document.activeElement!, { key: 'Enter' });
+      expect(h.rescheduleMany).toHaveBeenCalledWith(
+        [{ path: 'j2.md', title: 'Autumn issue' }, { path: 'j4.md', title: 'Late issue' }], 'j4.md', { start: 'published', end: null }, 1,
+        { to: expect.any(String), back: expect.any(String) }, expect.any(Function), { cause: 'Moved by Calendar' },
+      );
+      expect(h.reschedule).not.toHaveBeenCalled();
+    });
+
+    it('a selection with an event that can\'t move keeps Move to date…, disabled, naming it', async () => {
+      const MONTH_ONLY = { path: 'j3.md', title: 'Some issue', values: { published: '2026-10', revised: null, editor: null }, cover: null };
+      h.instances.mockResolvedValue({ type: JOURNAL, instances: [...OCT, MONTH_ONLY] });
+      const { container } = render(TypeView, props({ typeId: 'journal', layout: 'calendar', month: '2026-10', noteActions: actions() }));
+      await waitFor(() => expect(event(container, 'j3.md')).toBeTruthy());
+      await fireEvent.click(event(container, 'j2.md'), { metaKey: true });
+      await fireEvent.click(event(container, 'j3.md'), { metaKey: true });
+      await waitFor(() => expect(event(container, 'j3.md').getAttribute('aria-pressed')).toBe('true'));
+      await fireEvent.contextMenu(event(container, 'j2.md'));
+      const move = await screen.findByRole('menuitem', { name: 'Move to date…' });
+      expect(move.getAttribute('aria-disabled')).toBe('true');
+      expect(document.getElementById(move.getAttribute('aria-describedby')!)!.textContent).toBe(
+        "Can't move these 2 events together. Some issue: 2026-10 has no day to move; open it to edit. Deselect it to move the rest.",
+      );
+    });
+
+    it('view.reschedule with paths moves the group through the store as one move', async () => {
+      h.instances.mockResolvedValue({ type: JOURNAL, instances: OCT });
+      render(TypeView, props({ typeId: 'journal', layout: 'calendar', month: '2026-10' }));
+      await waitFor(() => expect(h.loop.host?.reschedule).toBeTypeOf('function'));
+      h.loop.host!.reschedule!('j2.md', 3, ['j2.md', 'j4.md']);
+      expect(h.rescheduleMany).toHaveBeenCalledWith(
+        [{ path: 'j2.md', title: 'Autumn issue' }, { path: 'j4.md', title: 'Late issue' }], 'j2.md', { start: 'published', end: null }, 3,
+        { to: expect.any(String), back: expect.any(String) }, expect.any(Function), { cause: 'Moved by Calendar' },
+      );
     });
 
     it('an embed gets the note actions but no Move to date…', async () => {

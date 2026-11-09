@@ -52,7 +52,7 @@
     onUndoMove?: () => void;
     onMoveColumn?: (key: string, target: string, side: 'before' | 'after') => void;
     onReorderCard?: (path: string, target: string, side: 'before' | 'after') => void;
-    onReschedule?: (path: string, days: number) => void;
+    onReschedule?: (path: string, days: number, paths?: string[]) => void;
     onRetime?: (path: string, minutes: number, kind: 'move' | 'resize') => void;
     onCreateEvent?: (start: string, end: string | null) => void;
     /** The plugin's answer to an export request, unsanitized (#2828). */
@@ -157,7 +157,7 @@
         undoMove: () => onUndoMove?.(),
         moveColumn: (key, target, side) => onMoveColumn?.(key, target, side),
         reorderCard: (path, target, side) => onReorderCard?.(path, target, side),
-        reschedule: (path, days) => onReschedule?.(path, days),
+        reschedule: (path, days, paths) => onReschedule?.(path, days, paths),
         retime: (path, minutes, kind) => onRetime?.(path, minutes, kind),
         createEvent: (start, end) => onCreateEvent?.(start, end),
         previewNote: (path, rect, via, opts) => {

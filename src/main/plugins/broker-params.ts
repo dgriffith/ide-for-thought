@@ -81,3 +81,21 @@ export function recordParam(params: Record<string, unknown>, key: string): Recor
   if (v === null || typeof v !== 'object' || Array.isArray(v)) throw new Refusal('bad-request', `"${key}" must be an object.`);
   return v as Record<string, unknown>;
 }
+
+/** How many notes one `view.reschedule` may move together (#2938): a selection, not a bulk import. */
+export const RESCHEDULE_MAX_NOTES = 1000;
+
+/**
+ * `view.reschedule`'s `paths` (#2938): a group moved by the same days with one
+ * undo — deduplicated, each one `scoped`, `path` among them. Empty when there's
+ * none (one note, just `path`).
+ */
+export function rescheduleGroupParam(raw: unknown, path: string, scoped: (raw: string) => string): string[] {
+  if (raw === undefined) return [];
+  if (!Array.isArray(raw) || raw.length > RESCHEDULE_MAX_NOTES || !raw.every((p) => typeof p === 'string')) {
+    throw new Refusal('bad-request', `"paths" is a list of at most ${RESCHEDULE_MAX_NOTES} note paths.`);
+  }
+  const paths = [...new Set(raw.map(scoped))];
+  if (paths.length > 0 && !paths.includes(path)) throw new Refusal('bad-request', '"paths" includes "path".');
+  return paths;
+}

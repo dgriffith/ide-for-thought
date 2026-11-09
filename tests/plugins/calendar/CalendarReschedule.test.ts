@@ -350,3 +350,111 @@ describe('Calendar: ⌘Z (#2703)', () => {
     expect(h.undo).not.toHaveBeenCalled();
   });
 });
+
+describe('Calendar: several events (#2938)', () => {
+  const TAB = { rowMenu: true, selectable: true } as const;
+  const clicks = (api: { of: (n: string) => unknown[] }) => api.of('view.click');
+  const menus = (api: { of: (n: string) => unknown[] }) => (api.of('ui.showNoteMenu') as Array<{ paths: string[] }>).map((m) => m.paths);
+  async function press(key: string, opts: Record<string, unknown> = {}) {
+    await fireEvent.keyDown(document.activeElement!, { key, ...opts });
+    await tick();
+    await tick();
+  }
+  const WITH_BANDS = [...EVENTS, row('month.md', 'Sometime', '2026-10'), row('nodate.md', 'No date', null)];
+
+  it('a click carries its modifiers where the view selects — on the grid, a band and Undated; elsewhere it just opens', async () => {
+    const { segs, container, api } = setup({ ...TAB, instances: WITH_BANDS });
+    await fireEvent.click(segs('dentist.md')[0]!, { metaKey: true });
+    await fireEvent.click(container.querySelector<HTMLElement>('.cal-chip[data-note-path="month.md"]')!, { shiftKey: true });
+    await fireEvent.click(container.querySelector<HTMLElement>('.cal-undated-row[data-note-path="nodate.md"]')!, { ctrlKey: true });
+    expect(clicks(api)).toEqual([
+      { path: 'dentist.md', meta: true, ctrl: false, shift: false },
+      { path: 'month.md', meta: false, ctrl: false, shift: true },
+      { path: 'nodate.md', meta: false, ctrl: true, shift: false },
+    ]);
+    cleanup();
+    const embed = setup({ rowMenu: true });
+    await fireEvent.click(embed.segs('dentist.md')[0]!, { metaKey: true });
+    expect(clicks(embed.api)).toEqual([{ path: 'dentist.md' }]);
+  });
+
+  it('draws the selection on the grid, a band, Undated and the day list', async () => {
+    const { segs, container, cell } = setup({ ...TAB, instances: WITH_BANDS, selected: ['dentist.md', 'month.md', 'nodate.md'] });
+    expect(segs('dentist.md')[0]!.getAttribute('aria-pressed')).toBe('true');
+    expect(segs('trip.md')[0]!.getAttribute('aria-pressed')).toBe('false');
+    expect(container.querySelector('.cal-chip[data-note-path="month.md"]')!.getAttribute('aria-pressed')).toBe('true');
+    expect(container.querySelector('.cal-undated-row[data-note-path="nodate.md"]')!.getAttribute('aria-pressed')).toBe('true');
+    cell(day(2026, 10, 6)).focus();
+    await press('Enter');
+    const item = (await screen.findByRole('dialog')).querySelector<HTMLElement>('[data-day-event][data-note-path="dentist.md"]')!;
+    expect(item.getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it("a right-click on a selected event is the selection's menu; on any other, that note's", async () => {
+    const { segs, api } = setup({ ...TAB, selected: ['dentist.md', 'trip.md'] });
+    await fireEvent.contextMenu(segs('trip.md')[0]!);
+    await fireEvent.contextMenu(segs('launch.md')[0]!);
+    expect(menus(api)).toEqual([['dentist.md', 'trip.md'], ['launch.md']]);
+  });
+
+  it('⌘A selects all, and Escape clears a selection — through the view', async () => {
+    const { cell, api, rerender } = setup(TAB);
+    cell(day(2026, 10, 6)).focus();
+    await press('a', { metaKey: true });
+    expect(api.of('view.selectAll')).toHaveLength(1);
+    await press('Escape');
+    expect(api.of('view.clearSelection')).toHaveLength(0); // nothing selected yet
+    await rerender({ selected: ['dentist.md'] });
+    await press('Escape');
+    expect(api.of('view.clearSelection')).toHaveLength(1);
+  });
+
+  it("in a day's list, Space toggles and ⇧+↓ extends to the next event, keeping the list open", async () => {
+    const both = [row('a.md', 'Alpha', '2026-10-06T09:00'), row('b.md', 'Bravo', '2026-10-06T10:00')];
+    const { cell, api } = setup({ ...TAB, instances: both });
+    cell(day(2026, 10, 6)).focus();
+    await press('Enter');
+    const dlg = await screen.findByRole('dialog');
+    const items = () => [...dlg.querySelectorAll<HTMLElement>('[data-day-event]')];
+    await waitFor(() => expect(document.activeElement).toBe(items()[0]));
+    await press(' ');
+    await press('ArrowDown', { shiftKey: true });
+    expect(clicks(api)).toEqual([{ path: 'a.md', meta: true }, { path: 'a.md', meta: true }, { path: 'b.md', shift: true }]);
+    expect(document.activeElement).toBe(items()[1]);
+    expect(screen.getByRole('dialog')).toBeTruthy();
+  });
+
+  it('Move to date… for a selection chooses the day for the event the menu was on, and moves them all in one request', async () => {
+    const { segs, cell, q, api } = setup({ ...TAB, selected: ['dentist.md', 'trip.md'] });
+    await fireEvent.contextMenu(segs('trip.md')[0]!);
+    api.emit('moveToDate', { path: 'dentist.md', paths: ['dentist.md', 'trip.md'] });
+    await waitFor(() => expect(document.activeElement).toBe(cell(day(2026, 10, 9))));
+    expect(q('[data-calendar-move-bar]')!.textContent).toContain('Moving 2 events: choose a day for Trip');
+    await press('ArrowRight');
+    await press('Enter');
+    expect(h.reschedule).toHaveBeenCalledOnce();
+    expect(h.reschedule).toHaveBeenCalledWith({ path: 'trip.md', days: 1, paths: ['dentist.md', 'trip.md'] });
+  });
+
+  it('a selection with an event that can\'t move moves none, naming it, and never starts choosing', async () => {
+    const { q, api } = setup({ ...TAB, selected: ['dentist.md', 'launch.md'] });
+    api.emit('moveToDate', { path: 'dentist.md', paths: ['dentist.md', 'launch.md'] });
+    await tick();
+    await tick();
+    expect(q('[data-calendar-move-bar]')).toBeNull();
+    expect(h.announce).toHaveBeenCalledWith(expect.stringMatching(/^Can't move these 2 events together\. Launch .* Deselect it to move the rest\.$/));
+  });
+
+  it('dragging a selected event moves the selection by the drag; with a refused one in it, none', async () => {
+    const { segs, rerender } = setup({ ...TAB, selected: ['dentist.md', 'trip.md'] });
+    await drag(segs('dentist.md')[0]!, at(day(2026, 10, 6)), at(day(2026, 10, 8)));
+    expect(h.reschedule).toHaveBeenCalledWith({ path: 'dentist.md', days: 2, paths: ['dentist.md', 'trip.md'] });
+    // An unselected event drags alone.
+    await rerender({ selected: ['trip.md', 'launch.md'] });
+    await drag(segs('dentist.md')[0]!, at(day(2026, 10, 6)), at(day(2026, 10, 7)));
+    expect(h.reschedule).toHaveBeenLastCalledWith({ path: 'dentist.md', days: 1 });
+    await drag(segs('trip.md')[0]!, at(day(2026, 10, 9)), at(day(2026, 10, 10)));
+    expect(h.reschedule).toHaveBeenCalledTimes(2);
+    expect(h.announce).toHaveBeenLastCalledWith(expect.stringMatching(/^Can't move these 2 events together\./));
+  });
+});

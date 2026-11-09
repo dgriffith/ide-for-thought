@@ -50,7 +50,7 @@ export function pluginLoopback(into: Partial<LoopbackState>, load: () => Promise
         moveCard: (p: { path: string; target: never }) => call(() => host.moveCard?.(p.path, p.target)),
         undoMove: () => call(() => host.undoMove?.()),
         moveColumn: (p: { key: string; target: string; side: 'before' | 'after' }) => call(() => host.moveColumn?.(p.key, p.target, p.side)),
-        reschedule: (p: { path: string; days: number }) => call(() => host.reschedule?.(p.path, p.days)),
+        reschedule: (p: { path: string; days: number; paths?: string[] }) => call(() => host.reschedule?.(p.path, p.days, p.paths)),
       },
       ui: {
         announce: () => call(() => {}),
@@ -71,7 +71,7 @@ export function pluginLoopback(into: Partial<LoopbackState>, load: () => Promise
       sendView: vi.fn(async (v: PluginViewState) => { state.views.push(v); emit('view', v); }),
       requestExport: vi.fn(async (requestId: string) => { emit('export', { requestId }); }),
       sendPreview: vi.fn(async (path: string, description: string | null) => { emit('preview', { path, description }); }),
-      startMoveToDate: vi.fn(async (path: string) => { emit('moveToDate', { path }); }),
+      startMoveToDate: vi.fn(async (path: string, paths?: readonly string[]) => { emit('moveToDate', paths && paths.length > 1 ? { path, paths: [...paths] } : { path }); }),
       close: vi.fn(async () => { void unmount(app); target.remove(); }),
     };
   });
