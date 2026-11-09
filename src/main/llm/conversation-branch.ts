@@ -21,6 +21,7 @@
 import type { BranchCreateOptions, Conversation, ConversationCreateOptions, ConversationMessage, TurnUsage } from '../../shared/conversation';
 import * as conversation from './conversation';
 import { COMPACT_SYSTEM_PROMPT, buildSummaryPrompt } from './compact';
+import { costForUsage } from '../../shared/tools/models';
 
 export interface BranchDeps {
   /** One completion, as `llm/index.ts`'s `complete`. */
@@ -32,15 +33,41 @@ export interface BranchDeps {
   }) => Promise<string>;
 }
 
-const defaultDeps: BranchDeps = {
+export const defaultBranchDeps: BranchDeps = {
   complete: (prompt, options) => import('./index').then((m) => m.complete(prompt, options)),
 };
+
+/**
+ * Deps whose summary is made once and shared (#2971): a fork's branches all
+ * start from the same parent, so they share one summary call. Its cost is
+ * charged to the first branch that asked; the rest get the text alone.
+ */
+export function sharedSummary(deps: BranchDeps): BranchDeps {
+  const made = new Map<string, Promise<{ text: string; truncated: boolean }>>();
+  return {
+    complete: async (prompt, options) => {
+      let pending = made.get(prompt);
+      if (!pending) {
+        // Only this first caller's options (and so its onUsage) reach the call.
+        let truncated = false;
+        pending = deps.complete(prompt, {
+          ...options,
+          onTruncated: () => { truncated = true; },
+        }).then((text) => ({ text, truncated }));
+        made.set(prompt, pending);
+      }
+      const { text, truncated } = await pending;
+      if (truncated) options.onTruncated?.();
+      return text;
+    },
+  };
+}
 
 export async function createBranch(
   rootPath: string,
   parentId: string,
   opts: BranchCreateOptions,
-  deps: BranchDeps = defaultDeps,
+  deps: BranchDeps = defaultBranchDeps,
 ): Promise<Conversation> {
   const parent = await conversation.load(rootPath, parentId);
   if (!parent) throw new Error(`Conversation not found: ${parentId}`);
@@ -82,6 +109,7 @@ export async function createBranch(
       messages.push({
         role: 'user', content: parts.join('\n\n'), timestamp: now,
         ...(usage ? { usage } : {}), ...(usageModel ? { usageModel } : {}),
+        ...(usage && usageModel && costForUsage(usage, usageModel) !== null ? { costUSD: costForUsage(usage, usageModel)! } : {}),
       });
     }
   }

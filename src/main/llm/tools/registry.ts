@@ -5,6 +5,7 @@ import type { NotebaseTool, ToolContext, ToolCallbacks, ToolResult } from './typ
 import { listServerStatuses } from '../../mcp-servers/registry';
 import { mcpCall, describeMcpCatalog } from './mcp-call';
 import { runSkill, describeSkillCatalog } from './run-skill';
+import { fork } from './fork';
 import { searchNotes } from './search-notes';
 import { grepNotes } from './grep-notes';
 import { readNote } from './read-note';
@@ -84,6 +85,8 @@ const TOOLS = defineToolRegistry([
   { tool: proposeCompute, class: 'propose' },
   { tool: mcpCall, class: 'external' },
   { tool: runSkill, class: 'skill', pathGuard: { guard: 'agentPath', site: 'run-skill.ts' } },
+  // Starts branches through the conversation's runner (#2971). No path parameter, so no guard.
+  { tool: fork, class: 'orchestrate' },
   // Template-scoped: offered only to a skill that `requiresTools: [ask_user]`.
   { tool: askUser, class: 'interactive', templateOnly: true },
   // Template-scoped too (#2652): shows a drafted skill or plugin, writes nothing.

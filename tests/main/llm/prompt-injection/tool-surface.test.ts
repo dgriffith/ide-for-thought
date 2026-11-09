@@ -65,7 +65,7 @@ function toolSourceFiles(): string[] {
 
 describe('LLM tool surface: read, draft or propose — nothing else (#2373)', () => {
   it('every registered tool has a class from the closed set', () => {
-    const CLASSES: readonly ToolClass[] = ['read', 'propose', 'external', 'skill', 'interactive'];
+    const CLASSES: readonly ToolClass[] = ['read', 'propose', 'external', 'skill', 'interactive', 'orchestrate'];
     expect(Object.keys(CLASSIFIED).length).toBeGreaterThan(30);
     expect(Object.entries(CLASSIFIED).filter(([, c]) => !CLASSES.includes(c))).toEqual([]);
   });
@@ -79,6 +79,16 @@ describe('LLM tool surface: read, draft or propose — nothing else (#2373)', ()
   it('no tool can approve: nothing in the surface is named like an approval', () => {
     const approvalish = Object.keys(CLASSIFIED).filter((n) => /approv|apply|accept|confirm|commit/i.test(n));
     expect(approvalish).toEqual([]);
+  });
+
+  // fork (#2971) is the one tool that starts other conversations. It does so
+  // only through the conversation's runner callback, so the module never
+  // reaches the LLM client or a branch's transcript itself.
+  it('fork is the only orchestrate tool, and runs branches only through its callback', () => {
+    expect(Object.entries(CLASSIFIED).filter(([, c]) => c === 'orchestrate').map(([n]) => n)).toEqual(['fork']);
+    const src = fs.readFileSync(path.join(TOOLS_DIR, 'fork.ts'), 'utf-8');
+    expect(src).not.toMatch(/from ['"]\.\.\/index['"]|from ['"]\.\.\/conversation['"]|from ['"]\.\.\/conversation-branch['"]/);
+    expect(src).toMatch(/callbacks\.runBranches\(/);
   });
 
   it.each([...toolSourceFiles(), ...PROPOSAL_HELPERS])('%s has no write / approve / trusted-context path', (rel) => {

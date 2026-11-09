@@ -873,3 +873,45 @@ describe('branch and archive handlers (#2970)', () => {
     expect(h.archive.mock.calls.map((c) => c[1])).toEqual(['conv-1', 'conv-2']);
   });
 });
+
+// ── fork (#2971) ─────────────────────────────────────────────────────────
+describe('a fork from a conversation turn (#2971)', () => {
+  it('runs each branch as a turn of its own, with no UI callbacks or fork, and rolls its cost into the reply', async () => {
+    h.getSettings.mockResolvedValue({ autoTitleConversations: false });
+    h.complete.mockResolvedValue('The user asked something.');
+    h.setBranchOutcome.mockResolvedValue(null);
+    const parent = { ...CONV, status: 'active', messages: [{ role: 'user', content: 'hello', timestamp: 't' }] };
+    const branch = { ...CONV, id: 'conv-b', status: 'active', branch: { parentId: 'conv-1', atMessage: 1, context: 'summary' }, messages: [{ role: 'user', content: 'opening', timestamp: 't' }] };
+    h.load.mockImplementation(async (_r: string, id: string) => (id === 'conv-b' ? branch : parent));
+    h.create.mockResolvedValue(branch);
+    h.appendMessage.mockImplementation(async (_r: string, id: string, role: string, content: string) =>
+      id === 'conv-b'
+        ? { ...branch, messages: [...branch.messages, { role, content, timestamp: 't', costUSD: 0.02 }] }
+        : { ...parent, messages: [...parent.messages, { role, content, timestamp: 't' }] });
+
+    let forkOutcome: unknown;
+    let branchCallbacks: Record<string, unknown> | undefined;
+    h.completeWithTools.mockImplementation(async (params: { toolContext: { conversationId: string }; callbacks: Record<string, unknown> & { runBranches?: (s: unknown[]) => Promise<unknown> } }) => {
+      if (params.toolContext.conversationId === 'conv-1') {
+        forkOutcome = await params.callbacks.runBranches!([{ title: 'Risks', instructions: 'List the risks.' }]);
+        return completion('parent reply');
+      }
+      branchCallbacks = params.callbacks;
+      return completion('branch answer');
+    });
+
+    await send(evt, 'conv-1', 'go');
+
+    expect(forkOutcome).toMatchObject({ ok: true, results: [{ title: 'Risks', status: 'done', answer: 'branch answer', conversationId: 'conv-b' }] });
+    // The branch forked from the parent, its opening the shared summary plus its instructions.
+    const seed = h.create.mock.calls[0]![4] as { branch: unknown; messages: { content: string }[] };
+    expect(seed.branch).toEqual({ parentId: 'conv-1', atMessage: 1, context: 'summary' });
+    expect(seed.messages[0]!.content).toMatch(/The user asked something\.[\s\S]*List the risks\./);
+    // Its turn streams and stops, but can't draft, ask, confirm or fork.
+    expect(Object.keys(branchCallbacks!).sort()).toEqual(['onChunk', 'onWait', 'signal']);
+    expect(h.setBranchOutcome).toHaveBeenCalledWith('/root', 'conv-b', 'done');
+    // The parent's reply carries what the branch cost.
+    const parentAppend = h.appendMessage.mock.calls.find((c) => c[1] === 'conv-1' && c[2] === 'assistant')!;
+    expect(parentAppend[4]).toMatchObject({ addCostUSD: 0.02 });
+  });
+});

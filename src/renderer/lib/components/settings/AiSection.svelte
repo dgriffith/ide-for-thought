@@ -11,6 +11,8 @@
   bind:effort={() => host.effort, (v) => (host.effort = v)}
   bind:autoTitle={() => host.autoTitle, (v) => (host.autoTitle = v)}
   bind:concurrentRequests={() => host.concurrentRequests, (v) => (host.concurrentRequests = v)}
+  bind:forkMaxBranches={() => host.forkMaxBranches, (v) => (host.forkMaxBranches = v)}
+  bind:forkConfirmAboveUsd={() => host.forkConfirmAboveUsd, (v) => (host.forkConfirmAboveUsd = v)}
   bind:providerInputs={() => host.providerInputs, (v) => (host.providerInputs = v)}
   bind:customModels={() => host.customModels, (v) => (host.customModels = v)}
   providerViews={host.providerViews}

@@ -63,7 +63,9 @@ export type UntrustedKind =
   /** An inspection's finding, opened as a conversation (#2874): a shape's message is its author's text. */
   | 'inspection'
   /** What a plugin asked the model for (#2858): its author's text, not the user's. */
-  | 'plugin-request';
+  | 'plugin-request'
+  /** A branch's answer, returned to the conversation that forked it (#2971): model output that read the thoughtbase. */
+  | 'branch-result';
 
 /** Kinds whose value is prose/markup, rendered on their own lines inside the
  *  tag; the rest are short scalars rendered inline. */
@@ -77,6 +79,7 @@ const BLOCK_KINDS: ReadonlySet<UntrustedKind> = new Set<UntrustedKind>([
   'ontology',
   'inspection',
   'plugin-request',
+  'branch-result',
 ]);
 
 // A `<` or a fullwidth / small-form lookalike: the candidates for neutralizing.

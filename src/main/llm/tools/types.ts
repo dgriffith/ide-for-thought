@@ -82,6 +82,10 @@ export interface ToolCallbacks {
    *  resolves with what the user did with it. Absent means there's no
    *  conversation UI to show it in. */
   offerExtensionDraft?: (draft: CheckedExtensionDraft) => Promise<ExtensionDraftOutcome>;
+  /** `fork` (#2971): start branches of this conversation, wait, and resolve with
+   *  each one's answer. Absent where there's no conversation to fork (a branch's
+   *  own turn, the CLI, a background run). */
+  runBranches?: (branches: import('../fork').ForkBranchSpec[]) => Promise<import('../fork').ForkOutcome>;
 }
 
 export interface ToolResult {

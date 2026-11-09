@@ -22,6 +22,14 @@ description: The AI tab of Settings: choosing a default model and reasoning effo
         <div class="k">Requests at once, per provider</div>
         <div class="v">How many requests Minerva sends to one service at the same time when <a href="conversations-chatting.html#several">several conversations are running</a> — 4 unless you change it, anywhere from 1 to 16. Any more wait their turn, and a conversation that's waiting says so. Lower it if your key is often rate limited; raise it if your plan allows more.</div>
       </div>
+      <div class="row">
+        <div class="k">Branches per fork</div>
+        <div class="v">The most branches the assistant may start at once when it <a href="conversations-chatting.html#forks">forks a conversation</a>: 4 unless you change it, from 1 to 8.</div>
+      </div>
+      <div class="row">
+        <div class="k">Ask before a fork costing more than</div>
+        <div class="v">A fork is estimated from what the conversation's replies have cost so far. If the estimate is above this many dollars, the assistant asks you before it starts the branches. 0 means it always asks. The default is $0.50.</div>
+      </div>
     </div>
 
     <h2 id="providers">Bring your own model</h2>
