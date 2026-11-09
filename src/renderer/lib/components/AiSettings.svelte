@@ -10,6 +10,7 @@
    * loaded status (never carries a plaintext key).
    */
   import { DEFAULT_CONCURRENT_REQUESTS, MAX_CONCURRENT_REQUESTS, MIN_CONCURRENT_REQUESTS } from '../../../shared/tools/concurrent-requests';
+  import { MAX_FORK_MAX_BRANCHES, MIN_FORK_MAX_BRANCHES, resolveForkConfirmAboveUsd, resolveForkMaxBranches } from '../../../shared/tools/fork-settings';
   import { groupedModelOptions } from '../../../shared/tools/models';
   import { EFFORT_LEVELS, type Effort } from '../../../shared/tools/effort';
   import { PROVIDERS, PROVIDER_IDS, type ProviderId } from '../../../shared/tools/providers';
@@ -35,6 +36,10 @@
     autoTitle: boolean;
     /** Model requests that may run at once per provider (#2969). */
     concurrentRequests: number;
+    /** The most branches one fork may start (#2971). */
+    forkMaxBranches: number;
+    /** A fork estimated above this many dollars asks first (#2971). */
+    forkConfirmAboveUsd: number;
     /** Per-provider input state, keyed by provider id. */
     providerInputs: Record<ProviderId, ProviderInput>;
     /** Loaded per-provider status (no plaintext keys). */
@@ -54,6 +59,8 @@
     effort = $bindable(),
     autoTitle = $bindable(),
     concurrentRequests = $bindable(),
+    forkMaxBranches = $bindable(),
+    forkConfirmAboveUsd = $bindable(),
     providerInputs = $bindable(),
     providerViews,
     secureStorageAvailable,
@@ -190,6 +197,39 @@
     Conversations can run at the same time. This many model requests go to one provider
     at once; the rest wait their turn, and a conversation that's waiting says so.
     Lower it if your key is rate limited often.
+  </p>
+</div>
+
+<div class="field">
+  <label for="ai-fork-max-branches">Branches per fork</label>
+  <input
+    id="ai-fork-max-branches"
+    type="number"
+    min={MIN_FORK_MAX_BRANCHES}
+    max={MAX_FORK_MAX_BRANCHES}
+    step="1"
+    value={forkMaxBranches}
+    onchange={(e) => (forkMaxBranches = resolveForkMaxBranches(Number(e.currentTarget.value)))}
+  />
+  <p class="hint">
+    In a conversation, the assistant can split independent work into branches that run at
+    the same time and report back. This is the most it may start at once.
+  </p>
+</div>
+
+<div class="field">
+  <label for="ai-fork-confirm-above">Ask before a fork costing more than ($)</label>
+  <input
+    id="ai-fork-confirm-above"
+    type="number"
+    min="0"
+    step="0.1"
+    value={forkConfirmAboveUsd}
+    onchange={(e) => (forkConfirmAboveUsd = resolveForkConfirmAboveUsd(Number(e.currentTarget.value)))}
+  />
+  <p class="hint">
+    A fork is estimated from the conversation's turns so far. Above this, the assistant asks
+    you before it starts the branches; 0 asks every time.
   </p>
 </div>
 

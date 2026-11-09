@@ -26,7 +26,9 @@ import { buildConversationSystemPrompt } from '../llm/conversation-prompt';
 import { withSkillContext } from '../llm/skill-context';
 import { runCompletionWithContainerRecovery } from '../llm/container-recovery';
 import { compactConversation } from '../llm/compact';
-import { archiveWithBranches, createBranch, descendantsOf } from '../llm/conversation-branch';
+import { archiveWithBranches, createBranch, defaultBranchDeps, descendantsOf, sharedSummary } from '../llm/conversation-branch';
+import { branchInstructions, FORK_TIME_BUDGET_MS, runFork, type ForkBranchSpec, type ForkOutcome } from '../llm/fork';
+import { resolveForkConfirmAboveUsd, resolveForkMaxBranches } from '../../shared/tools/fork-settings';
 import { buildStreamCallbacks, type PendingAskUser, type PendingMcpConfirm } from './conversation-stream';
 import type { BranchCreateOptions, ContextBundle, ConversationCreateOptions, ConversationMessage } from '../../shared/conversation';
 import { rootPathFromEvent, winFromEvent, withRootPath, withRootPathOr } from './helpers';
@@ -100,14 +102,34 @@ export function registerConversation(): void {
    * second time. Retry therefore re-runs the completion over the existing
    * history and appends only the assistant reply.
    */
-  const runConversationTurn = async (e: Electron.IpcMainInvokeEvent, convId: string, userMessage: string | null, systemPrompt?: string, currentNotePath?: string, extraTools?: import('../../shared/conversation-tools').ConversationToolKey[]) => {
-    const win = winFromEvent(e);
-    const rootPath = rootPathFromEvent(e);
+  const runConversationTurn = (e: Electron.IpcMainInvokeEvent, convId: string, userMessage: string | null, systemPrompt?: string, currentNotePath?: string, extraTools?: import('../../shared/conversation-tools').ConversationToolKey[]) =>
+    runTurn(winFromEvent(e), rootPathFromEvent(e), convId, userMessage, systemPrompt, currentNotePath, extraTools);
+
+  /**
+   * The turn itself, for a window. `branchRun` marks a branch's turn started by
+   * a fork (#2971): it stops with the fork (`signal`), reports its reply as it
+   * streams (`onChunk`), and gets no UI callbacks — no draft cards, questions or
+   * MCP confirms (those reach the parent in #2973) — and no fork of its own.
+   */
+  const runTurn = async (
+    win: Electron.BrowserWindow,
+    rootPath: string | null,
+    convId: string,
+    userMessage: string | null,
+    systemPrompt?: string,
+    currentNotePath?: string,
+    extraTools?: import('../../shared/conversation-tools').ConversationToolKey[],
+    branchRun?: { signal: AbortSignal; onChunk: (text: string) => void },
+  ): Promise<import('../../shared/conversation').Conversation> => {
     // The renderer won't send to a tab mid-turn; a second turn for the same
     // conversation would interleave two replies into one transcript.
     if (runningTurns.has(convId)) throw new Error('This conversation is already answering — wait for it, or stop it first.');
     const controller = new AbortController();
     runningTurns.set(convId, { controller, winId: win.id, rootPath });
+    if (branchRun) {
+      if (branchRun.signal.aborted) controller.abort();
+      else branchRun.signal.addEventListener('abort', () => controller.abort(), { once: true });
+    }
     // When this turn is aborted, fail its in-flight ask_user prompts so
     // the agent's tool-call loop unwinds.
     controller.signal.addEventListener('abort', () => {
@@ -159,6 +181,22 @@ export function registerConversation(): void {
         // Every draft kind shares one streaming callback set; the divergent
         // per-kind work is in the CONVERSATION_FILE_*_DRAFT handlers, not here (#980).
         const stream = buildStreamCallbacks(win, convId, controller.signal, pendingAskUser, pendingMcpConfirm);
+        // What this turn's forks cost (#2971), rolled into its reply's cost.
+        let forkCostUSD = 0;
+        const callbacks: import('../llm/index').StreamCallbacks = branchRun
+          ? {
+            signal: stream.callbacks.signal,
+            onWait: stream.callbacks.onWait,
+            onChunk: (text: string) => { branchRun.onChunk(text); stream.callbacks.onChunk(text); },
+          }
+          : {
+            ...stream.callbacks,
+            runBranches: async (specs) => {
+              const outcome = await forkBranches(win, rootPath, conv, controller.signal, currentNotePath, stream.callbacks.askUser, specs);
+              if (outcome.ok) forkCostUSD += outcome.costUSD;
+              return outcome;
+            },
+          };
 
         // Per-conversation web override (#1533): when the conversation pins web
         // on/off, send it as a `web` override — completeWithTools merges it over
@@ -197,7 +235,7 @@ export function registerConversation(): void {
             },
             messages,
             conv.containerId,
-            stream.callbacks,
+            callbacks,
           );
         } finally {
           stream.flush();
@@ -208,7 +246,7 @@ export function registerConversation(): void {
           convId,
           'assistant',
           result.text,
-          { citations: result.citations, usage: result.usage, usageModel: result.usageModel },
+          { citations: result.citations, usage: result.usage, usageModel: result.usageModel, ...(forkCostUSD > 0 ? { addCostUSD: forkCostUSD } : {}) },
         );
         // Persist the (possibly updated) container id so the next turn
         // for this conversation can echo it. We write unconditionally
@@ -249,6 +287,36 @@ export function registerConversation(): void {
       if (runningTurns.get(convId)?.controller === controller) runningTurns.delete(convId);
       win.removeListener('closed', onWindowClosed);
     }
+  };
+
+  /**
+   * A fork from a conversation's turn (#2971): each branch forked from `parent`
+   * and run as a turn of its own in the same window, all at once. One summary
+   * of the parent serves every branch of the fork.
+   */
+  const forkBranches = async (
+    win: Electron.BrowserWindow,
+    rootPath: string,
+    parent: import('../../shared/conversation').Conversation,
+    signal: AbortSignal,
+    currentNotePath: string | undefined,
+    askUser: ((input: { question: string; choices?: string[] }) => Promise<string>) | undefined,
+    specs: ForkBranchSpec[],
+  ): Promise<ForkOutcome> => {
+    const settings = await getSettings();
+    const summary = sharedSummary(defaultBranchDeps);
+    return runFork({
+      parent, signal,
+      maxBranches: resolveForkMaxBranches(settings.forkMaxBranches),
+      confirmAboveUsd: resolveForkConfirmAboveUsd(settings.forkConfirmAboveUsd),
+      timeBudgetMs: FORK_TIME_BUDGET_MS,
+      createBranch: (spec) => createBranch(rootPath, parent.id, {
+        title: spec.title, instructions: branchInstructions(spec), ...(spec.model ? { model: spec.model } : {}),
+      }, summary),
+      runTurn: (branch, branchSignal, onChunk) =>
+        runTurn(win, rootPath, branch.id, null, undefined, currentNotePath, undefined, { signal: branchSignal, onChunk }),
+      ask: askUser ? (question, choices) => askUser({ question, choices }) : undefined,
+    }, specs);
   };
 
   handle(Channels.CONVERSATION_SEND, (e, convId: string, userMessage: string, systemPrompt?: string, currentNotePath?: string, extraTools?: import('../../shared/conversation-tools').ConversationToolKey[]) =>

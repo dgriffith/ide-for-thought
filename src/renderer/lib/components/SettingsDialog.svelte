@@ -1,5 +1,6 @@
 <script lang="ts">
   import { DEFAULT_CONCURRENT_REQUESTS } from '../../../shared/tools/concurrent-requests';
+  import { DEFAULT_FORK_CONFIRM_ABOVE_USD, DEFAULT_FORK_MAX_BRANCHES } from '../../../shared/tools/fork-settings';
   import { onMount } from 'svelte';
   import { getEditorSettings, type EditorSettings } from '../editor/settings';
   import { api } from '../ipc/client';
@@ -63,6 +64,8 @@
   let effort = $state<import('../../../shared/tools/effort').Effort | undefined>(undefined);
   let autoTitle = $state(true);
   let concurrentRequests = $state(DEFAULT_CONCURRENT_REQUESTS);
+  let forkMaxBranches = $state(DEFAULT_FORK_MAX_BRANCHES);
+  let forkConfirmAboveUsd = $state(DEFAULT_FORK_CONFIRM_ABOVE_USD);
   // Per-provider credential inputs + loaded status (BYOM #1498).
   let providerInputs = $state<Record<ProviderId, ProviderInput>>(emptyProviderInputs());
   let providerViews = $state<Partial<Record<ProviderId, ProviderConfigView>>>({});
@@ -85,6 +88,8 @@
     get effort() { return effort; }, set effort(v) { effort = v; },
     get autoTitle() { return autoTitle; }, set autoTitle(v) { autoTitle = v; },
     get concurrentRequests() { return concurrentRequests; }, set concurrentRequests(v) { concurrentRequests = v; },
+    get forkMaxBranches() { return forkMaxBranches; }, set forkMaxBranches(v) { forkMaxBranches = v; },
+    get forkConfirmAboveUsd() { return forkConfirmAboveUsd; }, set forkConfirmAboveUsd(v) { forkConfirmAboveUsd = v; },
     get providerInputs() { return providerInputs; }, set providerInputs(v) { providerInputs = v; },
     get customModels() { return customModels; }, set customModels(v) { customModels = v; },
     get providerViews() { return providerViews; },
@@ -105,6 +110,8 @@
       effort = s.effort;
       autoTitle = s.autoTitleConversations !== false;
       concurrentRequests = s.concurrentRequests ?? DEFAULT_CONCURRENT_REQUESTS;
+      forkMaxBranches = s.forkMaxBranches ?? DEFAULT_FORK_MAX_BRANCHES;
+      forkConfirmAboveUsd = s.forkConfirmAboveUsd ?? DEFAULT_FORK_CONFIRM_ABOVE_USD;
       providerViews = s.providers ?? {};
       customModels = s.customModels ? [...s.customModels] : [];
       // Prefill base-URL inputs from stored config so the user sees/edits them.
@@ -177,6 +184,8 @@
       ...(effort ? { effort } : {}),
       autoTitleConversations: autoTitle,
       concurrentRequests,
+      forkMaxBranches,
+      forkConfirmAboveUsd,
       ...(Object.keys(toolModelOverrides).length > 0 ? { toolModelOverrides } : {}),
       ...(Object.keys(providerUpdates).length > 0 ? { providers: providerUpdates } : {}),
       customModels,

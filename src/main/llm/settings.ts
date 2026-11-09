@@ -20,6 +20,7 @@ import { encryptSecret, decryptSecret, isEncrypted, secretEncryptionAvailable, s
 import { reportConfigError } from '../config/config-store';
 import { writeJsonFileAtomic, SECRET_FILE_MODE } from '../config/json-file';
 import { resolveConcurrentRequests } from './request-limiter';
+import { resolveForkConfirmAboveUsd, resolveForkMaxBranches } from '../../shared/tools/fork-settings';
 
 const DEPRECATED_MODELS = new Set<string>([
   'claude-sonnet-4-20250514',
@@ -104,6 +105,8 @@ interface StoredSettings {
   toolModelOverrides?: unknown;
   autoTitleConversations?: unknown;
   concurrentRequests?: unknown;
+  forkMaxBranches?: unknown;
+  forkConfirmAboveUsd?: unknown;
 }
 
 /**
@@ -270,6 +273,8 @@ export async function getSettings(): Promise<LLMSettings> {
     ...(toolModelOverrides ? { toolModelOverrides } : {}),
     ...(parsed.autoTitleConversations === false ? { autoTitleConversations: false } : {}),
     concurrentRequests: resolveConcurrentRequests(parsed.concurrentRequests),
+    forkMaxBranches: resolveForkMaxBranches(parsed.forkMaxBranches),
+    forkConfirmAboveUsd: resolveForkConfirmAboveUsd(parsed.forkConfirmAboveUsd),
     ...(customModels ? { customModels } : {}),
   };
 }
@@ -298,6 +303,8 @@ export async function getSettingsForDisplay(): Promise<LLMSettingsView> {
     ...(toolModelOverrides ? { toolModelOverrides } : {}),
     ...(parsed.autoTitleConversations === false ? { autoTitleConversations: false } : {}),
     concurrentRequests: resolveConcurrentRequests(parsed.concurrentRequests),
+    forkMaxBranches: resolveForkMaxBranches(parsed.forkMaxBranches),
+    forkConfirmAboveUsd: resolveForkConfirmAboveUsd(parsed.forkConfirmAboveUsd),
     hasApiKey,
     providers,
     ...(customModels ? { customModels } : {}),

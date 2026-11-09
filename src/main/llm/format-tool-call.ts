@@ -108,6 +108,10 @@ export function formatToolCall(name: string, input: unknown): string {
       const kind = pickString(i, 'kind');
       return `📦 Offering a drafted ${kind === 'plugin' ? 'plugin' : 'skill'} for you to save`;
     }
+    case 'fork': {
+      const n = Array.isArray(i.branches) ? i.branches.length : 0;
+      return n > 0 ? `🌿 Forking into ${n} branch${n === 1 ? '' : 'es'}` : '🌿 Forking into branches';
+    }
     case 'run_skill': {
       const id = pickString(i, 'skillId');
       return id ? `🛠️ Running the **${humanizeSlug(id)}** thinking tool` : '🛠️ Running a thinking tool';

@@ -109,6 +109,8 @@ export interface StreamCallbacks {
   confirmMcpCall?: McpCallConfirmer;
   /** The drafted-extension card (#2652); without it the tool reports no UI. */
   offerExtensionDraft?: ToolCallbacks['offerExtensionDraft'];
+  /** `fork` (#2971): the conversation's branch runner. */
+  runBranches?: ToolCallbacks['runBranches'];
 }
 
 /** The conversation callbacks that pass through to tool execution. When a tool
@@ -118,7 +120,7 @@ export interface StreamCallbacks {
 export const TOOL_CALLBACK_KEYS = [
   'onDraft', 'onSourceDraft', 'onPropertyDraft', 'onSourcePropertyDraft',
   'onClaimsDraft', 'onComputeDraft', 'onRefactorDraft', 'onReorgDraft', 'onDeleteDraft', 'onNoteBodyDraft', 'askUser',
-  'confirmMcpCall', 'offerExtensionDraft',
+  'confirmMcpCall', 'offerExtensionDraft', 'runBranches',
 ] as const satisfies readonly (keyof ToolCallbacks)[];
 
 // Completeness guard (#1003). `satisfies` above rejects a stale/typo'd key; this
