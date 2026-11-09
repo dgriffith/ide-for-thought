@@ -10,6 +10,7 @@
  */
 import { describe, test } from 'vitest';
 import { layoutGraph, ticksFor, type LayoutEdge, type LayoutNode } from '../../../src/renderer/lib/graph/force-layout';
+import { assertFixtureReaches } from '../../helpers/bench-fixture';
 
 function generated(n: number): { nodes: LayoutNode[]; edges: LayoutEdge[] } {
   let seed = 7;
@@ -26,6 +27,11 @@ function generated(n: number): { nodes: LayoutNode[]; edges: LayoutEdge[] } {
 
 for (const n of [1000, 5000]) {
   const g = generated(n);
+  // The fixture is the epic's target shape (#2958): about three links a note, mostly within a folder,
+  // so the layout runs the link force at scale and the folder-clustered start has something to cluster.
+  const inFolder = g.edges.filter((e) => g.nodes[Number(e.source.slice(1))]!.group === g.nodes[Number(e.target.slice(1))]!.group).length;
+  assertFixtureReaches(`${n} notes carry close to ${n * 3} links`, g.edges.length >= n * 2.9, g.edges.length);
+  assertFixtureReaches('most links stay within a folder', inFolder / g.edges.length > 0.7, inFolder / g.edges.length);
   describe(`graph layout — ${n} notes`, () => {
     test(`layoutGraph: ${n} notes / ${n * 3} edges, settled`, async ({ bench }) => {
       // Ten samples, not the default 64: one settle at 5,000 notes takes seconds, and the
