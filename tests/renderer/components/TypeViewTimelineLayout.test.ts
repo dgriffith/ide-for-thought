@@ -208,6 +208,22 @@ describe('timeline layout (#2607, #2608, #2715)', () => {
       expect(noteActions.addTag).toHaveBeenCalledWith(['moon.md']);
     });
 
+    it('⌘-click two events, right-click one: Add Tag… reaches both (#2937)', async () => {
+      h.instances.mockResolvedValue({ type: EVENT, instances: EVENTS });
+      const noteActions = actions();
+      const onOpenNote = vi.fn();
+      const { container } = render(TypeView, props({ noteActions, onOpenNote }));
+      await waitFor(() => expect(drawn(container)).toEqual(['moon.md', 'war.md']));
+      await fireEvent.click(event(container, 'moon.md'), { metaKey: true });
+      await fireEvent.click(event(container, 'war.md'), { metaKey: true });
+      await waitFor(() => expect(event(container, 'war.md').getAttribute('aria-selected')).toBe('true'));
+      expect(event(container, 'moon.md').getAttribute('aria-selected')).toBe('true');
+      expect(onOpenNote).not.toHaveBeenCalled();
+      await fireEvent.contextMenu(event(container, 'moon.md'), { clientX: 40, clientY: 50 });
+      await fireEvent.click(await screen.findByRole('menuitem', { name: 'Add Tag… (2 notes)' }));
+      expect(noteActions.addTag).toHaveBeenCalledWith(['war.md', 'moon.md']);
+    });
+
     it('in an embed: the same menu, for that one note', async () => {
       h.instances.mockResolvedValue({ type: EVENT, instances: EVENTS });
       const noteActions = actions();

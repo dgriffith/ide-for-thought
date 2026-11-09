@@ -62,7 +62,7 @@ description: The Objects panel — your project browsed by kind rather than by f
       <li><b>Clear Property ▸</b> lists the fields the selected notes have filled in, with how many have each, and empties the one you pick.</li>
       <li><b>Edit Properties…</b> opens every field at once.</li>
     </ul>
-    <p>On a timeline, right-click an event, or a note in its Undated list, for the same menu, for that one note. A timeline has no selection, so a click still just opens the note.</p>
+    <p>A timeline selects the same way: <kbd>⌘</kbd>-click events, or rows in its Undated list, <kbd>⇧</kbd>-click for a run in time order, and right-click one of the selection for the menu. Right-click an event that isn't selected for that one note's menu.</p>
     <p>A field that links to another note — a project's owner, say — shows that note's name with a dotted underline, in a table or on a board's card. Right-click the name for a menu that acts on <i>that</i> note, not the row it's in: its first line names the note, then <b>Add Tag…</b>, <b>Remove Tag…</b> (offering the tags that note has) and <b>Edit Properties…</b> for its own fields. Your selection of rows stays as it was.</p>
     <p>On a calendar, right-click any event (in the grid, a month or year band, the Undated list, or a day's list) for the same menu, for that one event. It also has <b>Move to date…</b>, which lets you pick a new day (see <a href="#calendar-move">Moving an event to another day</a>).</p>
     <p>All of it works from the keyboard. Tab to a row or card (in a table, each row is a stop; <kbd>↵</kbd> opens the note) and press <kbd>⇧</kbd><kbd>F10</kbd> or the menu key for its menu, then use the arrow keys and <kbd>↵</kbd>. A note named in a field is a stop of its own: <kbd>↵</kbd>, <kbd>Space</kbd> or <kbd>⇧</kbd><kbd>F10</kbd> there opens that note's menu. When a change is made, a screen reader hears what changed (for example <i>Tagged 3 of 3 notes with "active"</i>) instead of a dialog appearing; a dialog appears only if some notes couldn't be changed, listing which and why.</p>
@@ -182,8 +182,16 @@ description: The Objects panel — your project browsed by kind rather than by f
         <div class="v">The previous or next event in time order, panning to keep it in view. Its preview shows as it would on hover.</div>
       </div>
       <div class="row">
+        <div class="k"><kbd>⌥</kbd><kbd>←</kbd> <kbd>⌥</kbd><kbd>→</kbd></div>
+        <div class="v">Pans earlier or later by a fifth of the view. In a timeline embedded in a note, which doesn't select, <kbd>⇧</kbd><kbd>←</kbd> <kbd>⇧</kbd><kbd>→</kbd> pan too.</div>
+      </div>
+      <div class="row">
+        <div class="k"><kbd>Space</kbd></div>
+        <div class="v">Adds the event to the selection, or takes it out.</div>
+      </div>
+      <div class="row">
         <div class="k"><kbd>⇧</kbd><kbd>←</kbd> <kbd>⇧</kbd><kbd>→</kbd></div>
-        <div class="v">Pans earlier or later by a fifth of the view.</div>
+        <div class="v">Extends the selection to the previous or next event in time order. In the Undated list, <kbd>⇧</kbd><kbd>↑</kbd> <kbd>⇧</kbd><kbd>↓</kbd>.</div>
       </div>
       <div class="row">
         <div class="k"><kbd>Home</kbd> <kbd>End</kbd></div>
@@ -196,6 +204,10 @@ description: The Objects panel — your project browsed by kind rather than by f
       <div class="row">
         <div class="k"><kbd>+</kbd> <kbd>−</kbd></div>
         <div class="v">Zooms in or out around the event you're on.</div>
+      </div>
+      <div class="row">
+        <div class="k"><kbd>⌘</kbd><kbd>A</kbd> <kbd>Esc</kbd></div>
+        <div class="v">Selects every event, or clears the selection.</div>
       </div>
     </div>
 

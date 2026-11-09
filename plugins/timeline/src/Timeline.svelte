@@ -32,9 +32,10 @@
    *   recognised, so a stored range rounded to whole days doesn't snap the view.
    * - **Keyboard** (the epic's decision 1): the drawing is one tab stop with a
    *   roving tabindex, as the Kanban board. ←/→ step between events in time
-   *   order, panning to keep the focused one in view; Shift+←/→ pan;
-   *   Home/End go to the first and last event; Enter opens; +/− zoom about the
-   *   focused event. Each event is `role="link"` named like "Moon landing,
+   *   order, panning to keep the focused one in view; Alt+←/→ pan (and
+   *   Shift+←/→ where the view doesn't select); Home/End go to the first and
+   *   last event; Enter opens; +/− zoom about the focused event. Each event is
+   *   `role="link"` (`role="option"` in a listbox where it selects) named like "Moon landing,
    *   Jul 20, 1969" (`formatDateValue`, the app's one date formatter); a bar's
    *   name includes its end.
    * - **Hover preview** (#2710): hovering or focusing an event shows the
@@ -47,7 +48,13 @@
    * - **The note menu** (#2928; where the view has one, `view.rowMenu`,
    *   never in an export): a right-click on an event or an Undated row, or
    *   Shift+F10 / the menu key on a focused one, asks for Minerva's own note
-   *   menu (`ui.showNoteMenu`) for that one note — its tags and properties.
+   *   menu (`ui.showNoteMenu`) for that one note — its tags and properties —
+   *   or for the whole selection when the event is in it.
+   * - **Selection** (#2937; the view's own, which Minerva holds, as for a
+   *   board): ⌘-click toggles, ⇧-click extends in time order, a plain click
+   *   opens; Space toggles the focused event or Undated row, ⇧+←/→ (⇧+↑/↓ in
+   *   Undated) extends; ⌘A, Escape. A selected event keeps its ring, in the
+   *   accent. Never in an embed or export.
    *   The preview closes first, and a range still on its debounce is written,
    *   since a change the menu makes re-renders the view.
    * - **Scale.** Above `VIRTUALIZE_ABOVE` dated events only those in view
@@ -114,6 +121,16 @@
   const readOnly = $derived(view.readOnly);
   const exportMode = $derived(view.exportMode);
   const onOpenNote = (path: string) => { flushCommit(); quietly(minerva.view.click({ path })); };
+  // The view's own selection (#2937), which Minerva holds, as for a board: a
+  // click carries its modifiers (⌘ toggles, ⇧ extends in time order); a plain
+  // one opens the note.
+  const selectable = $derived(view.selectable && !view.exportMode);
+  const selected = $derived(new Set(view.selected));
+  function onEventClick(e: MouseEvent, path: string): void {
+    flushCommit();
+    if (!selectable) { quietly(minerva.view.click({ path })); return; }
+    quietly(minerva.view.click({ path, meta: e.metaKey, ctrl: e.ctrlKey, shift: e.shiftKey }));
+  }
   const onStateChange = (patch: { from: string | null; to: string | null }) => quietly(minerva.view.setState({ patch }));
 
   const uid = $props.id();
@@ -286,11 +303,20 @@
   }
 
   function onKeydown(e: KeyboardEvent): void {
+    const focusedEvent = (e.target as Element | null)?.closest<SVGGElement>('[data-timeline-event]');
+    // Alt+←/→ pans, everywhere; ⇧+←/→ too where the view doesn't select (an embed).
+    if (e.altKey && !e.metaKey && !e.ctrlKey && !e.shiftKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+      e.preventDefault();
+      pan(e.key === 'ArrowLeft' ? -1 : 1);
+      return;
+    }
     if (e.metaKey || e.ctrlKey || e.altKey) return;
+    const at = focusedEvent?.dataset['notePath'];
+    if (at && selectionKey(e, at, order)) return;
     // Escape closes the preview and leaves focus where it is; with none up,
     // the plugin runtime gives focus back to Minerva.
     if (e.key === 'Escape' && previewing) { e.preventDefault(); unpreviewAll(); return; }
-    const focused = (e.target as Element | null)?.closest<SVGGElement>('[data-timeline-event]');
+    const focused = focusedEvent;
     // Shift+F10 / the menu key: the focused event's menu, the way a right-click opens it.
     if (focused && noteMenu && isMenuKey(e)) { e.preventDefault(); openMenuAt(focused); return; }
     const key = focused?.dataset['notePath'] ?? tabStop;
@@ -300,9 +326,7 @@
     if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
       if (e.shiftKey) {
         e.preventDefault();
-        if (!interactive || !domain) return;
-        domain = panDomain(domain, (e.key === 'ArrowLeft' ? -1 : 1) * PAN_STEP * (domain.end - domain.start));
-        scheduleCommit();
+        pan(e.key === 'ArrowLeft' ? -1 : 1);
         return;
       }
       step(order[i + (e.key === 'ArrowLeft' ? -1 : 1)]);
@@ -318,6 +342,69 @@
       if (ev) domain = panDomain(domain, ev.start - (domain.start + domain.end) / 2);
       zoomBy(e.key === '+' || e.key === '=' ? ZOOM_STEP : 1 / ZOOM_STEP);
     }
+  }
+
+  function pan(dir: -1 | 1): void {
+    if (!interactive || !domain) return;
+    domain = panDomain(domain, dir * PAN_STEP * (domain.end - domain.start));
+    scheduleCommit();
+  }
+
+  /**
+   * Building a selection from the keyboard (#2937, #2942), through
+   * `view.click`'s modifiers: Space toggles the focused event or undated row
+   * (a ⌘-click); ⇧ with an arrow along `keys` moves to the next one in
+   * `along` and extends to it (a ⇧-click), from this one when nothing is
+   * selected. ⌘A and Escape are the root's. False when the key isn't one.
+   */
+  function selectionKey(e: KeyboardEvent, path: string, along: readonly string[], keys: [string, string] = ['ArrowLeft', 'ArrowRight']): boolean {
+    if (!selectable || e.metaKey || e.ctrlKey || e.altKey) return false;
+    if (e.key === ' ' && !e.shiftKey) {
+      e.preventDefault(); // not a button's click, which would open the note
+      saySelection = true;
+      quietly(minerva.view.click({ path, meta: true }));
+      return true;
+    }
+    if (!e.shiftKey || !keys.includes(e.key)) return false;
+    e.preventDefault();
+    const i = along.indexOf(path);
+    const next = along[i + (e.key === keys[0] ? -1 : 1)];
+    if (i === -1 || next === undefined) return true;
+    saySelection = true;
+    if (view.selected.length === 0) quietly(minerva.view.click({ path, meta: true }));
+    quietly(minerva.view.click({ path: next, shift: true }));
+    if (byKey.has(next)) void focusEvent(next, { reveal: true });
+    else focusUndated(next);
+    return true;
+  }
+  /** ⌘A and Escape, from anywhere in the timeline (#2937): the view's own selection. */
+  function onRootKeydown(e: KeyboardEvent): void {
+    if (!selectable) return;
+    if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'a') {
+      e.preventDefault();
+      quietly(minerva.view.selectAll());
+    } else if (e.key === 'Escape' && !previewing && view.selected.length > 0) {
+      e.preventDefault(); // not "give focus back" — that's for an Escape with nothing to clear
+      quietly(minerva.view.clearSelection());
+    }
+  }
+  // A selection built from the keyboard is said once Minerva's view of it has
+  // settled: a ⇧+arrow can be two clicks, and each can send a view.
+  let saySelection = false;
+  let sayTimer: ReturnType<typeof setTimeout> | undefined;
+  $effect(() => {
+    const n = view.selected.length;
+    if (!saySelection) return;
+    clearTimeout(sayTimer);
+    sayTimer = setTimeout(() => { saySelection = false; quietly(minerva.ui.announce({ text: n === 0 ? 'Nothing selected' : `${n} selected` })); }, 120);
+  });
+  let undatedList = $state<HTMLUListElement>();
+  function focusUndated(path: string): void {
+    [...(undatedList?.querySelectorAll<HTMLElement>('[data-note-path]') ?? [])].find((r) => r.dataset['notePath'] === path)?.focus();
+  }
+  function onUndatedKey(e: KeyboardEvent, path: string): void {
+    if (selectionKey(e, path, model.undated.map((u) => u.key), ['ArrowUp', 'ArrowDown'])) return;
+    onMenuKey(e);
   }
 
   // The hover preview (#2710): the app's own (`ui.previewNote`), the same one
@@ -363,7 +450,9 @@
     e.stopPropagation();
     flushCommit();
     unpreviewAll();
-    quietly(minerva.ui.showNoteMenu({ paths: [key], x: e.clientX, y: e.clientY }));
+    // A selected event's menu is the selection's; any other's, its own (Kanban's rule, #2937).
+    const paths = selectable && selected.has(key) ? view.selected : [key];
+    quietly(minerva.ui.showNoteMenu({ paths, x: e.clientX, y: e.clientY }));
   }
   function onMenuKey(e: KeyboardEvent): void {
     if (!noteMenu || !isMenuKey(e)) return;
@@ -376,7 +465,8 @@
   const rangeLabel = $derived(`${type.label} timeline, ${order.length} dated ${order.length === 1 ? 'event' : 'events'}`);
 </script>
 
-<div class="tl" class:tl-export={exportMode}>
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div class="tl" class:tl-export={exportMode} onkeydown={onRootKeydown}>
   {#if !exportMode && interactive}
     <div class="tl-toolbar" data-export-omit>
       <button type="button" class="tl-btn" aria-label="Zoom out" title="Zoom out (−)" onclick={() => zoomBy(1 / ZOOM_STEP)}>−</button>
@@ -414,7 +504,8 @@
           width={width}
           height={plotHeight}
           viewBox={exportMode ? `0 0 ${width} ${plotHeight}` : undefined}
-          role="group"
+          role={selectable ? 'listbox' : 'group'}
+          aria-multiselectable={selectable || undefined}
           aria-label={rangeLabel}
           data-tick-unit={ticks.unit}
           data-domain-start={domain.start}
@@ -445,7 +536,9 @@
               class="tl-event"
               class:approx={ev.approx}
               transform="translate(0 {y})"
-              role={exportMode ? undefined : 'link'}
+              class:selected={selected.has(ev.key)}
+              role={exportMode ? undefined : selectable ? 'option' : 'link'}
+              aria-selected={selectable ? selected.has(ev.key) : undefined}
               tabindex={exportMode ? undefined : ev.key === tabStop ? 0 : -1}
               aria-label={ev.label}
               aria-describedby={description?.path === ev.key ? descriptionId : undefined}
@@ -455,7 +548,7 @@
               data-lane={p.lane}
               data-end-issue={ev.endNote ? '' : undefined}
               aria-haspopup={noteMenu ? 'menu' : undefined}
-              onclick={() => onOpenNote(ev.key)}
+              onclick={(e) => onEventClick(e, ev.key)}
               oncontextmenu={(e) => onNoteMenu(e, ev.key)}
               onfocus={(e) => { focusedKey = ev.key; preview(ev, e.currentTarget, 'focus'); }}
               onblur={() => unpreview(ev.key, 'focus')}
@@ -545,7 +638,7 @@
           ><span class="tl-undated-chevron" aria-hidden="true">{undatedOpen ? '▾' : '▸'}</span> Undated <span class="tl-undated-count">{model.undated.length}</span></button>
         </h3>
       {/if}
-      <ul id="{uid}-undated-list" class="tl-undated-list" hidden={!undatedOpen && !exportMode}>
+      <ul id="{uid}-undated-list" class="tl-undated-list" bind:this={undatedList} hidden={!undatedOpen && !exportMode}>
         {#each model.undated as u (u.key)}
           <li>
             {#if exportMode}
@@ -558,12 +651,14 @@
               <button
                 type="button"
                 class="tl-undated-row"
+                class:selected={selected.has(u.key)}
+                aria-pressed={selectable ? selected.has(u.key) : undefined}
                 data-note-path={u.key}
                 data-undated-reason={u.reason}
                 aria-haspopup={noteMenu ? 'menu' : undefined}
-                onclick={() => onOpenNote(u.key)}
+                onclick={(e) => onEventClick(e, u.key)}
                 oncontextmenu={(e) => onNoteMenu(e, u.key)}
-                onkeydown={onMenuKey}
+                onkeydown={(e) => onUndatedKey(e, u.key)}
               >
                 <span class="tl-list-title">{u.title}</span>
                 <span class="tl-list-date">{u.reasonText}</span>
@@ -604,6 +699,8 @@
   .tl:not(.tl-export) .tl-event { cursor: pointer; }
   .tl-ring { fill: none; stroke: var(--text); stroke-width: 2; visibility: hidden; }
   .tl-event:focus-visible .tl-ring, .tl-event:hover .tl-ring { visibility: visible; }
+  /* A selected event keeps its ring, in the accent (#2937). */
+  .tl-event.selected .tl-ring { visibility: visible; stroke: var(--accent); }
   /* Not on the hatched stretches: a class rule beats the `fill` attribute that points at the pattern. */
   .tl-bar:not(.tl-bar-approx) { fill: var(--accent); }
   .tl-bar-approx { stroke: var(--accent); stroke-width: 1; stroke-dasharray: 3 2; }
@@ -631,6 +728,7 @@
     cursor: pointer;
   }
   .tl-undated-row:hover { background: color-mix(in oklch, var(--text) 5%, transparent); }
+  .tl-undated-row.selected { background: color-mix(in oklch, var(--accent) 16%, transparent); }
   .tl-list-title { font-size: 13px; font-weight: 500; }
   .tl-list-date { font-size: 11.5px; color: var(--text-muted); }
   .tl-list-flag { font-size: 11.5px; color: var(--text); font-weight: 600; }
