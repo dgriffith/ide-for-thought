@@ -104,6 +104,7 @@ const PARITY: Record<string, Answer> = {
   'hydrate:hydrateVegaBlocks': { handler: 'main-process SVG render (#831)', holds: () => hasVegaBlocks('```vega-lite\n{}\n```') },
   'hydrate:hydrateObjectViewBlocks': { handler: 'live block (#2510, #2511)', holds: liveFence('object-view') },
   'hydrate:hydrateArgumentMapBlocks': { handler: 'live block (#2514)', holds: liveDirective(':::argument') },
+  'hydrate:hydrateMindmapBlocks': { handler: 'live block (#2966)', holds: liveDirective(':::mindmap') },
   'hydrate:hydratePluginBlocks': { handler: "live block, drawn static by its plugin's frame (#2641)", holds: pluginBlockExtracted('```probe-fence\nbody\n```\n', 'fenced') },
   'hydrate:hydrateTransclusions': { handler: 'resolveTransclusions (#906)', holds: () => EXPORT_RENDER.includes('resolveTransclusions(') },
   'hydrate:hydrateLocalImages': { handler: 'the asset policy (inline-base64 / copy / keep-relative)', holds: () => EXPORT_RENDER.includes('export async function inlineImages') },

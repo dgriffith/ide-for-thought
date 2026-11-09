@@ -134,6 +134,8 @@ export const Channels = {
   GRAPH_QUERY: 'graph:query',
   /** The whole thoughtbase as a graph (#2958). */
   GRAPH_WHOLE: 'graph:whole',
+  /** A hierarchy of notes from a focus, along a relation, for a `:::mindmap` block (#2966). */
+  GRAPH_MINDMAP: 'graph:mindmap',
   /** Rebase the graph to a new base IRI + rebuild all indexes (#1443 Part B). */
   GRAPH_SET_BASE_URI: 'graph:setBaseUri',
   /** Main→renderer: embedding backfill progress `{ done, total, running }` (#836). */

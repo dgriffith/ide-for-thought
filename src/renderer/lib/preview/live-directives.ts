@@ -70,6 +70,12 @@ export const DIRECTIVE_PREVIEWS: Record<DirectiveBlockKind, DirectivePreview> = 
       return `<div class="argument-map-block" data-focus="${escapeAttr(token.content)}"${configJson ? ` data-config="${configJson}"` : ''}></div>`;
     },
   },
+  // :::mindmap … ::: (#2966): a focus `[[link]]` and `key: value` lines, read by
+  // `parseMindmapBlock`; the hydrator mounts the map (mindmap-block-renderer.ts).
+  mindmap: {
+    fill: (token, _opened, body) => { token.content = body; },
+    render: (token) => `<div class="mindmap-block" data-spec="${escapeAttr(token.content)}"></div>`,
+  },
 };
 
 /** Install every directive live block: a block rule and a renderer apiece,

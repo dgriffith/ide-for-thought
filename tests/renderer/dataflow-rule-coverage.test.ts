@@ -93,7 +93,7 @@ const READ_ALLOWLIST = new Set<string>([
   'query', 'aliasMap', 'aliasEntries', 'frontmatterKeys', 'inspections', 'schemaForCompletion',
   'sourceDetail', 'citationsForNote',
   // graph.whole (#2958): every note and edge, for the graph tab — read-only.
-  'whole',
+  'whole', 'mindmap',
   // tables.queryNote (#2448): note-embedded SQL under the registered-relations
   // allowlist — a read like `query`, just a narrower one.
   'queryNote',

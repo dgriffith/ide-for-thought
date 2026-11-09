@@ -12,6 +12,7 @@ import { renderObjectViewForExport } from '../export/render-object-view';
 import { renderQueryBlockForExport } from '../export/render-query-block';
 import { renderMermaidForExport } from '../export/render-mermaid';
 import { renderArgumentMapForExport } from '../export/render-argument-map';
+import { renderMindmapForExport } from '../export/render-mindmap';
 import { renderOutputForExport } from '../export/render-output';
 import { renderCardForExport } from '../export/render-card';
 import { renderPluginBlockForExport } from '../export/render-plugin-block';
@@ -26,6 +27,7 @@ export const WINDOW_RENDERERS: Record<WindowBlockKind, (block: LiveBlockRequest)
   'object-view': (b) => renderObjectViewForExport(b.source, { paged: b.paged === true }),
   mermaid: (b) => renderMermaidForExport(b.source),
   argument: (b) => renderArgumentMapForExport(b.source),
+  mindmap: (b) => renderMindmapForExport(b.source),
   output: (b) => renderOutputForExport(b.source),
   card: (b) => renderCardForExport(b.source),
   query: (b) => renderQueryBlockForExport(b.source, b.notePath),

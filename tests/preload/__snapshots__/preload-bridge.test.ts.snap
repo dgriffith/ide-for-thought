@@ -150,6 +150,7 @@ exports[`preload contextBridge contract (#676) > matches the full method surface
     "inspectionSettings",
     "inspectionThoughtbaseChecks",
     "inspections",
+    "mindmap",
     "onChanged",
     "onInspectionsChanged",
     "query",

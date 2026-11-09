@@ -37,6 +37,7 @@ const h = vi.hoisted(() => ({
   // graph
   queryGraph: vi.fn(),
   wholeGraph: vi.fn(),
+  mindmapWalk: vi.fn(),
   setBaseUri: vi.fn(),
   graphIndexAllNotes: vi.fn(),
   schemaForCompletion: vi.fn(),
@@ -96,6 +97,7 @@ vi.mock('../../../src/main/ipc/helpers', () => ({
 vi.mock('../../../src/main/graph/index', () => ({
   queryGraph: h.queryGraph,
   wholeGraph: h.wholeGraph,
+  mindmapWalk: h.mindmapWalk,
   setBaseUri: h.setBaseUri,
   indexAllNotes: h.graphIndexAllNotes,
   schemaForCompletion: h.schemaForCompletion,
@@ -160,6 +162,22 @@ beforeEach(() => {
   h.win.isDestroyed.mockReturnValue(false);
   h.readProjectConfig.mockReturnValue({});
   h.queryGraph.mockResolvedValue({ ok: true, results: [], columns: [] });
+});
+
+describe('GRAPH_MINDMAP — a hierarchy of notes for a block (#2966)', () => {
+  it('walks from the focus along the relation, passing only the options it knows', async () => {
+    const result = { tree: { id: 'a.md', label: 'A', path: 'a.md', children: [] }, truncated: false, exists: true };
+    h.mindmapWalk.mockResolvedValue(result);
+    expect(await callAsync(Channels.GRAPH_MINDMAP, 'a.md', { relation: 'parent', depth: 2, direction: 'out', extra: 1 })).toBe(result);
+    await callAsync(Channels.GRAPH_MINDMAP, 'a.md', { relation: 5, direction: 'sideways' });
+    expect(h.mindmapWalk.mock.calls).toEqual([[CTX, 'a.md', { relation: 'parent', direction: 'out', depth: 2 }], [CTX, 'a.md', { relation: 'headings' }]]);
+  });
+
+  it('with no project, refuses', async () => {
+    openProject = null;
+    await expect(callAsync(Channels.GRAPH_MINDMAP, 'a.md', { relation: 'parent' })).rejects.toThrow();
+    expect(h.mindmapWalk).not.toHaveBeenCalled();
+  });
 });
 
 describe('GRAPH_WHOLE — the whole thoughtbase as a graph (#2958)', () => {
