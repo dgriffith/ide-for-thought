@@ -358,7 +358,7 @@ describe('a fork branch\'s drafts, questions and confirms go to its parent (#297
 
   it('a draft carries the branch label and keeps the branch as its conversation', () => {
     const win = makeWin();
-    buildBranch(win).callbacks.onDraft!({ draftId: 'd1', conversationId: 'conv-1', createdAt: 't', note: 'n', payloads: [] } as never);
+    buildBranch(win).callbacks.onDraft!({ draftId: 'd1', conversationId: 'conv-1', createdAt: 't', note: 'n', payloads: [] });
     expect(sent(win, Channels.CONVERSATION_DRAFT)).toEqual([expect.objectContaining({ draftId: 'd1', conversationId: 'conv-1', branch: LABEL })]);
   });
 
