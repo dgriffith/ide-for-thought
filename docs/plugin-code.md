@@ -563,6 +563,50 @@ Its TypeView-level tests run the plugin's real `App.svelte` in loopback
 sent each view, preview and export request the host sends, its calls routed
 to the host callbacks the broker's intents would reach.
 
+### Graph, the first layout written as a plugin (#2960)
+
+The Graph layout — a view's notes as nodes, its link properties as edges —
+is the first layout nobody wrote as core first: it began in `plugins/graph/`.
+
+**Decision, measured:** a plugin, not app drawing. The question was the
+`view` event — the whole note set copied into the frame. Timed in the real app
+from opening a note to its embed's notes drawn
+(`tests/e2e/graph-view-frame.measure.spec.ts`, opt-in with `MEASURE=1`), a
+board in its frame against the app's own table:
+
+| notes | table (app) | board (plugin frame) |
+|---|---|---|
+| 500 | ~125 ms | ~195 ms |
+| 2,000 | ~420 ms | ~575 ms (1,055 ms the first time, the frame starting) |
+
+The frame's cost is under ~150 ms at 2,000 notes, and that includes the
+board drawing 2,000 cards. A graph's event is the same notes plus their links
+— short strings — so it stays within Kanban's budget by construction.
+Cytoscape (WebGL where the frame has it) and a layout worker run inside the
+frame: the frame CSP's `worker-src 'self'` serves the worker from the
+plugin's own origin.
+
+What it needed from the API, and nothing else:
+
+- **Links, resolved** (API 1.18.0): each instance carries `links` — every
+  `link-to-type` value as `{ property, path, title }`, resolved by the host
+  wherever the view is shown. A card field's `ref` resolves only where the
+  view has note actions and only for visible fields; a graph needs every link
+  in an embed too.
+- **The linked notes in scope**: the registry entry's `linkedNotes: true`
+  adds the notes those links name to the frame's session, so a note outside
+  the view can be previewed and opened.
+- **Its spec**: `edges` (the link properties drawn, null for all) and
+  `outside` (`show` / `hide`), written back with `view.setState` and read
+  with `parseGraphEdges` / `parseGraphOutside` by the host as the spec does.
+
+Selection, the note menu, the preview and the keyboard are the same API calls
+the timeline makes (`view.click`, `ui.showNoteMenu`, `ui.previewNote`).
+The model (`src/shared/objects/graph-view.ts`) and the force layout
+(`src/shared/graph/force-layout.ts`, shared with the thoughtbase graph) live
+in `src/shared/`, the only app code a plugin may import. Until #2961 draws the
+graph into an export, the export is its links table.
+
 ### Global views (#2640)
 
 A view that belongs to no type view: a panel in the left or right sidebar, or

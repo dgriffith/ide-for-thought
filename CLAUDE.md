@@ -1891,6 +1891,15 @@ origin.
   together (#2938, API 1.16.0): `view.reschedule` and `moveToDate` carry `paths`,
   and the host moves all of them as one undo step or none (`groupRefusal` names
   the ones that can't).
+  **Graph is the fourth (#2960)**, read-only (`notes:read` + `ui`): the
+  view's notes as nodes, its `link-to-type` properties as edges
+  (`shared/objects/graph-view.ts`), each instance's links resolved by the
+  host (`links`, API 1.18.0) and the notes they name added to the scope
+  (`linkedNotes` on the registry entry); `edges` / `outside` are its spec.
+  Chosen over app drawing by measurement: the `view` event into a frame at
+  2,000 notes cost ~150 ms over the app's own table
+  (`tests/e2e/graph-view-frame.measure.spec.ts`, opt-in). It shares the
+  thoughtbase graph's force layout (`shared/graph/force-layout.ts`).
   A plugin frame can't submit a `<form>` (no `allow-forms`) — act on Enter
   and click — and an export inliner must not copy a computed height or an
   `auto` margin, which are the frame's. **A global view (#2640)** is a sidebar panel

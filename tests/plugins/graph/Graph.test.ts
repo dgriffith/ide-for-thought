@@ -82,7 +82,7 @@ function viewState(over: Partial<PluginViewState> = {}): PluginViewState {
     readOnly: false, exportMode: false, selected: [], selectable: true, rowMenu: true,
     groupProperty: null, groups: [], movable: false, canUndoMove: false, lastMove: null,
     ...over,
-  } as PluginViewState;
+  };
 }
 
 function draw(over: Partial<PluginViewState> = {}) {
@@ -216,7 +216,7 @@ describe('the Table (#2960)', () => {
     const { api } = draw();
     await fireEvent.click(screen.getByRole('button', { name: 'Table' }));
     const rows = screen.getAllByRole('row').slice(1);
-    const cells = (r: HTMLElement) => [...r.querySelectorAll('th, td')].map((c) => c.textContent!.replace(/\s+/g, ' ').trim());
+    const cells = (r: HTMLElement) => [...r.querySelectorAll('th, td')].map((c) => c.textContent.replace(/\s+/g, ' ').trim());
     expect(rows.map(cells)).toEqual([
       ['Alpha · Task', 'Blocks: Bravo Parent: The epic (not in this view)', '—'],
       ['Bravo · Task', 'Blocks: Charlie', 'Blocks: Alpha'],

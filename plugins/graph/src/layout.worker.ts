@@ -13,6 +13,9 @@ self.onmessage = (e: MessageEvent<LayoutRequest>) => {
   layoutGraph(nodes, edges, {
     ticks: ticksFor(nodes.length),
     every: nodes.length > 2000 ? 50 : 25,
+    // A view's notes are labelled cards, not dots: give them room.
+    distance: 110,
+    repulsion: 400,
     onPositions: (xy, done) => {
       const copy = xy.slice();
       (self as unknown as Worker).postMessage({ seq, xy: copy, done } satisfies LayoutResponse, [copy.buffer]);

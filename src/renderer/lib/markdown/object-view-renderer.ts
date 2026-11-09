@@ -34,6 +34,10 @@
  * #2950) anchored on `"date"` (`"2026-10-06"`; absent, today), and name
  * `"dateBy"`, the date property it places notes by (`shared/objects/date-by.ts`;
  * absent, `date`, else the first one).
+ * A `"layout": "graph"` spec (#2960, `shared/objects/graph-view.ts`; any type
+ * with a link property) may name the link properties it draws with `"edges"`
+ * (absent, all of them) and leave out notes outside the view with
+ * `"outside": "hide"`.
  *
  * Mirrors `vega-renderer.ts`'s shape: the fence rule emits a placeholder
  * `<div class="object-view-block">` carrying the raw JSON spec as text

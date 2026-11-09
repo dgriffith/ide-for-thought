@@ -94,7 +94,7 @@
     <p>Click a type to expand it and see its notes; click again to collapse. Clicking a note opens it in the editor. Each note carries its own icon, which matters when a type has more specific kinds beneath it — a Book that's really a Novel shows the Novel icon while still being counted as a Book.</p>
 
     <h2 id="views">Opening a type as a collection</h2>
-    <p>The ⤢ button on a type row opens all of its notes in the main area, where they're more than a list. There are three ways to look at the same set, plus a map for a type with a location, a board for a type with a choice field, and a timeline and a calendar for a type with a date:</p>
+    <p>The ⤢ button on a type row opens all of its notes in the main area, where they're more than a list. There are three ways to look at the same set, plus a map for a type with a location, a board for a type with a choice field, a timeline and a calendar for a type with a date, and a graph for a type with a link:</p>
 
     <div class="deflist">
       <div class="row">
@@ -124,6 +124,10 @@
       <div class="row">
         <div class="k">Calendar</div>
         <div class="v">A month of days in a grid, each note on its day, a bar for anything that runs across several. Drag an event to another day to reschedule it. Offered for the same types as Timeline: any type with a date field. See <a href="#calendar">The calendar</a> below.</div>
+      </div>
+      <div class="row">
+        <div class="k">Graph</div>
+        <div class="v">The notes as a picture of how they connect: each note a box, each link between them a line, one colour for each field that links. Offered for any type with a field that links to another note. See <a href="#graph-layout">The graph</a> below.</div>
       </div>
     </div>
 
@@ -414,6 +418,20 @@
 
     <h3>Saving a calendar</h3>
     <p>The month you're on goes with the view: <a href="#saved-views">Save as note</a> (Minerva suggests <i>Event calendar</i>) and <b>Copy as markdown</b> keep it as a <code>month</code>, so the note opens on that month, and a Date by choice as <code>dateBy</code>. A calendar you've brought back with <b>Today</b> saves no month, and always opens on the current one. In a note, a calendar can still be paged from month to month, and its events opened, but nothing in it can be moved; open the type's calendar for that. A web page or PDF exported from the note, and a published site, show the saved month (or, with none saved, the month it was exported in) as a still grid, with every event listed in its day, however many there are, and long titles written out in full. A busy day just makes a taller row, and a week is never split across two pages. A saved week or day keeps its <code>mode</code> and <code>date</code>, and exports as an agenda instead: each day under its name, its all-day events first and then the rest by time, with <i>No events.</i> on an empty day so the week keeps its shape. An hour grid on paper is mostly empty boxes, and overlapping events side by side don't survive a page break. Each event is a link to its note, approximate days are hatched with a key underneath, and the bands and the Undated list follow the grid. The week starts on the day your own settings say, as in the preview you exported from. <a href="notes-object-views.html#calendar">Object views</a> shows what a saved calendar looks like in the editor.</p>
+
+    <h2 id="graph-layout">The graph</h2>
+    <p>The <b>Graph</b> layout draws a view's notes and the links between them. It's offered for any type with a field that links to another note (a task's <i>blocks</i>, a person's <i>employer</i>), and for a <a href="notes-object-views.html">query view</a> with a column of notes. Each note is a box, edged in its type's colour. Each link is an arrow from the note whose field it's in, coloured by that field, and the legend above names each field with how many links it holds.</p>
+    <h3>What it draws</h3>
+    <p>Click a field in the legend to leave its links out of the picture, and again to bring them back. A note the view doesn't show, but one of its notes links to (a task's project, when the view is of tasks), is drawn faded with a dashed edge; untick <b>Outside notes</b> to leave those out. <b>Fit</b> brings the whole picture into view. Both choices are kept with the view.</p>
+    <h3>Notes in the graph</h3>
+    <p>A graph works like the other layouts. Hover a note for its preview. Click a note to open it; <b>⌘</b>-click or <b>⇧</b>-click to select notes, and right-click for the note menu, which acts on every selected note when you right-click one of them. Click a faded note outside the view to open it. Drag the background to pan, and scroll to zoom.</p>
+    <h3>By keyboard</h3>
+    <p>Tab into the graph and the first note is focused, previewed and read out. The arrow keys move through the notes in the view's sort order, <b>Home</b> and <b>End</b> to the first and last. <b>Enter</b> opens the focused note and <b>Space</b> selects it; <b>⇧</b> with an arrow extends the selection. <b>⌘A</b> selects every note and <b>Esc</b> clears the selection. <b>Shift+F10</b> or the menu key opens the note menu.</p>
+    <h3>As a table</h3>
+    <p><b>Table</b> lists the same notes with what each links to and what links to it, each link with the field it's in: the graph in a form you can read through, by screen reader or by eye. A note's name opens it.</p>
+    <h3>Saving a graph</h3>
+    <p><a href="#saved-views">Save as note</a> (Minerva suggests <i>Task graph</i>) and <b>Copy as markdown</b> keep which links are drawn as <code>edges</code> and a hidden <b>Outside notes</b> as <code>"outside": "hide"</code>. A graph in a note can be explored and opened, but its legend and Outside notes can't be changed there. For now, a web page or PDF exported from the note shows the notes and their links as a table.</p>
+    <p>The graph is drawn by the built-in Graph plugin (Settings → Plugins). Turned off, a graph shows as the view's table. For every note in your thoughtbase and every kind of connection between them, there's also <a href="notes-links.html#graph">the graph of your thoughtbase</a>.</p>
 
     <h2 id="folder-views">Just one folder's objects</h2>
     <p>To see only the objects in part of your thoughtbase, right-click a folder in the <a href="left-sidebar-notes-tree.html">Notes tree</a> and choose <b>View Objects</b>. It lists each type found in that folder and everything under it, with how many there are — plus the more general types they belong to, so a folder of restaurants offers both Restaurant and Place. Pick one and its view opens showing only that folder's notes; the tab is named for the folder (<i>Place · trip/prague</i>). The view opens as a table; switch layouts as you like. The <b>in trip/prague ✕</b> chip in the view's header widens it back to the whole thoughtbase. The <a href="left-sidebar-notes-tree.html#root-menu">thoughtbase's own menu</a> — right-click the top row of the Notes tree, or the empty space below it — has <b>View Objects</b> too, covering your whole thoughtbase.</p>
