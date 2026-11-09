@@ -18,8 +18,12 @@
  * - **Stopping.** The parent's signal stops every branch (the registrar's
  *   cascade stops them by id too); a branch stopped on its own reports
  *   `stopped` with its partial answer, and the rest carry on.
+ * - **Progress** (#2972). `onProgress` gets the whole fork's state on every
+ *   change — started, each branch created, each settled, joined — for the card
+ *   in the parent's transcript.
  */
-import type { Conversation } from '../../shared/conversation';
+import type { Conversation, ForkCardBranch, ForkProgress } from '../../shared/conversation';
+import { isCancellation } from '../../shared/llm-errors';
 
 export interface ForkBranchSpec {
   title: string;
@@ -63,6 +67,10 @@ export interface ForkDeps {
   runTurn: (branch: Conversation, signal: AbortSignal, onChunk: (text: string) => void) => Promise<Conversation>;
   /** Ask the user a question with choices; absent where nobody can be asked. */
   ask?: ((question: string, choices: string[]) => Promise<string>) | undefined;
+  /** The fork's state on every change, once the branches are going to start. */
+  onProgress?: ((progress: Omit<ForkProgress, 'conversationId' | 'forkId'>) => void) | undefined;
+  /** Epoch ms; injectable for tests. */
+  now?: () => number;
 }
 
 export const FORK_TIME_BUDGET_MS = 10 * 60_000;
@@ -109,16 +117,36 @@ export async function runFork(deps: ForkDeps, specs: readonly ForkBranchSpec[]):
   }
   if (deps.signal.aborted) return { ok: false, reason: 'Stopped before the branches started.' };
 
+  const now = deps.now ?? Date.now;
+  const card: ForkCardBranch[] = specs.map((s) => ({ title: s.title, conversationId: '', state: 'starting', startedAt: now() }));
+  const report = (joined: boolean): void => {
+    deps.onProgress?.({
+      estimateUSD, joined, branches: card.map((b) => ({ ...b })),
+      costUSD: card.reduce((sum, b) => sum + (b.costUSD ?? 0), 0),
+    });
+  };
+  const settle = (i: number, r: ForkBranchResult): ForkBranchResult => {
+    card[i] = {
+      ...card[i]!, conversationId: r.conversationId, state: r.status, endedAt: now(),
+      costUSD: r.costUSD, answer: r.answer, ...(r.note ? { note: r.note } : {}),
+    };
+    report(false);
+    return r;
+  };
+  report(false);
+
   const timer = new AbortController();
   const timeout = setTimeout(() => timer.abort(), deps.timeBudgetMs);
   try {
-    const results = await Promise.all(specs.map(async (spec): Promise<ForkBranchResult> => {
+    const results = await Promise.all(specs.map(async (spec, i): Promise<ForkBranchResult> => {
       let branch: Conversation;
       try {
         branch = await deps.createBranch(spec);
       } catch (e) {
-        return { title: spec.title, conversationId: '', status: 'failed', answer: '', note: messageOf(e), costUSD: 0 };
+        return settle(i, { title: spec.title, conversationId: '', status: 'failed', answer: '', note: messageOf(e), costUSD: 0 });
       }
+      card[i] = { ...card[i]!, conversationId: branch.id, state: 'running' };
+      report(false);
       const own = new AbortController();
       const stop = (): void => own.abort();
       deps.signal.addEventListener('abort', stop);
@@ -127,27 +155,26 @@ export async function runFork(deps: ForkDeps, specs: readonly ForkBranchSpec[]):
       try {
         const after = await deps.runTurn(branch, own.signal, (t) => { partial += t; });
         const reply = [...after.messages].reverse().find((m) => m.role === 'assistant');
-        return { title: spec.title, conversationId: branch.id, status: 'done', answer: reply?.content ?? '', costUSD: branchCost(after) };
+        return settle(i, { title: spec.title, conversationId: branch.id, status: 'done', answer: reply?.content ?? '', costUSD: branchCost(after) });
       } catch (e) {
-        const stopped = own.signal.aborted || isAbort(e);
-        return {
+        // A branch stopped by id (its tab, its row on the card) aborts its own
+        // turn, not `own`: the error says so, in whichever form it arrives.
+        const stopped = own.signal.aborted || isCancellation(e);
+        return settle(i, {
           title: spec.title, conversationId: branch.id, status: stopped ? 'stopped' : 'failed', answer: partial,
           note: stopped ? (timer.signal.aborted ? 'ran out of the fork’s time budget' : 'stopped') : messageOf(e),
           costUSD: branchCost(branch),
-        };
+        });
       } finally {
         deps.signal.removeEventListener('abort', stop);
         timer.signal.removeEventListener('abort', stop);
       }
     }));
+    report(true);
     return { ok: true, results, estimateUSD, costUSD: results.reduce((s, r) => s + r.costUSD, 0) };
   } finally {
     clearTimeout(timeout);
   }
-}
-
-function isAbort(e: unknown): boolean {
-  return e instanceof Error && (e.name === 'AbortError' || /aborted/i.test(e.message));
 }
 
 function messageOf(e: unknown): string {

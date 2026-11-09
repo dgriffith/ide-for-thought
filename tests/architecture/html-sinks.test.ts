@@ -55,6 +55,9 @@ const REVIEWED_SINKS: Record<string, Record<string, string>> = {
     'renderMarkdownCached(msg.content)': 'chat message, markdown-it html:false',
     'renderMarkdownCached(failure.partial)': 'partial chat message, markdown-it html:false',
   },
+  'lib/components/conversations/ForkCards.svelte': {
+    'renderMarkdownCached(b.answer)': 'a fork branch\'s answer (#2972), markdown-it html:false',
+  },
 };
 
 function walk(dir: string): string[] {

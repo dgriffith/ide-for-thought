@@ -3,6 +3,7 @@
   import MessageCitations from '../MessageCitations.svelte';
   import StreamingMessageBody from './StreamingMessageBody.svelte';
   import DraftCards from './DraftCards.svelte';
+  import ForkCards from './ForkCards.svelte';
   import McpConfirmCard from './McpConfirmCard.svelte';
   import ExtensionDraftCard from './ExtensionDraftCard.svelte';
   import { extensionDraftsStore } from '../../stores/extension-drafts.svelte';
@@ -190,6 +191,7 @@
        message between the old assistant and its still-pending card. -->
   {#each tab.conversation.messages as msg, i}
     {@render messageBlock(msg, tab, i)}
+    <ForkCards {tab} index={i} />
     <DraftCards {tab} index={i} />
   {/each}
 
@@ -319,6 +321,8 @@
        after a cancel left the anchor pointing into thin air. Render at the
        bottom so the card is still visible; the inline interleaved render above
        picks them up on reload. -->
+  <!-- A fork in the running turn (#2972): its card with the orphans, until the reply is saved. -->
+  <ForkCards {tab} index={null} />
   <DraftCards {tab} index={null} />
 </div>
 

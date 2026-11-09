@@ -4,6 +4,7 @@ import { getConversationsSettings } from '../conversations/settings';
 import { ensureComputeConsent } from '../app/compute-ops';
 import { announce } from './announcer.svelte';
 import { extensionDraftsStore } from './extension-drafts.svelte';
+import { clearForkCards, dropForkCards, liveBranch, subscribeForkCards } from './fork-cards.svelte';
 import { logger } from '../../../shared/logger';
 import { openDescendants } from '../conversations/branch-tree';
 import type { RequestWaitStatus } from '../../../shared/tools/concurrent-requests';
@@ -296,7 +297,14 @@ function draftHandler<T extends { conversationId: string; draftId: string }>(
   };
 }
 
+/** Fork branches opened mid-turn (#2972): their tab streams until the fork says the branch settled. */
+const liveBranchTabs = new Set<string>();
+
 function ensureSubscriptions(): void {
+  subscribeForkCards({
+    anchorFor: (parentId) => findTab(parentId)?.conversation.messages.length ?? null,
+    onBranchSettled: (id) => { void settleBranchTab(id); },
+  });
   if (!streamSubscribed) {
     // Routed by conversation, not to whichever tab is in front (#2969): a
     // background tab keeps streaming into its own transcript.
@@ -421,6 +429,7 @@ async function reset(): Promise<void> {
   height = DEFAULT_HEIGHT;
   activeTabId = null;
   tabs = [];
+  clearForkCards();
   await init();
 }
 
@@ -545,6 +554,7 @@ async function closeTab(id: string): Promise<void> {
     // local list so the user sees the tab go away.
   }
   const gone = new Set(closing.map((t) => t.id));
+  for (const t of closing) dropForkCards(t.id);
   const next = tabs.filter((t) => !gone.has(t.id));
   tabs = next;
   if (activeTabId !== null && gone.has(activeTabId)) {
@@ -570,6 +580,51 @@ async function branchConversation(tabId: string, opts: BranchCreateOptions): Pro
   scheduleSave();
   if (conv.messages.at(-1)?.role === 'user') void retryLastTurn(tab.id);
   return findTab(tab.id) ?? tab;
+}
+
+/**
+ * Open one of a fork's branches (#2972) in a tab under its parent. A branch
+ * still running streams there live, starting from what it has written so far;
+ * the fork card says when it settles (`settleBranchTab`).
+ */
+async function openBranchTab(branchId: string): Promise<void> {
+  ensureSubscriptions();
+  if (!findTab(branchId)) {
+    const conv = await api.conversations.load(branchId);
+    if (!conv || findTab(branchId)) return;
+    const tab = blankTabRuntime(conv, []);
+    const live = liveBranch(branchId);
+    if (live) {
+      tab.streaming = true;
+      tab.turnStartedAt = live.startedAt;
+      tab.streamedChunks = live.text;
+      liveBranchTabs.add(branchId);
+    }
+    const parentId = conv.branch?.parentId ?? '';
+    const anchors = [findTab(parentId), ...openDescendants(tabs, (t) => t.conversation, parentId)].filter((t) => t !== undefined);
+    const after = anchors.length > 0 ? Math.max(...anchors.map((t) => tabs.indexOf(t))) : tabs.length - 1;
+    tabs = [...tabs.slice(0, after + 1), tab, ...tabs.slice(after + 1)];
+  }
+  activeTabId = branchId;
+  show();
+  scheduleSave();
+}
+
+/** A branch opened mid-turn finished: show its saved transcript and stop streaming. */
+async function settleBranchTab(branchId: string): Promise<void> {
+  if (!liveBranchTabs.delete(branchId)) return;
+  const tab = findTab(branchId);
+  if (!tab) return;
+  try {
+    const reloaded = await api.conversations.load(branchId);
+    if (reloaded) tab.conversation = keepKnownTitle(reloaded, tab.conversation);
+  } catch (e) {
+    logger('conversation').warn('reloading a finished branch failed:', e);
+  }
+  tab.streaming = false;
+  tab.waiting = null;
+  tab.turnStartedAt = null;
+  tab.streamedChunks = '';
 }
 
 /** A branch's turn records how it ended in main; bring that into the list, whatever the outcome. */
@@ -1304,6 +1359,7 @@ export function getConversationsStore() {
     openConversationTab,
     closeTab,
     branchConversation,
+    openBranchTab,
     send,
     retryLastTurn,
     dismissFailure,

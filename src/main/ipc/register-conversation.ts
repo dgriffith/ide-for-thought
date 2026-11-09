@@ -19,6 +19,7 @@
  * `mcp_call` confirmation card (#2439), and
  * delegate.
  */
+import { randomUUID } from 'node:crypto';
 import { Channels } from '../../shared/channels';
 import * as graph from '../graph/index';
 import * as conversation from '../llm/conversation';
@@ -292,7 +293,10 @@ export function registerConversation(): void {
   /**
    * A fork from a conversation's turn (#2971): each branch forked from `parent`
    * and run as a turn of its own in the same window, all at once. One summary
-   * of the parent serves every branch of the fork.
+   * of the parent serves every branch of the fork. Its progress goes to the
+   * window for the card in the parent's transcript (#2972); each branch's text
+   * streams under its own id, as any turn's does, so the card and an opened
+   * branch tab both show it live.
    */
   const forkBranches = async (
     win: Electron.BrowserWindow,
@@ -305,6 +309,7 @@ export function registerConversation(): void {
   ): Promise<ForkOutcome> => {
     const settings = await getSettings();
     const summary = sharedSummary(defaultBranchDeps);
+    const forkId = randomUUID();
     return runFork({
       parent, signal,
       maxBranches: resolveForkMaxBranches(settings.forkMaxBranches),
@@ -316,6 +321,9 @@ export function registerConversation(): void {
       runTurn: (branch, branchSignal, onChunk) =>
         runTurn(win, rootPath, branch.id, null, undefined, currentNotePath, undefined, { signal: branchSignal, onChunk }),
       ask: askUser ? (question, choices) => askUser({ question, choices }) : undefined,
+      onProgress: (progress) => {
+        if (!win.isDestroyed()) broadcast(win, Channels.CONVERSATION_FORK, { conversationId: parent.id, forkId, ...progress });
+      },
     }, specs);
   };
 

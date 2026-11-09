@@ -91,7 +91,7 @@ import type {
 } from './types';
 import type { ParsedReference } from './mine-references';
 import type { ResolveCandidate } from './resolve-stub';
-import type { Conversation, ConversationCreateOptions, ConversationMessage, ContextBundle, ConversationsUIState, CompactResult, BranchCreateOptions } from './conversation';
+import type { Conversation, ConversationCreateOptions, ConversationMessage, ContextBundle, ConversationsUIState, CompactResult, BranchCreateOptions, ForkProgress } from './conversation';
 import type { PrivilegedSite } from './privileged-sites';
 import type { ConversationToolKey, AskUserRequest, McpConfirmRequest } from './conversation-tools';
 import type { RemoteImageMode, RemoteImagePolicy, RemoteImageResult } from './remote-images';
@@ -737,6 +737,7 @@ export interface EventMap {
   'conversation:wait': (wait: { conversationId: string; status: RequestWaitStatus }) => void;
   'conversation:askUser': (req: AskUserRequest) => void;
   'conversation:titleChanged': (change: { conversationId: string; title: string }) => void;
+  'conversation:fork': (progress: ForkProgress) => void;
   /** Interleaved float32 PCM from the system-audio tap, whole frames (#2731). */
   'app:systemAudio': (chunk: Uint8Array) => void;
   'publish:renderLiveBlocks': (request: { requestId: string; blocks: LiveBlockRequest[] }) => void;
