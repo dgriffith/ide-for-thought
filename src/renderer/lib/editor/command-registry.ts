@@ -8,6 +8,7 @@ import {
   insertTable, insertHorizontalRule, insertFootnote, insertLink, insertImage, insertWikiLink,
 } from './formatting';
 import { toggleEditorDictation } from './dictation';
+import { moveSectionUp, moveSectionDown, promoteHeading, demoteHeading } from './outline-commands';
 import { getAudioRecordingStore } from '../voice/audio-recording.svelte';
 
 /** Voice dictation toggle (#voice). Fires the async start/stop+insert against
@@ -56,6 +57,10 @@ export const EDITOR_COMMANDS: Record<EditorCommandId, Command> = {
   'editor.sortLines': sortLines,
   'editor.extendSelection': extendSelection,
   'editor.shrinkSelection': shrinkSelection,
+  'editor.moveSectionUp': moveSectionUp,
+  'editor.moveSectionDown': moveSectionDown,
+  'editor.promoteHeading': promoteHeading,
+  'editor.demoteHeading': demoteHeading,
   'editor.toggleTabFocusMode': toggleTabFocusMode,
   'editor.toggleBold': toggleBold,
   'editor.toggleItalic': toggleItalic,

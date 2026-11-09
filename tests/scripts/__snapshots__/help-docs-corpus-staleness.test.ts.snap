@@ -63,6 +63,7 @@ exports[`help-docs corpus staleness (#1288) > chunk ids freshly extracted from w
   "data.html#where",
   "editor-keyboard-shortcuts.html",
   "editor-keyboard-shortcuts.html#file-and-editing",
+  "editor-keyboard-shortcuts.html#file-and-editing",
   "editor-keyboard-shortcuts.html#formatting",
   "editor-keyboard-shortcuts.html#navigation",
   "editor-link-autocomplete.html",
