@@ -17,13 +17,9 @@ import { announce } from '../stores/announcer.svelte';
 export interface TypeViewSelectionOptions {
   /** Paths in the order the current layout shows them. */
   order: () => string[];
-  /** False for an embed / export: clicks just open the note. */
+  /** False without note actions, or in an export: clicks just open the note.
+   *  (An embed with note actions selects too, since #2940.) */
   enabled: () => boolean;
-  /**
-   * An embed with note actions (#2774): no multi-select, but right-click opens
-   * the menu for the one note under the pointer. Closing the menu lets go of it.
-   */
-  menuOnly?: () => boolean;
   onOpen: (path: string) => void;
   onEdit: (paths: string[]) => void;
 }
@@ -44,20 +40,17 @@ export function createTypeViewSelection(opts: TypeViewSelectionOptions) {
     opts.onOpen(path);
   }
 
-  const menuOnly = () => !opts.enabled() && (opts.menuOnly?.() ?? false);
-
   function contextMenu(e: MouseEvent, path: string): void {
-    if (!opts.enabled() && !menuOnly()) return;
+    if (!opts.enabled()) return;
     e.preventDefault();
-    // A menu-only embed acts on exactly the note right-clicked.
-    if (menuOnly() || !selection.has(path)) selection.setSingle(path);
+    if (!selection.has(path)) selection.setSingle(path);
     menu = { x: e.clientX, y: e.clientY };
   }
 
   /** Right-click a note named inside a row (#2775): the menu for THAT note.
    *  The rows' selection is left exactly as it was. */
   function contextMenuFor(e: MouseEvent, path: string): void {
-    if (!opts.enabled() && !menuOnly()) return;
+    if (!opts.enabled()) return;
     e.preventDefault();
     e.stopPropagation(); // not the row's own menu as well
     menu = { x: e.clientX, y: e.clientY, target: path };
@@ -65,12 +58,12 @@ export function createTypeViewSelection(opts: TypeViewSelectionOptions) {
 
   /**
    * The row menu for `paths`, at a point in the window — what a plugin drawing
-   * the layout asks for (#2828), with the same rules as a right-click: none in
-   * an embed without note actions, and one note at most in a menu-only embed.
+   * the layout asks for (#2828), with the same rules as a right-click: none
+   * without note actions.
    */
   function openMenuFor(paths: readonly string[], x: number, y: number): void {
-    if ((!opts.enabled() && !menuOnly()) || paths.length === 0) return;
-    if (menuOnly() || paths.length === 1) selection.setSingle(paths[0]!);
+    if (!opts.enabled() || paths.length === 0) return;
+    if (paths.length === 1) selection.setSingle(paths[0]!);
     else {
       selection.clear();
       for (const p of paths) selection.toggle(p);
@@ -81,7 +74,7 @@ export function createTypeViewSelection(opts: TypeViewSelectionOptions) {
   /** The menu for ONE note named inside a row, at a point — `contextMenuFor`
    *  from a plugin layout (#2828): the rows' selection is left as it was. */
   function openMenuForTarget(path: string, x: number, y: number): void {
-    if (!opts.enabled() && !menuOnly()) return;
+    if (!opts.enabled()) return;
     menu = { x, y, target: path };
   }
 
@@ -97,7 +90,7 @@ export function createTypeViewSelection(opts: TypeViewSelectionOptions) {
   }
 
   function selectAll(): void {
-    if (opts.enabled() && !menuOnly()) selection.selectAll(opts.order());
+    if (opts.enabled()) selection.selectAll(opts.order());
   }
   function clear(): void {
     menu = null;
@@ -105,9 +98,7 @@ export function createTypeViewSelection(opts: TypeViewSelectionOptions) {
   }
 
   function closeMenu(): void {
-    const wasTarget = !!menu?.target;
     menu = null;
-    if (menuOnly() && !wasTarget) selection.clear();
   }
 
   function editSelected(): void {
@@ -127,7 +118,7 @@ export function createTypeViewSelection(opts: TypeViewSelectionOptions) {
    */
   function rowKey(e: KeyboardEvent, path: string, steps: Readonly<Record<string, number>>): boolean {
     if (e.metaKey || e.ctrlKey || e.altKey) return false;
-    const on = opts.enabled() && !menuOnly();
+    const on = opts.enabled();
     if (e.key === ' ' && !e.shiftKey) {
       if (!on) return false;
       e.preventDefault(); // not the button's click, which would open the note
@@ -151,11 +142,9 @@ export function createTypeViewSelection(opts: TypeViewSelectionOptions) {
     return true;
   }
 
+  /** ⌘A and Escape. On the view's root, so in a note's embed it hears ⌘A only while focus is
+   *  inside the embed (#2940) — elsewhere ⌘A stays the page's select-all. */
   function keydown(e: KeyboardEvent): void {
-    if (menuOnly()) {
-      if (e.key === 'Escape' && menu) closeMenu();
-      return;
-    }
     if (!opts.enabled()) return;
     const t = e.target as HTMLElement | null;
     if (t && (t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
