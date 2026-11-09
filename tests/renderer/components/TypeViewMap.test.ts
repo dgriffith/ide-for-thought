@@ -32,7 +32,8 @@ const { mapInstances, markerInstances, FakeMap, FakeMarker, FakeNavigationContro
       this.el = opts?.element ?? document.createElement('div');
     }
     setLngLat(ll: [number, number]): this { this.lngLat = ll; return this; }
-    addTo(): this { markerInstances.push(this); return this; }
+    // In the map's container, as MapLibre puts it — focus needs it in the document (#2934).
+    addTo(map?: { opts?: { container?: HTMLElement } }): this { markerInstances.push(this); map?.opts?.container?.appendChild(this.el); return this; }
     getElement(): HTMLElement { return this.el; }
     remove = vi.fn();
   }
@@ -40,13 +41,26 @@ const { mapInstances, markerInstances, FakeMap, FakeMarker, FakeNavigationContro
   class FakeMap {
     opts: unknown;
     remove = vi.fn();
-    constructor(opts: unknown) { this.opts = opts; mapInstances.push(this); }
+    canvas = document.createElement('canvas');
+    constructor(opts: unknown) {
+      this.opts = opts;
+      mapInstances.push(this);
+      // MapLibre's canvas is the map's tab stop (#2934): in the container, focusable.
+      this.canvas.tabIndex = 0;
+      (opts as { container?: HTMLElement }).container?.appendChild(this.canvas);
+    }
+    getCanvas(): HTMLCanvasElement { return this.canvas; }
     addControl(): void {}
     resize(): void {}
     fitBounds = vi.fn();
     setCenter = vi.fn();
     setZoom = vi.fn();
     setStyle = vi.fn();
+    // The pins' keyboard (#2934): `inView` decides what `getBounds().contains` says.
+    inView: (ll: [number, number]) => boolean = () => true;
+    on = vi.fn();
+    getBounds() { return { contains: (ll: [number, number]) => this.inView(ll) }; }
+    easeTo = vi.fn();
   }
   return { mapInstances, markerInstances, FakeMap, FakeMarker, FakeNavigationControl, FakeLngLatBounds };
 });
@@ -249,7 +263,7 @@ describe('TypeViewMap (#2066)', () => {
       const el = markerInstances[0]!.getElement();
       expect(el.title).toBe(''); // the shared hover preview replaced the native tooltip (#2710)
       expect(el.style.cursor).toBe('pointer');
-      expect(el.getAttribute('role')).toBe('img');
+      expect(el.getAttribute('role')).toBe('button'); // a pin takes focus and acts (#2934), so not an image
       expect(el.getAttribute('aria-label')).toBe('San Francisco');
       expect(el.querySelector('text')!.getAttribute('aria-hidden')).toBe('true');
       await fireEvent.click(el.querySelector('text')!);
@@ -366,5 +380,107 @@ describe('TypeViewMap (#2066)', () => {
     });
     await waitFor(() => expect(mapInstances.length).toBe(1));
     expect(markerInstances.length).toBe(0);
+  });
+});
+
+describe('the pins from the keyboard (#2934)', () => {
+  // Three located places: SF (west), Chicago (north), NYC (east).
+  const THREE = [
+    { path: 'SF.md', title: 'San Francisco', values: { location: '37.7749,-122.4194' }, cover: null },
+    { path: 'CHI.md', title: 'Chicago', values: { location: '41.8781,-87.6298' }, cover: null },
+    { path: 'NYC.md', title: 'New York', values: { location: '40.7128,-74.0060' }, cover: null },
+  ];
+  const pin = (title: string) => markerInstances.find((m) => m.getElement().getAttribute('aria-label') === title)!.getElement();
+  const tabbable = () => markerInstances.filter((m) => m.getElement().tabIndex === 0).map((m) => m.getElement().getAttribute('aria-label'));
+  async function mounted(over: Record<string, unknown> = {}) {
+    const utils = render(TypeViewMap, { instances: THREE, locationProperty: 'location', onOpenNote: vi.fn(), type: { id: 'place', label: 'Place' } as never, ...over });
+    await waitFor(() => expect(markerInstances.length).toBe(3));
+    return utils;
+  }
+
+  it('the pins are buttons and ONE tab stop — the first in view, after the map, which is named for its places', async () => {
+    render(TypeViewMap, { instances: THREE, locationProperty: 'location', onOpenNote: vi.fn(), type: { id: 'place', label: 'Place' } as never });
+    await waitFor(() => expect(markerInstances.length).toBe(3));
+    await waitFor(() => expect(mapInstances[0]!.canvas.getAttribute('aria-label')).toBe('Place map, 3 places'));
+    expect(markerInstances.every((m) => m.getElement().getAttribute('role') === 'button')).toBe(true);
+    expect(tabbable()).toEqual(['San Francisco']); // the first going west → east
+    cleanup();
+    markerInstances.length = 0;
+    mapInstances.length = 0;
+    // San Francisco out of view: the stop is the first pin that is in view.
+    const real = FakeMap.prototype.getBounds;
+    FakeMap.prototype.getBounds = function () { return { contains: (ll: [number, number]) => ll[0] > -100 }; };
+    try {
+      await mounted();
+      expect(tabbable()).toEqual(['Chicago']);
+    } finally { FakeMap.prototype.getBounds = real; }
+  });
+
+  it('←/→ step west → east, ↑/↓ north → south, Home/End to the ends; the stop follows focus', async () => {
+    await mounted();
+    pin('San Francisco').focus();
+    await fireEvent.keyDown(pin('San Francisco'), { key: 'ArrowRight' });
+    expect(document.activeElement).toBe(pin('Chicago'));
+    await fireEvent.keyDown(pin('Chicago'), { key: 'ArrowDown' });
+    expect(document.activeElement).toBe(pin('New York'));
+    await fireEvent.keyDown(pin('New York'), { key: 'ArrowUp' });
+    expect(document.activeElement).toBe(pin('Chicago'));
+    await fireEvent.keyDown(pin('Chicago'), { key: 'Home' });
+    expect(document.activeElement).toBe(pin('San Francisco'));
+    await fireEvent.keyDown(pin('San Francisco'), { key: 'End' });
+    expect(document.activeElement).toBe(pin('New York'));
+    expect(tabbable()).toEqual(['New York']);
+  });
+
+  it("a pin's keys stay with it: MapLibre's handler on the map never sees them", async () => {
+    const { container } = await mounted();
+    const seen = vi.fn();
+    container.querySelector('.type-view-map')!.addEventListener('keydown', seen);
+    pin('Chicago').focus();
+    const e = new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true, cancelable: true });
+    pin('Chicago').dispatchEvent(e);
+    expect(e.defaultPrevented).toBe(true);
+    expect(seen).not.toHaveBeenCalled();
+  });
+
+  it('Enter opens the note; Shift+F10 / the menu key opens its note menu', async () => {
+    const onOpenNote = vi.fn();
+    const onPinContextMenu = vi.fn();
+    await mounted({ onOpenNote, onPinContextMenu });
+    pin('Chicago').focus();
+    await fireEvent.keyDown(pin('Chicago'), { key: 'Enter' });
+    expect(onOpenNote).toHaveBeenCalledWith('CHI.md');
+    await fireEvent.keyDown(pin('Chicago'), { key: 'F10', shiftKey: true });
+    await fireEvent.keyDown(pin('Chicago'), { key: 'ContextMenu' });
+    expect(onPinContextMenu.mock.calls.map((c) => c[1])).toEqual(['CHI.md', 'CHI.md']);
+  });
+
+  it('focus shows the preview; Escape closes it, and again goes back to the map', async () => {
+    await mounted();
+    pin('Chicago').focus();
+    await waitFor(() => expect(pin('Chicago').getAttribute('aria-describedby')).toBeTruthy());
+    await fireEvent.keyDown(pin('Chicago'), { key: 'Escape' });
+    await waitFor(() => expect(pin('Chicago').hasAttribute('aria-describedby')).toBe(false));
+    expect(document.activeElement).toBe(pin('Chicago'));
+    await fireEvent.keyDown(pin('Chicago'), { key: 'Escape' });
+    expect(document.activeElement).toBe(mapInstances[0]!.canvas);
+  });
+
+  it('an export takes no tab stops and no keys', async () => {
+    await mounted({ exportHooks: { onCaptured: vi.fn() } });
+    for (const m of markerInstances) {
+      expect(m.getElement().hasAttribute('tabindex')).toBe(false);
+      expect(m.getElement().getAttribute('role')).not.toBe('button');
+    }
+  });
+
+  it('focusing a pin out of view eases the map to it, at the same zoom', async () => {
+    await mounted();
+    const map = mapInstances[0]!;
+    map.inView = (ll) => ll[0] !== -74.006;
+    pin('Chicago').focus();
+    expect(map.easeTo).not.toHaveBeenCalled();
+    pin('New York').focus();
+    expect(map.easeTo).toHaveBeenCalledWith({ center: [-74.006, 40.7128] });
   });
 });
