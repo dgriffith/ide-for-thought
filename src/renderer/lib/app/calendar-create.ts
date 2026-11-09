@@ -54,20 +54,44 @@ export function noteNameFor(title: string): string {
  */
 export async function createCalendarEvent(req: CreateEventRequest): Promise<string | null> {
   if (createEventRefusal(req.start, req.end) !== null) return null;
-  const dialogs = getDialogStore();
-  const byId = new Map(req.catalog.map((t) => [t.id, t] as const));
-  const subtypes = req.catalog.filter((t) => t.id !== req.type.id && inheritsFrom(t.id, req.type.id, byId));
-  const type = subtypes.length > 0
-    ? await dialogs.showTypePicker([req.type, ...subtypes], { eyebrow: 'New event', title: 'Which type is it?', apply: 'choose' })
-    : req.type;
-  if (!type) return null;
-  const title = (await dialogs.showPrompt(`New ${type.label} — title:`))?.trim();
-  if (!title) return null;
-
   const dateProp = req.properties.find((p) => p.name === req.dates.dateProperty);
   const { start, end } = valuesFor(dateProp?.type, req.start, req.dates.endProperty === null ? null : req.end);
   const values: Record<string, string> = { [req.dates.dateProperty]: start };
   if (req.dates.endProperty !== null && end !== null) values[req.dates.endProperty] = end;
+  return createTypedNote({ type: req.type, catalog: req.catalog, values, cause: req.cause, eyebrow: 'New event', noun: 'event' });
+}
+
+export interface CreateTypedNoteRequest {
+  /** The type, and the catalog its subtypes are found in (one is asked for when there are any). */
+  type: TypeInfo;
+  catalog: readonly TypeInfo[];
+  /** Fields the new note starts with: a calendar's dates, a mindmap's parent (#2966). */
+  values: Record<string, string>;
+  /** Local History's cause: "Created by Calendar". */
+  cause?: string | undefined;
+  /** The type picker's eyebrow ("New event"). */
+  eyebrow: string;
+  /** What it's called in the announcements ("event"). */
+  noun: string;
+}
+
+/**
+ * A new note of a type, made the way the app makes one: the subtype asked
+ * for when there are any, its title asked, the type's template filled
+ * (with `values` for its property placeholders), the scaffold's fields
+ * set, a free name at the root. Resolves to its path, or null when asked
+ * and cancelled (or the write failed, said).
+ */
+export async function createTypedNote(req: CreateTypedNoteRequest): Promise<string | null> {
+  const dialogs = getDialogStore();
+  const byId = new Map(req.catalog.map((t) => [t.id, t] as const));
+  const subtypes = req.catalog.filter((t) => t.id !== req.type.id && inheritsFrom(t.id, req.type.id, byId));
+  const type = subtypes.length > 0
+    ? await dialogs.showTypePicker([req.type, ...subtypes], { eyebrow: req.eyebrow, title: 'Which type is it?', apply: 'choose' })
+    : req.type;
+  if (!type) return null;
+  const title = (await dialogs.showPrompt(`New ${type.label} — title:`))?.trim();
+  if (!title) return null;
 
   let body = '';
   const template = type.effectiveTemplate ?? type.template;
@@ -75,13 +99,13 @@ export async function createCalendarEvent(req: CreateEventRequest): Promise<stri
     const sub = await substituteTemplate(template, {
       title,
       prompt: (label: string) => dialogs.showPrompt(`${label}:`),
-      properties: typePlaceholderContext(type, values),
+      properties: typePlaceholderContext(type, req.values),
     });
     if (sub.cancelled) return null;
     body = sub.content;
   }
   const scaffold = buildTypedNoteScaffold(type, body).content;
-  const content = setFieldValues(scaffold, Object.entries(values).map(([key, value]) => ({ key, value })))?.content ?? scaffold;
+  const content = setFieldValues(scaffold, Object.entries(req.values).map(([key, value]) => ({ key, value })))?.content ?? scaffold;
 
   try {
     const path = await freePath(noteNameFor(title));
@@ -90,7 +114,7 @@ export async function createCalendarEvent(req: CreateEventRequest): Promise<stri
     announce(`Created ${title}.`);
     return path;
   } catch (err) {
-    logger('objects').warn('calendar create failed for', title, err);
+    logger('objects').warn(`create ${req.noun} failed for`, title, err);
     announce(`Couldn’t create ${title}.`);
     return null;
   }

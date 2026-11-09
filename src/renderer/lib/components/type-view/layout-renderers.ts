@@ -21,6 +21,7 @@ import KanbanLayout from './KanbanLayout.svelte';
 import TimelineLayout from './TimelineLayout.svelte';
 import CalendarLayout from './CalendarLayout.svelte';
 import GraphLayout from './GraphLayout.svelte';
+import MindmapLayout from './MindmapLayout.svelte';
 
 export interface LayoutRenderer {
   component: Component<{ view: LayoutView }>;
@@ -47,6 +48,8 @@ export const LAYOUT_RENDERERS: Record<ViewLayout, LayoutRenderer> = {
   calendar: { component: CalendarLayout, order: (v) => calendarOrder(buildCalendarModel(v.instances, timelineProperties(v.dateBy, v.properties))) },
   // The view's sort is the graph's keyboard order (#2960).
   graph: { component: GraphLayout, order: (v) => v.sorted },
+  // The view's sort orders each node's children (#2966).
+  mindmap: { component: MindmapLayout, order: (v) => v.sorted },
 };
 
 /** The notes in the order `layout` draws them. */
