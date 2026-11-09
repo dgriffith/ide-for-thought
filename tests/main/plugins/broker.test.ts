@@ -412,6 +412,20 @@ describe('the ui kit (#2827)', () => {
     expect(s.intents).toHaveLength(2);
   });
 
+  it('passes a board\'s selection move on with its paths, checked the same way (#2941)', async () => {
+    const s = open({ scope: ['a.md', 'notes/n.md'] });
+    const target = { value: 'done', label: 'done', kind: 'option' };
+    await s.call('view.moveCard', { path: 'a.md', target, paths: ['notes/n.md', 'a.md'] });
+    await s.call('view.moveCard', { path: 'a.md', target });
+    expect(s.intents).toEqual([
+      { kind: 'moveCard', path: 'a.md', target, paths: ['notes/n.md', 'a.md'] },
+      { kind: 'moveCard', path: 'a.md', target },
+    ]);
+    expect((await s.call('view.moveCard', { path: 'a.md', target, paths: ['notes/n.md'] })).error?.code).toBe('bad-request');
+    expect((await s.call('view.moveCard', { path: 'a.md', target, paths: ['a.md', 'b.md'] })).error?.code).toBe('scope');
+    expect(s.intents).toHaveLength(2);
+  });
+
   it('passes a calendar\'s group move on with its paths: deduplicated, scoped, the note itself among them (#2938)', async () => {
     const s = open({ scope: ['a.md', 'notes/n.md'] });
     await s.call('view.reschedule', { path: 'a.md', days: 2, paths: ['a.md', 'notes/n.md', 'a.md'] });

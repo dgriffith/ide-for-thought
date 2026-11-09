@@ -31,6 +31,12 @@
    *   when the column changes); Alt+↑ / Alt+↓ move the focused card up or
    *   down its column. The order is the view's — no note is written — and a
    *   reorder in a sorted view turns the sort off (the host's call).
+   * - **A selection moves together** (#2941): dragging a selected card carries
+   *   the whole selection (the ghost counts them) into the column dropped in —
+   *   one `view.moveCard` with `paths`, one undo — and in a spot, the dragged
+   *   card lands there with the rest after it in board order. Alt+← / Alt+→
+   *   move the focused card, or its selection, a column over. An unselected
+   *   card moves alone and leaves the selection be.
    * - **Column order** (#2614): drag a header (`column-drag.ts`) or use its
    *   menu's *Move column left / right* (`ColumnMenu.svelte`; ↑ from a
    *   column's first card reaches it). Both end in `view.moveColumn`; in an
@@ -46,7 +52,7 @@
   import type { MinervaPlugin, PluginViewInstance, PluginViewState } from '/@minerva/plugin-api.js';
   import ColumnMenu from './ColumnMenu.svelte';
   import { cardDrag, cardMoveKey, openCardMenu, type DropAnchor } from './card-drag';
-  import type { MoveTarget } from '../../../src/shared/objects/kanban-move';
+  import { targetOfColumn, type MoveTarget } from '../../../src/shared/objects/kanban-move';
   import { afterColumnMove, columnDrag, focusColumnHeader, type DropSide } from './column-drag';
   import { isMenuKey, openMenuAt } from './keys';
 
@@ -193,10 +199,51 @@
     if (next) moveColumn(columns[i]!, next.key, dir === 'left' ? 'before' : 'after', true);
   }
 
-  /** A card dropped (#2603, #2922): to another column, beside another card, or both. */
-  function dropCard(path: string, target: MoveTarget | null, anchor: DropAnchor | null): void {
+  /**
+   * The cards a drag or Alt+arrow of `path` carries (#2941): a selected card
+   * brings the whole selection, in board order; any other card goes alone.
+   */
+  function carried(path: string): string[] {
+    if (!view.selectable || !selected.has(path) || view.selected.length < 2) return [path];
+    return columns.flatMap((c) => c.instances.map((i) => i.path)).filter((p) => selected.has(p));
+  }
+
+  /**
+   * A card dropped (#2603, #2922): to another column, beside another card, or
+   * both. A selected card carries the selection (#2941): all of it to the
+   * column dropped in, as ONE move and one undo, and in a spot, the dragged
+   * card there with the rest following it in board order.
+   */
+  function dropCard(path: string, target: MoveTarget | null, anchor: DropAnchor | null, column: MoveTarget): void {
+    const group = carried(path);
+    if (group.length > 1) {
+      quietly(minerva.view.moveCard({ path, target: column, paths: group }));
+      if (!anchor) return;
+      quietly(minerva.view.reorderCard({ path, target: anchor.path, side: anchor.side }));
+      let prev = path;
+      for (const p of group) {
+        if (p === path) continue;
+        quietly(minerva.view.reorderCard({ path: p, target: prev, side: 'after' }));
+        prev = p;
+      }
+      return;
+    }
     if (target) quietly(minerva.view.moveCard({ path, target }));
     if (anchor) quietly(minerva.view.reorderCard({ path, target: anchor.path, side: anchor.side }));
+  }
+
+  /** Alt+← / Alt+→ (#2941): the focused card — or its selection — to the next column that way. */
+  function moveToColumn(path: string, dir: -1 | 1): void {
+    const cols = [...(el?.querySelectorAll<HTMLElement>('section.kb-column') ?? [])];
+    const at = cols.findIndex((c) => c.querySelector(`[data-kanban-card][data-note-path="${CSS.escape(path)}"]`));
+    const next = cols[at + dir];
+    if (at === -1 || !next) {
+      announce(`Already in the ${dir < 0 ? 'first' : 'last'} column`);
+      return;
+    }
+    const target = targetOfColumn(next.dataset['columnValue'] ?? '', next.dataset['columnKind'] ?? '');
+    const group = carried(path);
+    quietly(minerva.view.moveCard(group.length > 1 ? { path, target, paths: group } : { path, target }));
   }
 
   /** Alt+↑ / Alt+↓ (#2922): the focused card up or down its column. Focus
@@ -308,6 +355,13 @@
       else if (card) openCardMenu(card);
       return;
     }
+    if (e.altKey && !e.metaKey && !e.ctrlKey && !e.shiftKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+      const path = card?.dataset['notePath'];
+      if (!path || !view.movable) return;
+      e.preventDefault();
+      moveToColumn(path, e.key === 'ArrowLeft' ? -1 : 1);
+      return;
+    }
     if (e.altKey && !e.metaKey && !e.ctrlKey && !e.shiftKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
       const path = card?.dataset['notePath'];
       if (!path || view.readOnly) return;
@@ -345,7 +399,7 @@
     onfocusin={trackHold}
     onpointerdown={() => { heldPath = null; }}
     data-group-by={view.groupProperty}
-    use:cardDrag={{ enabled: view.movable || !view.readOnly, canMove: view.movable, canReorder: !view.readOnly, onDrop: dropCard }}
+    use:cardDrag={{ enabled: view.movable || !view.readOnly, canMove: view.movable, canReorder: !view.readOnly, onDrop: dropCard, count: (p) => carried(p).length }}
   >
     {#each columns as col, ci (col.key + col.kind)}
       <section class="kb-column" data-column-value={col.value ?? ''} data-column-kind={col.kind}>

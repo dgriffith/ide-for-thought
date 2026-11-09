@@ -465,6 +465,12 @@ falls back to the table. Two things it settled for the next two:
   anchor, prune notes the type no longer has, cap the list, and in a sorted
   view seed the whole board and turn the sort off), so the plugin only names
   the anchor.
+- **A selection moves together** (#2941, API 1.17.0): `view.moveCard` takes
+  `paths`, the whole group with `path` among them, and the host's
+  `moveCards` moves them as one undo. Dragging a selected card carries the
+  selection; dropped at a spot, the plugin sends a `view.reorderCard` for the
+  dragged card and then one for each other, after the one before it, so they
+  follow it in board order. Alt+← / Alt+→ do the same a column over.
 - **The host's popups stay the host's.** The note menu (`ui.showNoteMenu`,
   with `target` for a note a card's field names) and the hover preview are
   drawn by the app; the preview's text is mirrored back as a `preview` event
