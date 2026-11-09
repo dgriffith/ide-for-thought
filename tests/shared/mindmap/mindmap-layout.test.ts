@@ -58,6 +58,12 @@ describe('layoutMindmap, radial (#2964)', () => {
     expect(angle('b')).toBeLessThan(angle('c'));
     expect(overlaps(l)).toEqual([]);
   });
+
+  it('spaces a ring by the chord between neighbours, not the arc — four wide labels a quarter turn apart', () => {
+    const wide = 'w'.repeat(22);
+    const l = layoutMindmap(t('r', ['a', 'b', 'c', 'd'].map((id) => t(id, [], wide)), ''), { orientation: 'radial' });
+    expect(overlaps(l)).toEqual([]);
+  });
 });
 
 describe('labels and folds (#2964)', () => {
