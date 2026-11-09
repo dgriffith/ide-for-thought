@@ -20,11 +20,17 @@ const h = vi.hoisted(() => {
     el: HTMLElement;
     constructor(opts?: { element?: HTMLElement }) { this.el = opts?.element ?? document.createElement('div'); }
     setLngLat(): this { return this; }
-    addTo(): this { pins.push(this.el); return this; }
+    addTo(map?: { opts?: { container?: HTMLElement } }): this { pins.push(this.el); map?.opts?.container?.appendChild(this.el); return this; }
     getElement(): HTMLElement { return this.el; }
-    remove(): void {}
+    // Gone from the map and the list, as MapLibre's marker is when the pins are rebuilt.
+    remove(): void { this.el.remove(); const i = pins.indexOf(this.el); if (i !== -1) pins.splice(i, 1); }
   }
   class FakeMap {
+    opts: { container?: HTMLElement };
+    // The pins and canvas sit in the container, as MapLibre's do, so focus and the box work (#2939).
+    constructor(opts: { container?: HTMLElement }) { this.opts = opts; }
+    dragPan = { disable(): void {}, enable(): void {} };
+    project(ll: [number, number]) { return { x: (ll[0] + 180) * 10, y: (90 - ll[1]) * 10 }; }
     addControl(): void {}
     resize(): void {}
     fitBounds(): void {}
@@ -112,5 +118,71 @@ describe('the note menu on a map pin (#2930)', () => {
     pin('New York').dispatchEvent(ev);
     expect(ev.defaultPrevented).toBe(false);
     expect(screen.queryByRole('menu')).toBeNull();
+  });
+});
+
+describe('several pins (#2939)', () => {
+  // Projected at 10px a degree: SF ≈ (575, 522), Chicago ≈ (924, 481), NYC ≈ (1060, 493), Miami ≈ (998, 642).
+  const FOUR = [
+    ...PLACES,
+    { path: 'CHI.md', title: 'Chicago', values: { location: '41.8781,-87.6298' }, cover: null },
+    { path: 'MIA.md', title: 'Miami', values: { location: '25.7617,-80.1918' }, cover: null },
+  ];
+  beforeEach(() => { h.instances.mockResolvedValue({ type: PLACE, instances: FOUR }); });
+  const pressed = () => h.pins.filter((p) => p.getAttribute('aria-pressed') === 'true').map((p) => p.getAttribute('aria-label'));
+
+  it('a ⇧-drag box around three pins, then Add Tag… on one of them, reaches all three', async () => {
+    const noteActions = actions();
+    render(TypeView, props({ noteActions }));
+    await waitFor(() => expect(h.pins).toHaveLength(4));
+    const surface = document.querySelector<HTMLElement>('.type-view-map')!;
+    await fireEvent.pointerDown(surface, { button: 0, pointerId: 1, clientX: 500, clientY: 400, shiftKey: true });
+    await fireEvent.pointerMove(window, { pointerId: 1, clientX: 1100, clientY: 560 });
+    await fireEvent.pointerUp(window, { pointerId: 1, clientX: 1100, clientY: 560 });
+    await waitFor(() => expect(pressed()).toEqual(['San Francisco', 'New York', 'Chicago']));
+    await fireEvent.contextMenu(pin('Chicago'));
+    await fireEvent.click(await screen.findByRole('menuitem', { name: 'Add Tag… (3 notes)' }));
+    expect(noteActions.addTag).toHaveBeenCalledWith(['SF.md', 'NYC.md', 'CHI.md']);
+  });
+
+  it('⌘-click and ⇧-click toggle a pin; an unselected pin\'s menu is its own; ⌘A selects every pin, Esc clears', async () => {
+    const noteActions = actions();
+    const onOpenNote = vi.fn();
+    render(TypeView, props({ noteActions, onOpenNote }));
+    await waitFor(() => expect(h.pins).toHaveLength(4));
+    await fireEvent.click(pin('Chicago'), { metaKey: true });
+    await fireEvent.click(pin('Miami'), { shiftKey: true }); // no range on a map: a toggle
+    await waitFor(() => expect(pressed()).toEqual(['Chicago', 'Miami']));
+    await fireEvent.click(pin('Miami'), { shiftKey: true });
+    await waitFor(() => expect(pressed()).toEqual(['Chicago']));
+    expect(onOpenNote).not.toHaveBeenCalled();
+    await fireEvent.contextMenu(pin('New York'));
+    await fireEvent.click(await screen.findByRole('menuitem', { name: 'Add Tag…' }));
+    expect(noteActions.addTag).toHaveBeenCalledWith(['NYC.md']);
+    pin('Chicago').focus();
+    await fireEvent.keyDown(pin('Chicago'), { key: 'a', metaKey: true });
+    await waitFor(() => expect(pressed()).toHaveLength(4));
+    await fireEvent.keyDown(pin('Chicago'), { key: 'Escape' });
+    await waitFor(() => expect(pressed()).toEqual([]));
+  });
+
+  it('selecting redraws the pins it changes, not the map: a focused pin keeps focus through Space', async () => {
+    render(TypeView, props({ noteActions: actions() }));
+    await waitFor(() => expect(h.pins).toHaveLength(4));
+    const chicago = pin('Chicago');
+    chicago.focus();
+    await fireEvent.keyDown(chicago, { key: ' ' });
+    await waitFor(() => expect(pressed()).toEqual(['Chicago']));
+    expect(pin('Chicago')).toBe(chicago); // the same element, not a rebuilt one
+    expect(document.activeElement).toBe(chicago);
+  });
+
+  it('an embed selects nothing: a modifier click opens the note, and there is no box', async () => {
+    const onOpenNote = vi.fn();
+    render(TypeView, props({ noteActions: actions(), chromeless: true, onOpenNote }));
+    await waitFor(() => expect(h.pins).toHaveLength(4));
+    await fireEvent.click(pin('Chicago'), { metaKey: true });
+    expect(onOpenNote).toHaveBeenCalledWith('CHI.md');
+    expect(h.pins.some((p) => p.hasAttribute('aria-pressed'))).toBe(false);
   });
 });

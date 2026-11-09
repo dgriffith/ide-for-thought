@@ -25,17 +25,11 @@
    * marker"). An export mounts no preview. Right-clicking a pin opens the
    * view's note menu for its note (#2930), where the view has one.
    *
-   * **The pins from the keyboard** (#2934): one tab stop after the map itself
-   * (MapLibre's canvas, where its own keys pan and zoom, named like "Place
-   * map, 6 places" — the wrapper used to be a second, dead stop before it),
-   * a roving tabindex as on the
-   * timeline — the last pin focused, else the first in view, else the first.
-   * ←/→ step west → east and ↑/↓ north → south (`map/pin-order.ts`, a fixed
-   * order), Home/End to the ends; Enter opens, Shift+F10 / the menu key opens
-   * the note menu, Escape closes the preview or goes back to the map. A
-   * focused pin shows the preview, and one out of view is eased into it at
-   * the same zoom. The keys a pin takes stop there, so MapLibre doesn't pan
-   * as well. None of it in an export.
+   * **The pins from the keyboard** (#2934): one roving tab stop after the map
+   * (MapLibre's canvas, named "Place map, 6 places"), arrows in a fixed order
+   * — `map/pin-keyboard.ts`. **Selecting several** (#2939), where the view
+   * selects: ⌘/⇧-click and Space toggle a pin, ⇧-drag draws a box
+   * (`map/pin-box.ts`, replacing MapLibre's box zoom); ⌘A / Esc are the view's.
    *
    * The tile style is the view's `mapStyle` (#2665): `light` / `dark` pin
    * OpenFreeMap's named style, `auto` follows the app theme (`styleUrlForTheme`,
@@ -69,8 +63,9 @@
   import { objectTypesStore } from '../stores/object-types.svelte';
   import type { PropertyDef, TypeInfo, TypeInstanceRow } from '../../../shared/objects/type-def';
   import NoteHoverPreview from './NoteHoverPreview.svelte';
-  import { isMenuKey, openMenuAt } from './type-view/note-actions';
-  import { nextPin, eastwardOrder, type PinPoint } from '../map/pin-order';
+  import type { PinPoint } from '../map/pin-order';
+  import { createPinKeyboard } from '../map/pin-keyboard';
+  import { attachBoxSelect } from '../map/pin-box';
   import { createNoteHover } from './note-hover/note-hover.svelte';
 
   type MapLibreModule = typeof maplibregl;
@@ -99,8 +94,13 @@
     /** Right-click a pin (#2930): the view's note menu for its note. Absent
      *  (no note actions, an export) → the right-click is left alone. */
     onPinContextMenu?: (e: MouseEvent, relativePath: string) => void;
+    /** The view's selection (#2939), where it selects: a click with its modifiers (a plain one
+     *  opens), whether a pin is selected, and a ⇧-drag box's pins (`toggle` with ⌘ held). */
+    onPinClick?: (e: MouseEvent, relativePath: string) => void;
+    isSelected?: (relativePath: string) => boolean;
+    onBoxSelect?: (paths: string[], toggle: boolean) => void;
   }
-  let { instances, locationProperty, onOpenNote, exportHooks, mapStyle = 'auto', onMapStyleChange, type, properties, display, onPinContextMenu }: Props = $props();
+  let { instances, locationProperty, onOpenNote, exportHooks, mapStyle = 'auto', onMapStyleChange, type, properties, display, onPinContextMenu, onPinClick, isSelected, onBoxSelect }: Props = $props();
 
   const uid = $props.id();
   const hover = createNoteHover();
@@ -109,11 +109,12 @@
   let pinElements = new Map<string, HTMLElement>();
   /** The pins that take focus (#2934): note pins, not in an export. */
   let pinPoints: PinPoint[] = [];
-  /** The pin focus was last on — the pins' tab stop while it's still drawn. */
-  let focusedPin: string | null = null;
-  /** An Escape has closed the focused pin's preview: the next one goes back to the map. (The
-   *  preview closes itself on Escape before the pin hears it, so `hover.current` can't say.) */
-  let previewDismissed = false;
+  const keys = createPinKeyboard({
+    map: () => map, pins: () => pinPoints, elements: () => pinElements, hover, onOpen: (p) => onOpenNote(p),
+    onToggle: () => (onPinClick ? (p) => onPinClick(new MouseEvent('click', { metaKey: true }), p) : undefined),
+  });
+  /** The ⇧-drag box (#2939), while the map is interactive and the view selects. */
+  let detachBox: (() => void) | null = null;
   /** The map's name, with how many places it shows: "Place map, 6 places". */
   const mapLabel = $derived.by(() => {
     const n = instances.filter((i) => parseLatLng(i.values[locationProperty] ?? null)).length;
@@ -182,7 +183,7 @@
       // A query row that names no note (#2946) is a pin to look at: no open, menu or preview.
       if (inst.noNote) { markers.push(marker); bounds.extend([lng, lat]); continue; }
       pin.style.cursor = 'pointer';
-      pin.addEventListener('click', () => onOpenNote(inst.path));
+      pin.addEventListener('click', (e) => { if (onPinClick) onPinClick(e, inst.path); else onOpenNote(inst.path); });
       if (!exportHooks) {
         // The menu for THIS pin's note (#2930) — not the map's, nor, in an
         // embed, the note around it. Read at the event, so a handler that
@@ -199,9 +200,9 @@
         // The keyboard (#2934): a roving tab stop, focus previews, keys step between pins.
         pin.setAttribute('role', 'button');
         pin.tabIndex = -1;
-        pin.addEventListener('focus', () => onPinFocus(inst.path, [lng, lat], subject));
+        pin.addEventListener('focus', () => keys.onFocus(inst.path, [lng, lat], subject));
         pin.addEventListener('blur', () => hover.blur(inst.path));
-        pin.addEventListener('keydown', (e) => onPinKeydown(e, inst.path, pin));
+        pin.addEventListener('keydown', (e) => keys.onKeydown(e, inst.path, pin));
         pinElements.set(inst.path, pin);
         pinPoints.push({ path: inst.path, lat, lng });
       }
@@ -229,45 +230,18 @@
       map.setZoom(1);
     }
     placed = true;
-    updateTabStop();
+    keys.updateTabStop();
+    // Not `drawSelection()` here: reading the selection would make every selection change
+    // rebuild the pins (and lose a focused pin). Its own effect, below, redraws after this one.
   }
 
-  /** The pins' tab stop: the last focused, else the first in view, else the first (#2934). */
-  function tabStop(): string | null {
-    if (pinPoints.length === 0) return null; // an export, or nothing to focus
-    if (focusedPin && pinElements.has(focusedPin)) return focusedPin;
-    const order = eastwardOrder(pinPoints);
-    const view = map?.getBounds();
-    const inView = view ? order.find((path) => { const p = pinPoints.find((x) => x.path === path)!; return view.contains([p.lng, p.lat]); }) : undefined;
-    return inView ?? order[0] ?? null;
-  }
-  function updateTabStop(): void {
-    const stop = tabStop();
-    for (const [path, pin] of pinElements) pin.tabIndex = path === stop ? 0 : -1;
-  }
-  function onPinFocus(path: string, lngLat: [number, number], subject: { key: string; target: string; anchor: Element; fallbackTitle: string }): void {
-    focusedPin = path;
-    previewDismissed = false;
-    updateTabStop();
-    hover.focus(subject);
-    // Out of view: bring it in, at the same zoom.
-    if (map && !map.getBounds().contains(lngLat)) map.easeTo({ center: lngLat });
-  }
-  function onPinKeydown(e: KeyboardEvent, path: string, pin: HTMLElement): void {
-    if (e.metaKey || e.ctrlKey || e.altKey) return;
-    let handled = true;
-    if (isMenuKey(e)) openMenuAt(pin); // the pin's own contextmenu listener opens the note menu
-    else if (e.key === 'Enter') onOpenNote(path);
-    else if (e.key === 'Escape') {
-      if (previewDismissed) map?.getCanvas().focus();
-      else { previewDismissed = true; hover.close(); }
-    } else if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key) && !e.shiftKey) {
-      const next = nextPin(pinPoints, path, e.key);
-      if (next) pinElements.get(next)?.focus();
-    } else handled = false;
-    if (!handled) return;
-    e.preventDefault();
-    e.stopPropagation(); // MapLibre's keyboard handler is on the container: it mustn't pan as well
+  /** Selected pins carry an accent ring and say so (#2939); where the view doesn't select, neither. */
+  function drawSelection(): void {
+    for (const [path, pin] of pinElements) {
+      const on = !!isSelected?.(path);
+      pin.classList.toggle('pin-selected', on);
+      if (onPinClick) pin.setAttribute('aria-pressed', String(on));
+    }
   }
 
   onMount(() => {
@@ -289,6 +263,7 @@
 
     return () => {
       disposed = true;
+      detachBox?.();
       for (const marker of markers) marker.remove();
       markers = [];
       map?.remove();
@@ -316,10 +291,18 @@
       return m;
     }
     const url = mapStyleUrl(mapStyle);
-    const m = new mod.Map({ container: el, style: url });
+    // ⇧-drag is the selection box where the view selects (#2939), not MapLibre's box zoom.
+    const m = new mod.Map({ container: el, style: url, ...(onBoxSelect ? { boxZoom: false } : {}) });
     appliedStyleUrl = url;
     m.addControl(new mod.NavigationControl(), 'top-right');
-    m.on('moveend', updateTabStop); // "the first pin in view" follows the map
+    m.on('moveend', keys.updateTabStop); // "the first pin in view" follows the map
+    if (onBoxSelect) {
+      detachBox = attachBoxSelect({
+        container: el, dragPan: m.dragPan,
+        pins: () => pinPoints.map((p) => { const pt = m.project([p.lng, p.lat]); return { path: p.path, x: pt.x, y: pt.y }; }),
+        onSelect: (paths, toggle) => onBoxSelect(paths, toggle),
+      });
+    }
     return m;
   }
 
@@ -415,6 +398,9 @@
     ready;
     syncMarkers();
   });
+
+  // The selection as the view has it now (#2939), redrawn as it changes or the pins are rebuilt.
+  $effect(() => { void instances; void ready; drawSelection(); });
 
   // The map's name, on its tab stop: MapLibre's canvas, which calls itself "Map" (#2934).
   $effect(() => {
@@ -582,6 +568,20 @@
      a thin light halo keeps every pin's outline readable. */
   .dark-tiles :global(.maplibregl-marker svg) {
     filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.9)) drop-shadow(0 0 2px rgba(255, 255, 255, 0.5));
+  }
+
+  /* A selected pin (#2939): an accent ring with a halo, readable on light and dark tiles. */
+  .type-view-map :global(.maplibregl-marker.pin-selected) {
+    border-radius: 50%;
+    box-shadow: 0 0 0 2px var(--accent), 0 0 0 4px rgba(255, 255, 255, 0.85);
+  }
+  /* The ⇧-drag selection box (#2939). */
+  .type-view-map :global(.map-select-box) {
+    position: absolute;
+    z-index: 3;
+    border: 1px solid var(--accent);
+    background: color-mix(in oklch, var(--accent) 15%, transparent);
+    pointer-events: none;
   }
 
   /* A pin with keyboard focus (#2934). */
