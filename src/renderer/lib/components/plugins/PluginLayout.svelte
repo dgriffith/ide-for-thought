@@ -169,7 +169,7 @@
       {onConnected}
       {onViewState}
       onNoteMenu={(paths, x, y, opts) => view.openRowMenu(paths, x, y, opts)}
-      onMoveCard={(path, target) => view.onMoveCard?.(path, target)}
+      onMoveCard={(path, target, paths) => view.onMoveCard?.(path, target, paths)}
       onUndoMove={() => view.onUndoMove?.()}
       onMoveColumn={(key, target, side) => view.onMoveColumn?.(key, target, side)}
       onReorderCard={(path, target, side) => view.onReorderCard?.(path, target, side)}

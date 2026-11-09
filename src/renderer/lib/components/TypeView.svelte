@@ -432,7 +432,7 @@
     get pluginExport() { return pluginExport; },
     get group() { return groupProp; },
     get board() { return board; },
-    get onMoveCard() { return selectable && typeId !== null ? (p: string, t: MoveTarget) => moveTo([p], t) : undefined; },
+    get onMoveCard() { return selectable && typeId !== null ? (p: string, t: MoveTarget, paths?: string[]) => moveTo(paths && paths.length > 1 ? paths : [p], t) : undefined; },
     get onUndoMove() { return movesHere ? () => void moves.undoLastMove(onCalendar ? 'calendar' : 'board', moveCause ? { cause: moveCause } : {}) : undefined; },
     get canUndoMove() { return onCalendar ? moves.canUndoReschedule : moves.canUndo; },
     get onReschedule() { return onCalendar && movesHere ? calendar.reschedule : undefined; },

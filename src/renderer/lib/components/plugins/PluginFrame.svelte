@@ -48,7 +48,7 @@
     /** The app's note menu for these notes at a point in the window (#2828). */
     onNoteMenu?: (paths: string[], clientX: number, clientY: number, opts: { target: boolean; label: string | null }) => void;
     /** A board's moves (#2828), the host's to make. */
-    onMoveCard?: (path: string, target: PluginMoveTarget) => void;
+    onMoveCard?: (path: string, target: PluginMoveTarget, paths?: string[]) => void;
     onUndoMove?: () => void;
     onMoveColumn?: (key: string, target: string, side: 'before' | 'after') => void;
     onReorderCard?: (path: string, target: string, side: 'before' | 'after') => void;
@@ -153,7 +153,7 @@
           const at = toWindow(x, y);
           onNoteMenu?.(paths, at.x, at.y, opts);
         },
-        moveCard: (path, target) => onMoveCard?.(path, target),
+        moveCard: (path, target, paths) => onMoveCard?.(path, target, paths),
         undoMove: () => onUndoMove?.(),
         moveColumn: (key, target, side) => onMoveColumn?.(key, target, side),
         reorderCard: (path, target, side) => onReorderCard?.(path, target, side),

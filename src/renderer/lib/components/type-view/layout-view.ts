@@ -117,7 +117,8 @@ export interface LayoutView {
   /** Kanban: the grouping enum, and its columns of cards. */
   group: PropertyDef | null;
   board: KanbanColumn[];
-  onMoveCard: ((path: string, target: MoveTarget) => void) | undefined;
+  /** `paths`: a selection moved together, one undo (#2941). */
+  onMoveCard: ((path: string, target: MoveTarget, paths?: string[]) => void) | undefined;
   onUndoMove: (() => void) | undefined;
   /** A move to undo on this layout's surface (a board's, or a calendar's, #2829), and the last move or undo that wrote, for focus. */
   canUndoMove: boolean;

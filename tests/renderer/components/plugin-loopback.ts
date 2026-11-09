@@ -47,7 +47,7 @@ export function pluginLoopback(into: Partial<LoopbackState>, load: () => Promise
         provideExport: (p: { requestId: string; html: string }) => call(() => host.exportHtml?.(p.requestId, p.html)),
         selectAll: () => call(() => host.selectAll?.()),
         clearSelection: () => call(() => host.clearSelection?.()),
-        moveCard: (p: { path: string; target: never }) => call(() => host.moveCard?.(p.path, p.target)),
+        moveCard: (p: { path: string; target: never; paths?: string[] }) => call(() => host.moveCard?.(p.path, p.target, p.paths)),
         undoMove: () => call(() => host.undoMove?.()),
         moveColumn: (p: { key: string; target: string; side: 'before' | 'after' }) => call(() => host.moveColumn?.(p.key, p.target, p.side)),
         reschedule: (p: { path: string; days: number; paths?: string[] }) => call(() => host.reschedule?.(p.path, p.days, p.paths)),

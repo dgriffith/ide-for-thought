@@ -70,7 +70,8 @@ export interface PluginFrameHost {
   /** The plugin's answer to an export request — unsanitized (#2828). */
   exportHtml?(requestId: string, html: string): void;
   /** A board's moves (#2828): the host moves, with its own undo. */
-  moveCard?(path: string, target: PluginMoveTarget): void;
+  /** `paths`: a selection moved together, one undo (#2941). */
+  moveCard?(path: string, target: PluginMoveTarget, paths?: string[]): void;
   undoMove?(): void;
   moveColumn?(key: string, target: string, side: 'before' | 'after'): void;
   /** A card put beside another in the view's order (#2922). */
@@ -166,7 +167,7 @@ function onIntent({ sessionId, pluginId, intent }: PluginIntentEvent): void {
       hosts.get(sessionId)?.clearSelection?.();
       return;
     case 'moveCard':
-      hosts.get(sessionId)?.moveCard?.(intent.path, intent.target);
+      hosts.get(sessionId)?.moveCard?.(intent.path, intent.target, intent.paths);
       return;
     case 'undoMove':
       hosts.get(sessionId)?.undoMove?.();
