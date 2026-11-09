@@ -39,6 +39,8 @@
   let graph = $state<GraphCanvas>();
   // #848 — link types the user has hidden (display filter, not a re-traversal).
   let hiddenTypes = $state<Set<string>>(new Set());
+  // Tags as nodes (#2957): off by default, since a tag joins every note that carries it. A re-fetch.
+  let showTags = $state(false);
 
   const layout: LayoutOptions = {
     name: 'cose',
@@ -52,13 +54,14 @@
   $effect(() => {
     const path = relativePath;
     const d = depth;
+    const tags = showTags;
     void revision;
     loading = true;
     extra = { nodes: [], edges: [] };
     selected = null;
-    void api.links.neighborhood(path, { depth: d }).then((r) => {
+    void api.links.neighborhood(path, { depth: d, tags }).then((r) => {
       // Ignore a stale response if the inputs changed mid-flight.
-      if (path === relativePath && d === depth) { result = r; loading = false; }
+      if (path === relativePath && d === depth && tags === showTags) { result = r; loading = false; }
     });
   });
 
@@ -107,18 +110,20 @@
 
   function navigate(data: Record<string, unknown>): void {
     const id = String(data.id);
+    if (data.kind === 'tag') return; // a tag isn't a page to open; it shows who shares it
     if (data.kind === 'source') editor.openSource(id.replace(/^source:/, ''));
     else onOpenNote(id);
   }
 
   function onSelect(data: Record<string, unknown> | null): void {
     if (!data) { selected = null; return; }
-    selected = { id: String(data.id), kind: data.kind === 'source' ? 'source' : 'note', label: String(data.label ?? data.id), exists: !data.missing };
+    const kind = data.kind === 'source' || data.kind === 'tag' ? data.kind : 'note'; // only a note expands
+    selected = { id: String(data.id), kind, label: String(data.label ?? data.id), exists: !data.missing };
   }
 
   async function expandSelected(): Promise<void> {
     if (!selected || selected.kind !== 'note') return;
-    const hop = await api.links.expandNode(selected.id);
+    const hop = await api.links.expandNode(selected.id, { tags: showTags });
     extra = { nodes: [...extra.nodes, ...hop.nodes], edges: [...extra.edges, ...hop.edges] };
   }
 
@@ -149,6 +154,13 @@
       {settings.autoNavigate ? 'Click: open' : 'Click: select'}
     </button>
 
+    <button
+      class="toggle"
+      class:on={showTags}
+      aria-pressed={showTags}
+      onclick={() => (showTags = !showTags)}
+      title={showTags ? 'Hide tags' : 'Show each note\'s tags as nodes'}
+    >Tags</button>
     {#if selected && selected.kind === 'note'}
       <button class="expand-btn" onclick={expandSelected} title="Pull in this node's links">
         Expand “{selected.label}”

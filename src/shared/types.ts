@@ -213,11 +213,12 @@ export interface RelatedNotesResult {
 // ── Link-neighborhood graph (View B, #846) ──────────────────────────────────
 
 export interface NeighborhoodNode {
-  /** relativePath for notes; `source:<sourceId>` for sources. */
+  /** relativePath for notes; `source:<sourceId>` for sources; `tag:<name>` for tags. */
   id: string;
   /** `term` is a note additionally typed `thought:Term` (a glossary entry,
-   *  #1142) — rendered distinctly from a plain note. */
-  kind: 'note' | 'source' | 'term';
+   *  #1142) — rendered distinctly from a plain note. `tag` is a tag the walk
+   *  drew because it was asked to (#2957). */
+  kind: 'note' | 'source' | 'term' | 'tag';
   label: string;
   /** False for a note-typed wiki-link target with no file on disk. */
   exists: boolean;
@@ -227,6 +228,8 @@ export interface NeighborhoodEdge {
   /** Link origin id; the arrow points source → target. */
   source: string;
   target: string;
+  /** The edge's kind id from `shared/graph/edge-kinds.ts` (#2957): a link type's name,
+   *  `argument:<relation>`, `property:<name>`, `frontmatter:<key>`, or `tag`. */
   linkType: string;
   linkLabel: string;
   linkColor: string;
@@ -244,6 +247,8 @@ export interface NeighborhoodResult {
 export interface NeighborhoodOptions {
   depth?: number;
   cap?: number;
+  /** Draw the notes' tags as nodes, with "has tag" edges (#2957); off by default. */
+  tags?: boolean;
 }
 
 /** One hop's worth of graph plus the note ids worth expanding next (#846). */

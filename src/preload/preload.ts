@@ -126,8 +126,8 @@ const api = {
       invoke(Channels.LINKS_EXTERNAL_INBOUND, paths),
     neighborhood: (relativePath: string, opts?: NeighborhoodOptions) =>
       invoke(Channels.LINKS_NEIGHBORHOOD, relativePath, opts),
-    expandNode: (relativePath: string) =>
-      invoke(Channels.LINKS_EXPAND_NODE, relativePath),
+    expandNode: (relativePath: string, opts?: { tags?: boolean }) =>
+      invoke(Channels.LINKS_EXPAND_NODE, relativePath, opts),
   },
   queries: {
     list: () => invoke(Channels.QUERIES_LIST),
