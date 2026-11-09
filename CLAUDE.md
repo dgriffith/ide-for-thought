@@ -1870,7 +1870,9 @@ origin.
   writing with `NOTEBASE_WRITE_FILE`'s `opts.cause` so Local History says
   *Moved by Kanban*. Card order (#2922, `view.reorderCard`) is view state
   only — a partial `cardOrder` of paths that `kanban.ts`'s `reorderCard`
-  normalises; it writes no note. Test the host side by reading the `view` state sent and
+  normalises; it writes no note. A dragged selection (#2941, API 1.17.0) is one
+  `view.moveCard` with `paths` — one undo — then a `reorderCard` per card.
+  Test the host side by reading the `view` state sent and
   calling the registered callbacks (`tests/renderer/components/kanban-host.ts`;
   the frame never loads in a DOM test, so use jsdom — happy-dom logs an error
   per frame), and the board itself in `tests/plugins/kanban/`. **Timeline is

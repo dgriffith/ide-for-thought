@@ -530,3 +530,81 @@ describe('export mode (#2604)', () => {
     expect(cards[0]!.dataset['notePath']).toBe('a.md');
   });
 });
+
+describe('a selection moves together (#2941)', () => {
+  let hit: HTMLElement | null = null;
+  const real = document.elementFromPoint;
+  beforeEach(() => { document.elementFromPoint = vi.fn(() => hit); });
+  afterEach(() => { document.elementFromPoint = real; hit = null; });
+  function layOut(container: HTMLElement) {
+    for (const col of container.querySelectorAll<HTMLElement>('section.kb-column')) {
+      col.querySelectorAll<HTMLElement>('[data-kanban-card]').forEach((c, i) => {
+        c.getBoundingClientRect = () => ({ top: i * 48, height: 40, bottom: i * 48 + 40, left: 0, right: 200, width: 200, x: 0, y: i * 48, toJSON: () => ({}) });
+      });
+    }
+  }
+  async function drag(from: HTMLElement, to: HTMLElement | null, y: number) {
+    await fireEvent.pointerDown(from, { button: 0, pointerId: 1, clientX: 10, clientY: 10 });
+    hit = to;
+    await fireEvent.pointerMove(window, { pointerId: 1, clientX: 40, clientY: y });
+    return async () => {
+      await fireEvent.pointerUp(window, { pointerId: 1, clientX: 40, clientY: y });
+      await fireEvent.click(from);
+    };
+  }
+  const DONE = { value: 'done', label: 'done', kind: 'option' };
+  // FILED: active Alpha (a), Charlie (c); paused Delta (d); done Bravo (b).
+  const SELECTED = viewOf(FILED, { selected: ['d.md', 'a.md'] });
+
+  it('dragging a selected card carries the selection — one move, the ghost counts them, and it lands where dropped with the rest after it', async () => {
+    const { container, card, column, api } = mount(SELECTED);
+    layOut(container);
+    const drop = await drag(card('a.md'), column('done'), 500); // below Bravo
+    expect(document.querySelector('[data-kanban-ghost-count]')!.textContent).toBe('2');
+    await drop();
+    expect(api.of('view.moveCard')).toEqual([{ path: 'a.md', target: DONE, paths: ['a.md', 'd.md'] }]); // board order
+    expect(api.of('view.reorderCard')).toEqual([
+      { path: 'a.md', target: 'b.md', side: 'after' },
+      { path: 'd.md', target: 'a.md', side: 'after' },
+    ]);
+    expect(api.of('view.click')).toEqual([]);
+  });
+
+  it('dropped in its own column, the rest of the selection still comes over', async () => {
+    const { container, card, column, api } = mount(SELECTED);
+    layOut(container);
+    await (await drag(card('a.md'), column('active'), 500))(); // below Charlie
+    expect(api.of('view.moveCard')).toEqual([{ path: 'a.md', target: { value: 'active', label: 'active', kind: 'option' }, paths: ['a.md', 'd.md'] }]);
+    expect(api.of('view.reorderCard')[0]).toEqual({ path: 'a.md', target: 'c.md', side: 'after' });
+  });
+
+  it('an unselected card moves alone, with no count, and leaves the selection be', async () => {
+    const { container, card, column, api } = mount(SELECTED);
+    layOut(container);
+    const drop = await drag(card('c.md'), column('done'), 500);
+    expect(document.querySelector('[data-kanban-ghost-count]')).toBeNull();
+    await drop();
+    expect(api.of('view.moveCard')).toEqual([{ path: 'c.md', target: DONE }]);
+    expect(api.of('view.clearSelection')).toEqual([]);
+  });
+
+  it('Alt+→ / Alt+← move the focused card a column over — its selection with it when it is selected', async () => {
+    const { card, api } = mount(SELECTED);
+    card('a.md').focus();
+    await fireEvent.keyDown(card('a.md'), { key: 'ArrowRight', altKey: true });
+    await fireEvent.keyDown(card('c.md'), { key: 'ArrowRight', altKey: true });
+    expect(api.of('view.moveCard')).toEqual([
+      { path: 'a.md', target: { value: 'paused', label: 'paused', kind: 'option' }, paths: ['a.md', 'd.md'] },
+      { path: 'c.md', target: { value: 'paused', label: 'paused', kind: 'option' } },
+    ]);
+    await fireEvent.keyDown(card('a.md'), { key: 'ArrowLeft', altKey: true });
+    expect(api.of('view.moveCard')).toHaveLength(2);
+    expect(api.of('ui.announce').at(-1)).toEqual({ text: 'Already in the first column' });
+  });
+
+  it('where cards don\'t move, Alt+arrows move nothing', async () => {
+    const { card, api } = mount(viewOf(FILED, { selected: ['a.md'], movable: false }));
+    await fireEvent.keyDown(card('a.md'), { key: 'ArrowRight', altKey: true });
+    expect(api.of('view.moveCard')).toEqual([]);
+  });
+});

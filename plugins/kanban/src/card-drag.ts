@@ -49,7 +49,14 @@ export interface CardDragOptions {
   canMove?: boolean;
   /** Cards can be put in order (`view.reorderCard`). Off: a drop has no anchor. */
   canReorder?: boolean;
-  onDrop: (path: string, target: MoveTarget | null, anchor: DropAnchor | null) => void;
+  /**
+   * `target`: the column, when it isn't the card's own; `column`: the column
+   * dropped in, own or not — a selection dragged together (#2941) brings its
+   * other cards there even when the dragged one stays.
+   */
+  onDrop: (path: string, target: MoveTarget | null, anchor: DropAnchor | null, column: MoveTarget) => void;
+  /** How many cards a drag of `path` carries (#2941): a selection's size, shown on the ghost. */
+  count?: (path: string) => number;
 }
 
 interface Drag {
@@ -97,7 +104,7 @@ function columnAt(board: HTMLElement, x: number, y: number): HTMLElement | null 
   return col && board.contains(col) ? col : null;
 }
 
-function makeGhost(card: HTMLElement): HTMLElement {
+function makeGhost(card: HTMLElement, count: number): HTMLElement {
   const rect = card.getBoundingClientRect();
   const ghost = card.cloneNode(true) as HTMLElement;
   ghost.removeAttribute('data-kanban-card');
@@ -121,6 +128,18 @@ function makeGhost(card: HTMLElement): HTMLElement {
     boxShadow: '0 8px 24px color-mix(in oklch, var(--bg) 40%, transparent)',
     transform: 'rotate(1.5deg)',
   });
+  if (count > 1) {
+    // A selection dragged together (#2941): how many cards come along.
+    const badge = document.createElement('span');
+    badge.setAttribute('data-kanban-ghost-count', '');
+    badge.textContent = String(count);
+    Object.assign(badge.style, {
+      position: 'absolute', top: '-8px', right: '-8px', minWidth: '18px', height: '18px', padding: '0 5px',
+      boxSizing: 'border-box', borderRadius: '9px', background: 'var(--accent)', color: 'var(--bg)',
+      font: '600 11px/18px var(--font-sans)', textAlign: 'center',
+    });
+    ghost.appendChild(badge);
+  }
   return ghost;
 }
 
@@ -169,8 +188,8 @@ export const cardDrag: Action<HTMLElement, CardDragOptions> = (board, initial) =
     d.anchorEl?.removeAttribute('data-drop-after');
     document.body.style.userSelect = savedUserSelect;
     if (!commit || !d.over) return;
-    const target = d.over === d.fromColumn ? null : targetOfColumn(d.over.dataset['columnValue'] ?? '', d.over.dataset['columnKind'] ?? '');
-    if (target || d.anchor) opts.onDrop(d.path, target, d.anchor);
+    const column = targetOfColumn(d.over.dataset['columnValue'] ?? '', d.over.dataset['columnKind'] ?? '');
+    opts.onDrop(d.path, d.over === d.fromColumn ? null : column, d.anchor, column);
   }
 
   function edgeScroll(x: number, y: number): void {
@@ -187,7 +206,7 @@ export const cardDrag: Action<HTMLElement, CardDragOptions> = (board, initial) =
     if (!d.started) {
       if (Math.hypot(e.clientX - d.startX, e.clientY - d.startY) < DRAG_THRESHOLD_PX) return;
       d.started = true;
-      d.ghost = makeGhost(d.card);
+      d.ghost = makeGhost(d.card, opts.count?.(d.path) ?? 1);
       document.body.appendChild(d.ghost);
       d.card.setAttribute('data-dragging', '');
       savedUserSelect = document.body.style.userSelect;

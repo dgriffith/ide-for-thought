@@ -127,6 +127,16 @@ describe("the plugin's moves are the host's (#2828, decision 2)", () => {
     expect(h.moveCards).toHaveBeenCalledWith([{ path: 'c.md', title: 'Charlie' }], 'status', { value: 'paused', label: 'paused', kind: 'option' }, CAUSE);
   });
 
+  it('view.moveCard with paths moves the whole selection in ONE store call — one undo for the group (#2941)', async () => {
+    const { container } = render(TypeView, props());
+    const b = await openBoard(container, h.plugin);
+    b.host().moveCard!('c.md', { value: 'paused', label: 'paused', kind: 'option' }, ['a.md', 'c.md']);
+    expect(h.moveCards).toHaveBeenCalledOnce();
+    expect(h.moveCards).toHaveBeenCalledWith(
+      [{ path: 'a.md', title: 'Alpha' }, { path: 'c.md', title: 'Charlie' }], 'status', { value: 'paused', label: 'paused', kind: 'option' }, CAUSE,
+    );
+  });
+
   it('view.undoMove undoes the board\'s last move, as the plugin', async () => {
     const { container } = render(TypeView, props());
     const b = await openBoard(container, h.plugin);

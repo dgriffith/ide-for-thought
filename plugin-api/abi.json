@@ -1,5 +1,5 @@
 {
-  "version": "1.16.0",
+  "version": "1.17.0",
   "errorCodes": [
     "bad-request",
     "busy",
@@ -629,6 +629,11 @@
             "name": "path",
             "optional": false,
             "type": "string"
+          },
+          {
+            "name": "paths",
+            "optional": true,
+            "type": "string[]"
           },
           {
             "name": "target",

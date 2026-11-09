@@ -28,7 +28,7 @@ import type { PluginCapability } from './capabilities';
  * The API's semver version (#2826), its own and not the app's: the host sends
  * it with the port, and a plugin's `code.api` range must accept it.
  */
-export const PLUGIN_API_VERSION = '1.16.0';
+export const PLUGIN_API_VERSION = '1.17.0';
 
 export const PLUGIN_METHODS = {
   'notes.list': { capability: 'notes:read', describes: 'The notes this view or call was given.' },
@@ -53,7 +53,7 @@ export const PLUGIN_METHODS = {
   'view.click': { capability: 'ui', describes: "Click a note in the view, as the view's own rows are: a plain click opens it, Cmd/Ctrl or Shift selects." },
   'view.selectAll': { capability: 'ui', describes: "Select every note in the view (Cmd/Ctrl+A)." },
   'view.clearSelection': { capability: 'ui', describes: "Clear the view's selection (Escape)." },
-  'view.moveCard': { capability: 'notes:write-properties', describes: "Move a note to one of the view's groups: Minerva sets its grouping property, with undo." },
+  'view.moveCard': { capability: 'notes:write-properties', describes: "Move a note, or several together, to one of the view's groups: Minerva sets each one's grouping property, with one undo." },
   'view.undoMove': { capability: 'notes:write-properties', describes: "Undo the view's last move (Cmd/Ctrl+Z on a board)." },
   'view.moveColumn': { capability: 'ui', describes: "Move one of the view's groups before or after another; the order stays with the view." },
   'view.reorderCard': { capability: 'ui', describes: "Put a note just before or after another in the view's order; the order stays with the view, and no note is written." },
@@ -101,7 +101,8 @@ export interface PluginMethodParams {
   'view.click': { path: string; meta?: boolean; ctrl?: boolean; shift?: boolean };
   'view.selectAll': Record<string, never>;
   'view.clearSelection': Record<string, never>;
-  'view.moveCard': { path: string; target: PluginMoveTarget };
+  /** `paths` (1.17.0, #2941): the whole group moving with `path`, `path` among them — one undo for all. */
+  'view.moveCard': { path: string; target: PluginMoveTarget; paths?: string[] };
   'view.undoMove': Record<string, never>;
   'view.moveColumn': { key: string; target: string; side: 'before' | 'after' };
   /** `target`: the note `path` lands beside (#2922) — in any group, so a card dropped into another column at a spot is `view.moveCard` and this. */

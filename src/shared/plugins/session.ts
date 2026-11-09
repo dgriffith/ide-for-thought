@@ -28,7 +28,7 @@ export type PluginIntent =
   | { kind: 'selectAll' }
   | { kind: 'clearSelection' }
   /** A board's moves (#2828, decision 2): the host moves, with its own undo. */
-  | { kind: 'moveCard'; path: string; target: PluginMoveTarget }
+  | { kind: 'moveCard'; path: string; target: PluginMoveTarget; paths?: string[] }
   | { kind: 'undoMove' }
   | { kind: 'moveColumn'; key: string; target: string; side: 'before' | 'after' }
   /** A card put beside another in the view's order (#2922): the host changes the view, no note. */

@@ -127,7 +127,7 @@ const CORE_PLUGIN_DEFINITIONS: readonly CorePluginDefinition[] = [
         "- A board embedded in a note is read-only.",
       ].join('\n'),
       contributes: {},
-      code: { capabilities: ['notes:read', 'notes:write-properties', 'ui'], api: '^1.5.0' },
+      code: { capabilities: ['notes:read', 'notes:write-properties', 'ui'], api: '^1.17.0' },
     },
     defaultEnabled: true,
   },

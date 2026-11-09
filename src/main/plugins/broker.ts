@@ -69,7 +69,7 @@ import type { PluginIntent } from '../../shared/plugins/session';
 import { PLUGIN_HANDLER_NAME } from '../../shared/plugins/format';
 import { createEventRefusal } from '../../shared/calendar/create-event';
 import {
-  asParams, menuItems, moveTargetParam, numberParam, recordParam, Refusal, rescheduleGroupParam, stringParam, stringsParam, viaParam,
+  asParams, menuItems, moveTargetParam, numberParam, recordParam, Refusal, groupParam, stringParam, stringsParam, viaParam,
 } from './broker-params';
 
 /** Who is calling: the plugin as installed now. */
@@ -390,7 +390,9 @@ export function createPluginSession(opts: PluginSessionOptions): PluginSession {
         return {};
       case 'view.moveCard': {
         const path = scoped(stringParam(params, 'path'));
-        deps.intent({ kind: 'moveCard', path, target: moveTargetParam(params.target) });
+        const paths = groupParam(params.paths, path, scoped); // a selection dragged together (#2941)
+        const target = moveTargetParam(params.target);
+        deps.intent(paths.length > 1 ? { kind: 'moveCard', path, target, paths } : { kind: 'moveCard', path, target });
         return {};
       }
       case 'view.undoMove':
@@ -414,7 +416,7 @@ export function createPluginSession(opts: PluginSessionOptions): PluginSession {
         if (typeof days !== 'number' || !Number.isInteger(days) || days === 0 || Math.abs(days) > PLUGIN_RESCHEDULE_MAX_DAYS) {
           throw new Refusal('bad-request', `"days" is a whole number of days, not 0, at most ${PLUGIN_RESCHEDULE_MAX_DAYS} either way.`);
         }
-        const paths = rescheduleGroupParam(params.paths, path, scoped); // a group (#2938)
+        const paths = groupParam(params.paths, path, scoped); // a group (#2938)
         deps.intent(paths.length > 1 ? { kind: 'reschedule', path, days, paths } : { kind: 'reschedule', path, days });
         return {};
       }
