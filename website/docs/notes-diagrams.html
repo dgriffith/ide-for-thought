@@ -75,6 +75,7 @@
     <a href="notes-rdf.html" class="sub">Turtle / RDF</a>
     <a href="navigation.html">Navigation</a>
     <a href="graph.html">Graph</a>
+    <a href="mindmap.html">Mindmap</a>
     <a href="viewing-options.html">Viewing options</a>
     <a href="editor.html">Editor</a>
 
@@ -149,19 +150,7 @@ sequenceDiagram
     </div>
 
     <h2 id="mindmaps">Mindmaps of notes</h2>
-    <p>A <code>:::mindmap</code> block draws a hierarchy of notes as a mindmap, out from one note. Name that note as a link on a line of its own, and say how its branches are joined:</p>
-    <pre><code>:::mindmap
-[[Launch plan]]
-relation: parent
-depth: 3
-:::</code></pre>
-    <div class="deflist">
-      <div class="row"><div class="k"><code>relation</code></div><div class="v">How a note's branches are joined to it. A field that links to another note, such as <code>parent</code> or <code>part-of</code>: a note's branches are the notes whose field points at it. <code>decomposes</code>: the notes that decompose it. <code>argument</code>: the claims that support, rebut or otherwise bear on it, each labelled with how. <code>headings</code>, or leaving it out: the note's own headings and list items.</div></div>
-      <div class="row"><div class="k"><code>direction</code></div><div class="v"><code>out</code> follows the field the other way, for one that points down at a note's parts rather than up at its parent.</div></div>
-      <div class="row"><div class="k"><code>depth</code></div><div class="v">How many levels to draw, 1 to 6 (3 if you leave it out). A branch with more beneath it says how many.</div></div>
-      <div class="row"><div class="k"><code>layout</code></div><div class="v"><code>radial</code> draws it around the note in the middle; otherwise it reads left to right.</div></div>
-    </div>
-    <p>A note with more than one parent is drawn under each, saying how many places it appears; a hierarchy that loops back on itself stops where it comes round, and says so. Double-click a branch, or press <kbd>Enter</kbd> on it, to open its note. Fold, zoom and move around it as you would <a href="viewing-options-view-modes.html#mindmap">a note's own mindmap</a>; the block itself can't be edited, since it's drawn from many notes.</p>
+    <p>A <code>:::mindmap</code> block draws a hierarchy of notes as a mindmap, out from one note, along the relation you name. How to write one is on the <a href="mindmap.html#block">Mindmap</a> page.</p>
 
     <div class="pager">
       <a class="prev" href="notes-math.html">

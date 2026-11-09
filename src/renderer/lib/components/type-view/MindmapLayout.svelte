@@ -28,6 +28,8 @@
   import type { MindmapNoteTree } from '../../../../shared/mindmap/note-hierarchy';
   import { inheritsFrom } from '../../../../shared/objects/inheritance';
   import { createChildNote, renameNoteTo, reparentNotes, undoReparent, type NoteRef } from '../../app/mindmap-notes';
+  import { layoutMindmap } from '../../../../shared/mindmap/mindmap-layout';
+  import { mindmapSvg, MINDMAP_EXPORT_COLORS } from '../../../../shared/mindmap/mindmap-svg';
 
   let { view }: { view: LayoutView } = $props();
 
@@ -100,6 +102,11 @@
     return path;
   }
 
+  const exportSvg = $derived(view.exportMode
+    ? mindmapSvg(layoutMindmap(display, { orientation: kept.shape, folded: new Set(kept.folded) }), MINDMAP_EXPORT_COLORS, { title: `${view.type.label} by ${parentProp?.label ?? parentProp?.name ?? ''}` })
+        .replace('<svg ', '<svg style="max-width: 100%; height: auto;" ')
+    : '');
+
   const edits = $derived<MindmapEdits | undefined>(view.readOnly || !parentProp ? undefined : {
     namesItself: true,
     addChild: (id) => createChildNote({ type: view.type, catalog: objectTypesStore.types, parentProperty: parentProp.name, parent: id === VIEW_ROOT_ID ? null : ref(id) }),
@@ -127,6 +134,7 @@
 </script>
 
 <div class="mm-layout">
+  {#if !view.exportMode}
   <div class="mm-bar">
     {#if parentProps.length > 1}
       <label class="mm-by">Branches by
@@ -140,7 +148,11 @@
       <button type="button" aria-pressed={kept.shape === 'radial'} onclick={() => keep({ ...kept, shape: 'radial' })}>Radial</button>
     </span>
   </div>
-  {#if !parentProp}
+  {/if}
+  {#if view.exportMode && parentProp}
+    <!-- An export (#2967): the map as a still SVG in the export's colours, folded as it's left here. -->
+    <div class="mm-export">{@html exportSvg}</div>
+  {:else if !parentProp}
     <p class="mm-none">A mindmap needs a property that links a {view.type.label} to another one, like a parent.</p>
   {:else}
     <div class="mm-canvas">

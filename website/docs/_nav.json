@@ -143,6 +143,10 @@
           "label": "Graph"
         },
         {
+          "href": "mindmap.html",
+          "label": "Mindmap"
+        },
+        {
           "href": "viewing-options.html",
           "label": "Viewing options",
           "children": [

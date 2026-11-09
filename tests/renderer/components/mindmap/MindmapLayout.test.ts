@@ -99,6 +99,16 @@ describe('the Mindmap layout (#2966)', () => {
     expect(ops.reparentNotes).toHaveBeenCalledWith([{ path: 'Market.md', title: 'Market' }], 'parent', { path: 'Build.md', title: 'Build' });
   });
 
+  it('in an export: a still SVG of the hierarchy, folded as it\'s left, no toolbar (#2967)', async () => {
+    localStorage.setItem('minerva.mindmap-view:task', JSON.stringify({ folded: ['Build.md'] }));
+    const r = render(MindmapLayout, { view: fakeView({ exportMode: true, readOnly: true }) });
+    const svg = await waitFor(() => { const s = r.container.querySelector('.mm-export svg'); expect(s).not.toBeNull(); return s!; });
+    expect(svg.getAttribute('aria-label')).toBe('Task by Parent');
+    expect([...svg.querySelectorAll('tspan')].map((t) => t.textContent)).toEqual(['Task', 'Launch', 'Build', 'Market']); // Code folded away
+    expect(r.container.querySelector('[role="tree"]')).toBeNull();
+    expect(r.container.textContent).not.toContain('Left to right');
+  });
+
   it('in an embed it edits nothing', async () => {
     const { item } = await draw(fakeView({ readOnly: true }));
     await fireEvent.keyDown(item('Build'), { key: 'Tab' });

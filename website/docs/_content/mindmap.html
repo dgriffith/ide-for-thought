@@ -1,0 +1,60 @@
+---
+title: Minerva — Docs — Mindmap
+description: Mindmaps in Minerva — a note's outline as a map you can reshape, a hierarchy of notes drawn in a note, a type's notes as a mindmap view — and taking a mindmap out as a picture or as Mermaid text.
+---
+
+    <h1>Mindmap</h1>
+    <p class="lede">A mindmap draws a hierarchy as branches from a centre. Minerva draws three: a note's own outline, which you can reshape there; a hierarchy of notes, drawn in a note with a <code>:::mindmap</code> block; and a type's notes as a view, which you can grow and rearrange. They all fold, zoom and move the same way, and read the same to a screen reader.</p>
+
+    <h2 id="moving-around">Moving around a mindmap</h2>
+    <div class="deflist">
+      <div class="row"><div class="k">Pointer</div><div class="v">Scroll to zoom, drag the background to move, <b>Fit</b> to see it all. The button on a branch's edge folds it, and a folded branch shows how many it hides.</div></div>
+      <div class="row"><div class="k">Keyboard</div><div class="v">The map is one stop for <kbd>Tab</kbd>. <kbd>↑</kbd> and <kbd>↓</kbd> move between branches at the same level, <kbd>←</kbd> to the parent and <kbd>→</kbd> to the first child, <kbd>Home</kbd> and <kbd>End</kbd> to the ends; <kbd>Space</kbd> folds or unfolds.</div></div>
+      <div class="row"><div class="k"><b>Left to right</b> / <b>Radial</b></div><div class="v">Two shapes: the branches reading off to the right, or spread around the centre.</div></div>
+    </div>
+
+    <h2 id="note">A note as a mindmap</h2>
+    <p>Choose <b>Mindmap</b> above a note, or press <kbd>⌘</kbd><kbd>⇧</kbd><kbd>M</kbd> (again to go back). See <a href="viewing-options-view-modes.html">View modes</a> for the others.</p>
+    <p>The map is the note's outline: the note's title is the centre, its headings branch from it by level, and the list items under each heading branch from that heading by indentation. Frontmatter, code, tables and the rest of your writing aren't on the map, and nothing you do on the map touches them.</p>
+    <p>Every change you make on the map is a change to the note's text, made the same way as if you'd typed it: <kbd>⌘</kbd><kbd>Z</kbd> undoes it, on the map or in the editor, and the note shows as unsaved until you save it.</p>
+    <div class="deflist">
+      <div class="row"><div class="k"><kbd>Tab</kbd></div><div class="v">Add a child to the selected branch and name it. Under a heading with list items, it's a list item; otherwise a heading one level down.</div></div>
+      <div class="row"><div class="k"><kbd>Enter</kbd></div><div class="v">Add a branch after the selected one, at its level, and name it. A new branch you leave unnamed goes again.</div></div>
+      <div class="row"><div class="k"><kbd>F2</kbd> or double-click</div><div class="v">Rename the branch.</div></div>
+      <div class="row"><div class="k"><kbd>Delete</kbd></div><div class="v">Remove the branch. With branches under it, Minerva asks first, and they go too.</div></div>
+      <div class="row"><div class="k"><kbd>⌘</kbd><kbd>[</kbd> / <kbd>⌘</kbd><kbd>]</kbd></div><div class="v">Promote the branch out a level, to just after the branch it was in, or demote it under the branch before it. Everything under it moves with it.</div></div>
+      <div class="row"><div class="k">Drag</div><div class="v">Drop a branch on the middle of another to move it in, or on its top or bottom edge to move it before or after.</div></div>
+      <div class="row"><div class="k">Arrows, <kbd>Space</kbd></div><div class="v"><kbd>↑</kbd> and <kbd>↓</kbd> move between branches at the same level, <kbd>←</kbd> to the parent and <kbd>→</kbd> to the first child; <kbd>Space</kbd> folds or unfolds a branch, which then shows how many it hides. <kbd>⇧</kbd><kbd>Tab</kbd> leaves the map.</div></div>
+    </div>
+    <p>Headings and list items stay what they are: a list item can't be promoted into a heading, a heading can't move into a list, and nothing goes deeper than a sixth-level heading. When an edit can't be made, Minerva says why.</p>
+    <p>Choose <b>Left to right</b> or <b>Radial</b> for the map's shape. Scroll to zoom, drag the background to move around, and <b>Fit</b> to see it all. Which branches are folded, and the map's shape, are kept for each note on this computer, not in the note.</p>
+    <p>With <b>Side by side</b>, the text and the map follow each other: select a branch and the editor's cursor moves to its line; move the cursor and the map selects the branch it's in.</p>
+
+    <h2 id="block">A hierarchy of notes in a note</h2>
+    <p>A <code>:::mindmap</code> block draws a hierarchy of notes as a mindmap, out from one note. Name that note as a link on a line of its own, and say how its branches are joined:</p>
+    <pre><code>:::mindmap
+[[Launch plan]]
+relation: parent
+depth: 3
+:::</code></pre>
+    <div class="deflist">
+      <div class="row"><div class="k"><code>relation</code></div><div class="v">How a note's branches are joined to it. A field that links to another note, such as <code>parent</code> or <code>part-of</code>: a note's branches are the notes whose field points at it. <code>decomposes</code>: the notes that decompose it. <code>argument</code>: the claims that support, rebut or otherwise bear on it, each labelled with how. <code>headings</code>, or leaving it out: the note's own headings and list items.</div></div>
+      <div class="row"><div class="k"><code>direction</code></div><div class="v"><code>out</code> follows the field the other way, for one that points down at a note's parts rather than up at its parent.</div></div>
+      <div class="row"><div class="k"><code>depth</code></div><div class="v">How many levels to draw, 1 to 6 (3 if you leave it out). A branch with more beneath it says how many.</div></div>
+      <div class="row"><div class="k"><code>layout</code></div><div class="v"><code>radial</code> draws it around the note in the middle; otherwise it reads left to right.</div></div>
+    </div>
+    <p>A note with more than one parent is drawn under each, saying how many places it appears; a hierarchy that loops back on itself stops where it comes round, and says so. Double-click a branch, or press <kbd>Enter</kbd> on it, to open its note. Fold, zoom and move around it as you would <a href="#note">a note's own mindmap</a>; the block itself can't be edited, since it's drawn from many notes.</p>
+
+    <h2 id="view">A type's notes as a mindmap</h2>
+    <p>A type with a field that links to the same type, such as a task's <i>parent</i>, can be viewed as a mindmap: each note under its parent, and in its own tab you can make new notes, move them to another parent and rename them from the map. See <a href="left-sidebar-objects.html#mindmap-layout">The mindmap</a> on the Objects page.</p>
+
+    <h2 id="export">Taking a mindmap out</h2>
+    <div class="deflist">
+      <div class="row"><div class="k">In an export</div><div class="v">A <code>:::mindmap</code> block and a mindmap view embedded in a note export as a still picture of the map — in a web page, a PDF or a published site — with the view's branches folded as you left them. A note you're looking at in Mindmap mode exports as its text, like any note: the map is a way of seeing it, not part of it.</div></div>
+      <div class="row"><div class="k"><b>Copy as Mermaid</b></div><div class="v">Every mindmap has it. It copies the whole map, folded branches too, as Mermaid <code>mindmap</code> text, for pasting into another tool, or into a note as a <a href="notes-diagrams.html">diagram</a> that any Markdown editor with Mermaid can draw.</div></div>
+    </div>
+
+    <div class="box">
+      <span class="label">The Heading graph</span>
+      <p>The right sidebar's <a href="right-sidebar-heading-graph.html">Heading graph</a> stays as it is: a small map of the current note's headings to glance at and jump around while you write. The Mindmap mode is the one to reshape a note in, with its list items as well as its headings.</p>
+    </div>

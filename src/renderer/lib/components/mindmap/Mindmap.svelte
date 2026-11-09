@@ -26,6 +26,7 @@
   import { onMount, tick, untrack } from 'svelte';
   import type { MindmapLayout, MindmapLayoutNode, MindmapOrientation, MindmapTree } from '../../../../shared/mindmap/mindmap-layout';
   import type { MindmapEdits } from './mindmap-edits';
+  import { mindmapMermaid } from '../../../../shared/mindmap/mindmap-mermaid';
 
   interface Props {
     tree: MindmapTree;
@@ -268,12 +269,23 @@
     void Promise.resolve(edit.drop(d.id, d.over.id, d.over.where)).then((id) => keepFocus(id ?? d.id));
   }
 
+  // Copy as Mermaid (#2967): the whole tree as Mermaid `mindmap` text, folds and all.
+  let copied = $state(false);
+  async function copyMermaid(): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(mindmapMermaid(tree));
+      copied = true;
+      setTimeout(() => { copied = false; }, 1500);
+    } catch { /* the clipboard refused: nothing to say but that it didn't change */ }
+  }
+
   /** The node that takes Tab: the focused one, the selected one, or the root. */
   const tabStop = $derived(focusedId && byId.has(focusedId) ? focusedId : selected && byId.has(selected) ? selected : rootId);
 </script>
 
 <div class="mm" bind:clientWidth={width} bind:clientHeight={height}>
   <div class="mm-tools">
+    <button type="button" class="mm-btn" onclick={() => void copyMermaid()}>{copied ? 'Copied' : 'Copy as Mermaid'}</button>
     <button type="button" class="mm-btn" onclick={fit}>Fit</button>
     <button type="button" class="mm-btn" aria-label="Zoom in" onclick={() => zoomAt(1.25, width / 2, height / 2)}>+</button>
     <button type="button" class="mm-btn" aria-label="Zoom out" onclick={() => zoomAt(0.8, width / 2, height / 2)}>−</button>
