@@ -146,7 +146,14 @@
     worker.onmessage = (e: MessageEvent<LayoutResponse>) => applyPositions(e.data);
     // Cytoscape caches where its container is; when the tab is resized or moved
     // (a sidebar, the toolbar wrapping) a click would hit the wrong node (#2959).
-    const resized = new ResizeObserver(() => cy?.resize());
+    // A note Find centred stays centred (#3066): typing in Find adds its count to the
+    // toolbar, and where the toolbar wraps (wider fonts, a narrower tab) the canvas moves
+    // down and shrinks just after the note was centred — it ended up off to one side.
+    const resized = new ResizeObserver(() => {
+      if (!cy) return;
+      cy.resize();
+      if (following) cy.center(cy.getElementById(following));
+    });
     if (container) resized.observe(container);
     const onContextMenu = (e: MouseEvent) => {
       e.preventDefault();
