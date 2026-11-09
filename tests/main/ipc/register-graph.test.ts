@@ -36,6 +36,7 @@ const h = vi.hoisted(() => ({
   exportKnowledgeGraph: vi.fn(),
   // graph
   queryGraph: vi.fn(),
+  wholeGraph: vi.fn(),
   setBaseUri: vi.fn(),
   graphIndexAllNotes: vi.fn(),
   schemaForCompletion: vi.fn(),
@@ -94,6 +95,7 @@ vi.mock('../../../src/main/ipc/helpers', () => ({
 
 vi.mock('../../../src/main/graph/index', () => ({
   queryGraph: h.queryGraph,
+  wholeGraph: h.wholeGraph,
   setBaseUri: h.setBaseUri,
   indexAllNotes: h.graphIndexAllNotes,
   schemaForCompletion: h.schemaForCompletion,
@@ -158,6 +160,22 @@ beforeEach(() => {
   h.win.isDestroyed.mockReturnValue(false);
   h.readProjectConfig.mockReturnValue({});
   h.queryGraph.mockResolvedValue({ ok: true, results: [], columns: [] });
+});
+
+describe('GRAPH_WHOLE — the whole thoughtbase as a graph (#2958)', () => {
+  it('asks the graph for every note and edge, tags only when asked', async () => {
+    const result = { nodes: [], edges: [], total: 0, truncated: false };
+    h.wholeGraph.mockResolvedValue(result);
+    expect(await callAsync(Channels.GRAPH_WHOLE)).toBe(result);
+    await callAsync(Channels.GRAPH_WHOLE, { tags: true });
+    expect(h.wholeGraph.mock.calls).toEqual([[CTX, { tags: false }], [CTX, { tags: true }]]);
+  });
+
+  it('with no project, an empty graph — nothing to draw, not an error', async () => {
+    openProject = null;
+    expect(await callAsync(Channels.GRAPH_WHOLE)).toEqual({ nodes: [], edges: [], total: 0, truncated: false });
+    expect(h.wholeGraph).not.toHaveBeenCalled();
+  });
 });
 
 describe('register-graph — the #1631 project guard', () => {

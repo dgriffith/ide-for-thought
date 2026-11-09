@@ -147,6 +147,8 @@ export interface GraphApi {
    *  the `{ ok: false; error }` arm (#2363); it rejects only when no project is
    *  open. For fixed app-authored SPARQL, wrap in `unwrapGraphQuery`. */
   query(sparql: string): Promise<GraphQueryResult>;
+  /** The whole thoughtbase as a graph (#2958): every note and edge, `tags` drawn when asked. */
+  whole(opts?: { tags?: boolean }): Promise<import('../../../shared/types').WholeGraphResult>;
   /** Rebase to a new base IRI + rebuild indexes (#1443 Part B). */
   setBaseUri(uri: string): Promise<{ ok: true } | { ok: false; error: string }>;
   groundCheck(claimText: string): Promise<{ node: string; label: string; type: string }[]>;

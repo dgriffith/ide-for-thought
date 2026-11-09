@@ -127,6 +127,7 @@ exports[`preload behaviour: surface-wide invariants (#2367) > the full method â†
   "graph.setBaseUri": "invoke graph:setBaseUri",
   "graph.setInspectionSettings": "invoke inspections:setSettings",
   "graph.sourceDetail": "invoke graph:sourceDetail",
+  "graph.whole": "invoke graph:whole",
   "history.batchRevert": "invoke history:batchRevert",
   "history.getRevision": "invoke history:getRevision",
   "history.getSettings": "invoke history:getSettings",
