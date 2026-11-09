@@ -116,21 +116,22 @@ export function layoutMindmap(root: MindmapTree, opts: MindmapLayoutOptions): Mi
     placed.each((n) => pos.set(n.data, { x: colX[n.depth]!, y: n.x }));
   } else {
     // Angles by the tidy tree over the circle; then each ring far enough out that neighbours on it
-    // don't overlap (the arc between two adjacent nodes at least their half-sizes and a gap), and
-    // far enough beyond the ring inside it for the widest labels on both.
+    // don't overlap, and far enough beyond the ring inside it for the widest labels on both. Two
+    // neighbours sit a chord apart (2r·sin(θ/2)), not an arc (rθ) — shorter by a third at a quarter
+    // turn — and a box reaches its corners, so each counts by its diagonal.
     placed = tree<MindmapTree>().size([2 * Math.PI, 1]).separation((a, b) => (a.parent === b.parent ? 1 : 2) / Math.max(1, a.depth))(h);
     const byDepth: HierarchyPointNode<MindmapTree>[][] = [];
     placed.each((n) => { (byDepth[n.depth] ??= []).push(n); });
     const radius: number[] = [0];
     for (let d = 1; d < byDepth.length; d++) {
       const ring = [...byDepth[d]!].sort((a, b) => a.x - b.x);
-      const span = (n: HierarchyPointNode<MindmapTree>) => Math.max(sz(n).w, sz(n).h);
+      const span = (n: HierarchyPointNode<MindmapTree>) => Math.hypot(sz(n).w, sz(n).h);
       let need = 0;
       for (let i = 0; i < ring.length && ring.length > 1; i++) {
         const a = ring[i]!;
         const b = ring[(i + 1) % ring.length]!;
         const angle = i === ring.length - 1 ? b.x + 2 * Math.PI - a.x : b.x - a.x;
-        if (angle > 1e-9) need = Math.max(need, (span(a) / 2 + span(b) / 2 + GAP_Y) / angle);
+        if (angle > 1e-9) need = Math.max(need, (span(a) / 2 + span(b) / 2 + GAP_Y) / (2 * Math.sin(Math.min(angle, Math.PI) / 2)));
       }
       const widestIn = Math.max(...byDepth[d - 1]!.map((n) => sz(n).w));
       const widestOut = Math.max(...ring.map((n) => sz(n).w));
