@@ -40,6 +40,7 @@ exports[`IPC registration contract (#997) > matches the known set of registered 
   "conversation:append",
   "conversation:archive",
   "conversation:askUserReply",
+  "conversation:branch",
   "conversation:cancel",
   "conversation:compact",
   "conversation:create",

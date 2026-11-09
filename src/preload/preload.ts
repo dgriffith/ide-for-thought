@@ -389,6 +389,8 @@ const api = {
       subscribe(Channels.CONVERSATION_TITLE_CHANGED, cb),
     compact: (conversationId: string) =>
       invoke(Channels.CONVERSATION_COMPACT, conversationId),
+    branch: (parentId: string, options: import('../shared/conversation').BranchCreateOptions) =>
+      invoke(Channels.CONVERSATION_BRANCH, parentId, options),
   },
   proposals: {
     list: (status?: string) => invoke(Channels.PROPOSAL_LIST, status),

@@ -48,6 +48,7 @@ exports[`preload behaviour: surface-wide invariants (#2367) > the full method â†
   "conversations.append": "invoke conversation:append",
   "conversations.archive": "invoke conversation:archive",
   "conversations.askUserReply": "invoke conversation:askUserReply",
+  "conversations.branch": "invoke conversation:branch",
   "conversations.cancel": "invoke conversation:cancel",
   "conversations.compact": "invoke conversation:compact",
   "conversations.create": "invoke conversation:create",

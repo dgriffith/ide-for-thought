@@ -771,6 +771,8 @@ export interface ConversationsApi {
   /** Client-side compaction (#824): summarize earlier turns into a fresh
    *  conversation, archiving the original. */
   compact(conversationId: string): Promise<import('../../../shared/conversation').CompactResult>;
+  /** Fork a branch from a conversation (#2970). Resolves to the new branch. */
+  branch(parentId: string, options: import('../../../shared/conversation').BranchCreateOptions): Promise<Conversation>;
   /** Subscribe to drafts produced by the propose_notes tool. Drafts are scoped per conversation. */
   onDraft(cb: (draft: import('../../../shared/conversation-drafts').ConversationDraft) => void): () => void;
   /** File a draft as a Proposal AND auto-approve it (the user already reviewed the inline card). */

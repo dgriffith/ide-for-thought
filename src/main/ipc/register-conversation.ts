@@ -26,8 +26,9 @@ import { buildConversationSystemPrompt } from '../llm/conversation-prompt';
 import { withSkillContext } from '../llm/skill-context';
 import { runCompletionWithContainerRecovery } from '../llm/container-recovery';
 import { compactConversation } from '../llm/compact';
+import { archiveWithBranches, createBranch, descendantsOf } from '../llm/conversation-branch';
 import { buildStreamCallbacks, type PendingAskUser, type PendingMcpConfirm } from './conversation-stream';
-import type { ContextBundle, ConversationCreateOptions, ConversationMessage } from '../../shared/conversation';
+import type { BranchCreateOptions, ContextBundle, ConversationCreateOptions, ConversationMessage } from '../../shared/conversation';
 import { rootPathFromEvent, winFromEvent, withRootPath, withRootPathOr } from './helpers';
 import { handle } from './typed-ipc';
 import { broadcast } from './broadcast';
@@ -44,7 +45,9 @@ export function registerConversation(): void {
     conversation.create(rootPath, contextBundle, triggerNodeUri, options)));
   handle(Channels.CONVERSATION_APPEND, withRootPath((rootPath, id: string, role: ConversationMessage['role'], content: string) =>
     conversation.appendMessage(rootPath, id, role, content)));
-  handle(Channels.CONVERSATION_ARCHIVE, withRootPath((rootPath, id: string) => conversation.archive(rootPath, id)));
+  // Archiving a conversation archives its branches too (#2970): a branch left
+  // open under a closed parent would be a tab with nowhere to report to.
+  handle(Channels.CONVERSATION_ARCHIVE, withRootPath((rootPath, id: string) => archiveWithBranches(rootPath, id)));
   handle(Channels.CONVERSATION_LOAD, withRootPath((rootPath, id: string) => conversation.load(rootPath, id)));
   // The list + UI-state reads answer "nothing yet" for a window with no project
   // open — the conversations panel calls them on mount, before any open. That's
@@ -62,7 +65,7 @@ export function registerConversation(): void {
   // per window (#2969): two tabs in one window can each be mid-turn, and Stop
   // names the one it stops. Each entry remembers its window, so closing the
   // window stops every turn it started and nothing else.
-  const runningTurns = new Map<string, { controller: AbortController; winId: number }>();
+  const runningTurns = new Map<string, { controller: AbortController; winId: number; rootPath: string | null }>();
   // Pending ask_user prompts keyed by question id. The CONVERSATION_SEND
   // handler creates an entry when the agent calls ask_user, and the
   // CONVERSATION_ASK_USER_REPLY handler resolves (or rejects) it. Aborting
@@ -104,7 +107,7 @@ export function registerConversation(): void {
     // conversation would interleave two replies into one transcript.
     if (runningTurns.has(convId)) throw new Error('This conversation is already answering — wait for it, or stop it first.');
     const controller = new AbortController();
-    runningTurns.set(convId, { controller, winId: win.id });
+    runningTurns.set(convId, { controller, winId: win.id, rootPath });
     // When this turn is aborted, fail its in-flight ask_user prompts so
     // the agent's tool-call loop unwinds.
     controller.signal.addEventListener('abort', () => {
@@ -123,6 +126,8 @@ export function registerConversation(): void {
     // if the user reports "no log messages" again, this is missing too.
     logger('conversation').info(`${userMessage === null ? 'RETRY' : 'SEND'} start: conv=${convId} userMsgLen=${userMessage?.length ?? 0}`);
 
+    // A branch records how its turn ended (#2970), for the list beside it.
+    let branchTurn = false;
     try {
       return await graph.withLLMContext(async () => {
         if (!rootPath) {
@@ -132,6 +137,7 @@ export function registerConversation(): void {
           ? await conversation.load(rootPath, convId)
           : await conversation.appendMessage(rootPath, convId, 'user', userMessage);
         if (!conv) throw new Error(`Conversation not found: ${convId}`);
+        branchTurn = conv.branch !== undefined;
 
         const { completeWithTools } = await import('../llm/index');
         // A skill's note/source material rides at the head of the first user
@@ -231,8 +237,14 @@ export function registerConversation(): void {
             });
           })().catch((err: unknown) => logger('conversation').warn('auto-title setup failed:', err));
         }
-        return updated;
+        return branchTurn ? (await conversation.setBranchOutcome(rootPath, convId, 'done')) ?? updated : updated;
       });
+    } catch (err) {
+      if (branchTurn && rootPath) {
+        await conversation.setBranchOutcome(rootPath, convId, controller.signal.aborted ? 'stopped' : 'failed')
+          .catch((e: unknown) => logger('conversation').warn('recording a branch outcome failed:', e));
+      }
+      throw err;
     } finally {
       if (runningTurns.get(convId)?.controller === controller) runningTurns.delete(convId);
       win.removeListener('closed', onWindowClosed);
@@ -247,12 +259,20 @@ export function registerConversation(): void {
     runConversationTurn(e, convId, null, systemPrompt, currentNotePath, extraTools));
 
   // Stop one conversation's turn (#2969). Only the window that started it may
-  // stop it; a conversation that isn't running is a no-op.
-  handle(Channels.CONVERSATION_CANCEL, (e, conversationId: string) => {
+  // stop it; a conversation that isn't running is a no-op. Stopping a parent
+  // stops its branches, and theirs (#2970); stopping a branch stops only it.
+  handle(Channels.CONVERSATION_CANCEL, async (e, conversationId: string) => {
     const turn = runningTurns.get(conversationId);
     if (!turn || turn.winId !== winFromEvent(e).id) return;
     turn.controller.abort();
     runningTurns.delete(conversationId);
+    if (!turn.rootPath) return;
+    for (const b of descendantsOf(await conversation.listAll(turn.rootPath), conversationId)) {
+      const child = runningTurns.get(b.id);
+      if (!child || child.rootPath !== turn.rootPath) continue;
+      child.controller.abort();
+      runningTurns.delete(b.id);
+    }
   });
 
   handle(Channels.CONVERSATION_SET_MODEL, withRootPath(async (rootPath, convId: string, model: string | undefined) => {
@@ -271,4 +291,7 @@ export function registerConversation(): void {
 
   handle(Channels.CONVERSATION_COMPACT, withRootPath((rootPath, convId: string) =>
     compactConversation(rootPath, convId)));
+
+  handle(Channels.CONVERSATION_BRANCH, withRootPath((rootPath, parentId: string, options: BranchCreateOptions) =>
+    createBranch(rootPath, parentId, options)));
 }

@@ -609,6 +609,8 @@ export const Channels = {
   /** Client-side compaction (#824): summarize earlier turns into a fresh
    *  conversation, archiving the original. */
   CONVERSATION_COMPACT: 'conversation:compact',
+  /** Fork a branch from a conversation (#2970): a child conversation linked to where it forked. */
+  CONVERSATION_BRANCH: 'conversation:branch',
   /** Load tool-window UI state (.minerva/conversations/_ui.json). */
   CONVERSATION_UI_STATE_LOAD: 'conversation:uiStateLoad',
   /** Persist tool-window UI state (visibility, height, last-active tab). */

@@ -91,7 +91,7 @@ import type {
 } from './types';
 import type { ParsedReference } from './mine-references';
 import type { ResolveCandidate } from './resolve-stub';
-import type { Conversation, ConversationCreateOptions, ConversationMessage, ContextBundle, ConversationsUIState, CompactResult } from './conversation';
+import type { Conversation, ConversationCreateOptions, ConversationMessage, ContextBundle, ConversationsUIState, CompactResult, BranchCreateOptions } from './conversation';
 import type { PrivilegedSite } from './privileged-sites';
 import type { ConversationToolKey, AskUserRequest, McpConfirmRequest } from './conversation-tools';
 import type { RemoteImageMode, RemoteImagePolicy, RemoteImageResult } from './remote-images';
@@ -659,6 +659,7 @@ export interface ChannelMap {
   'conversation:setEffort': (conversationId: string, effort: Effort | undefined) => Conversation;
   'conversation:setTitle': (conversationId: string, title: string | null) => Conversation;
   'conversation:compact': (conversationId: string) => CompactResult;
+  'conversation:branch': (parentId: string, options: BranchCreateOptions) => Conversation;
 
   // Conversation draft filing (renderer approves an inline card)
   'conversation:fileDraft': (draft: ConversationDraft) => FileDraftResult;

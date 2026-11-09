@@ -39,6 +39,8 @@ const h = vi.hoisted(() => {
     create: vi.fn(),
     replaceMessages: vi.fn(),
     setTitle: vi.fn(),
+    listAll: vi.fn(async () => []),
+    setBranchOutcome: vi.fn(async () => null),
     getSettings: vi.fn(),
     proposeWrite: vi.fn(),
     approveProposal: vi.fn(),
@@ -101,6 +103,8 @@ vi.mock('../../../src/main/llm/conversation', () => ({
   create: h.create,
   replaceMessages: h.replaceMessages,
   setTitle: h.setTitle,
+  listAll: h.listAll,
+  setBranchOutcome: h.setBranchOutcome,
   DEFAULT_UI_STATE: { visible: false, height: 320, activeTabId: null },
 }));
 
@@ -774,6 +778,52 @@ describe('turns keyed by conversation, not window (#2969)', () => {
     await expect(sends[0]).resolves.toBeDefined();
   });
 
+  // ── Branches (#2970) ──
+  const branchOf = (id: string, parentId: string) => ({ id, status: 'active', branch: { parentId, atMessage: 0, context: 'summary' } });
+
+  it('stopping a parent stops its branches, and theirs, and no other conversation (#2970)', async () => {
+    h.listAll.mockResolvedValue([{ id: 'conv-a', status: 'active' }, branchOf('conv-b', 'conv-a'), branchOf('conv-c', 'conv-b'), { id: 'conv-d', status: 'active' }]);
+    const { running, sends, started } = startTurns(['conv-a', 'conv-b', 'conv-c', 'conv-d']);
+    await started();
+    await cancel(evt, 'conv-a');
+    for (const i of [0, 1, 2]) await expect(sends[i]).rejects.toThrow('aborted');
+    expect(running.get('conv-d')!.params.callbacks.signal.aborted).toBe(false);
+    running.get('conv-d')!.release();
+    await expect(sends[3]).resolves.toBeDefined();
+  });
+
+  it('stopping a branch stops only it (#2970)', async () => {
+    h.listAll.mockResolvedValue([{ id: 'conv-a', status: 'active' }, branchOf('conv-b', 'conv-a')]);
+    const { running, sends, started } = startTurns(['conv-a', 'conv-b']);
+    await started();
+    await cancel(evt, 'conv-b');
+    await expect(sends[1]).rejects.toThrow('aborted');
+    expect(running.get('conv-a')!.params.callbacks.signal.aborted).toBe(false);
+    running.get('conv-a')!.release();
+    await expect(sends[0]).resolves.toBeDefined();
+  });
+
+  it('a branch records how its turn ended: done, stopped, failed (#2970)', async () => {
+    const branch = { ...CONV, id: 'conv-b', branch: { parentId: 'conv-a', atMessage: 0, context: 'summary' } };
+    h.appendMessage.mockResolvedValue(branch);
+    h.setBranchOutcome.mockImplementation(async (_r: string, _id: string, outcome: string) => ({ ...branch, branch: { ...branch.branch, outcome } }));
+    h.completeWithTools.mockResolvedValueOnce(completion('ok'));
+    const done = await send(evt, 'conv-b', 'go') as { branch: { outcome: string } };
+    expect(done.branch.outcome).toBe('done');
+    h.completeWithTools.mockRejectedValueOnce(new Error('overloaded'));
+    await expect(send(evt, 'conv-b', 'go')).rejects.toThrow('overloaded');
+    const { sends, started } = startTurns(['conv-b']);
+    await started();
+    await cancel(evt, 'conv-b');
+    await expect(sends[0]).rejects.toThrow('aborted');
+    expect(h.setBranchOutcome.mock.calls.map((c) => c[2])).toEqual(['done', 'failed', 'stopped']);
+    // An ordinary conversation records nothing.
+    h.appendMessage.mockResolvedValue(CONV);
+    h.completeWithTools.mockResolvedValueOnce(completion('ok'));
+    await send(evt, 'conv-1', 'hi');
+    expect(h.setBranchOutcome).toHaveBeenCalledTimes(3);
+  });
+
   it('closing the window stops every turn it started', async () => {
     const { sends, started } = startTurns(['conv-a', 'conv-b']);
     await started();
@@ -795,5 +845,31 @@ describe('turns keyed by conversation, not window (#2969)', () => {
       { conversationId: 'conv-1', status: { kind: 'queued', ahead: 0 } },
       { conversationId: 'conv-1', status: null },
     ]);
+  });
+});
+
+// ── Branch + archive handlers (#2970) ─────────────────────────────────────
+describe('branch and archive handlers (#2970)', () => {
+  it('CONVERSATION_BRANCH forks in main, linking the branch to its parent', async () => {
+    h.load.mockResolvedValue({ ...CONV, status: 'active', messages: [{ role: 'user', content: 'hello', timestamp: 't' }] });
+    h.create.mockImplementation(async (_r: string, bundle: unknown, _t: unknown, opts: unknown, seed: unknown) => ({ id: 'conv-2', contextBundle: bundle, opts, seed }));
+    const made = await h.handlers.get(Channels.CONVERSATION_BRANCH)!(evt, 'conv-1', { title: 'Risks', context: 'full', instructions: 'List them.' }) as { seed: { branch: unknown; title: string; messages: { content: string }[] }; opts: { model: string } };
+    expect(made.seed.branch).toEqual({ parentId: 'conv-1', atMessage: 1, context: 'full' });
+    expect(made.seed.title).toBe('Risks');
+    expect(made.seed.messages.map((m) => m.content)).toEqual(['hello', 'List them.']);
+    expect(made.opts.model).toBe('claude-x');
+  });
+
+  it('CONVERSATION_ARCHIVE archives the conversation and its active branches', async () => {
+    h.archive.mockImplementation(async (_r: string, id: string) => ({ id, status: 'archived' }));
+    h.listAll.mockResolvedValue([
+      { id: 'conv-1', status: 'active' },
+      { id: 'conv-2', status: 'active', branch: { parentId: 'conv-1', atMessage: 0, context: 'summary' } },
+      { id: 'conv-3', status: 'archived', branch: { parentId: 'conv-1', atMessage: 0, context: 'summary' } },
+      { id: 'conv-4', status: 'active' },
+    ]);
+    const out = await h.handlers.get(Channels.CONVERSATION_ARCHIVE)!(evt, 'conv-1') as { id: string };
+    expect(out.id).toBe('conv-1');
+    expect(h.archive.mock.calls.map((c) => c[1])).toEqual(['conv-1', 'conv-2']);
   });
 });
