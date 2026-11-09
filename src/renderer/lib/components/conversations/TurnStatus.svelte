@@ -1,12 +1,15 @@
 <script lang="ts">
-  import { formatElapsed, verbAt, verbOffsetFor } from '../../conversations/turn-status';
+  import { formatElapsed, verbAt, verbOffsetFor, waitingText } from '../../conversations/turn-status';
+  import type { RequestWaitStatus } from '../../../../shared/tools/concurrent-requests';
 
   interface Props {
     /** When the in-flight turn started (epoch ms); null shows the dots alone. */
     startedAt: number | null;
+    /** What its next model request waits on (#2969): said in place of the verb. */
+    waiting?: RequestWaitStatus;
   }
 
-  let { startedAt }: Props = $props();
+  let { startedAt, waiting = null }: Props = $props();
 
   let now = $state(Date.now());
 
@@ -20,6 +23,10 @@
 
   const elapsed = $derived(startedAt === null ? 0 : now - startedAt);
   const verb = $derived(startedAt === null ? 'Thinking' : verbAt(elapsed, verbOffsetFor(startedAt)));
+  // When the wait began, so a rate limit's countdown runs from it.
+  let waitSince = $state(Date.now());
+  $effect(() => { if (waiting) waitSince = Date.now(); });
+  const waitText = $derived(waiting ? waitingText(waiting, now - waitSince) : null);
 </script>
 
 <!-- role="status" is a live region: the ticking text inside is aria-hidden so
@@ -31,11 +38,13 @@
   <span class="thinking-dot"></span>
   {#if startedAt !== null}
     <span class="turn-status-text" aria-hidden="true">
-      <span class="turn-verb">{verb}…</span>
+      <span class="turn-verb">{waitText ?? `${verb}…`}</span>
       <span class="turn-elapsed">{formatElapsed(elapsed)}</span>
     </span>
   {/if}
 </div>
+<!-- Said once when the wait starts, not per tick. -->
+{#if waiting}<span class="sr-only" role="status">{waiting.kind === 'queued' ? 'Waiting for a free request slot' : 'Rate limited; retrying shortly'}</span>{/if}
 
 <style>
   /* Three dots that pulse out of phase, then what it's doing and for how long. */
@@ -65,6 +74,14 @@
     margin-left: 6px;
     font-size: 12px;
     color: var(--text-muted);
+  }
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
   }
   .turn-elapsed {
     font-variant-numeric: tabular-nums;

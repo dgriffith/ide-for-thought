@@ -13,7 +13,7 @@ const h = vi.hoisted(() => {
   const api = {
     conversations: {
       // subscriptions used by ensureSubscriptions()
-      onStream: noop, onDraft: noop, onSourceDraft: noop, onPropertyDraft: noop,
+      onStream: noop, onWait: noop, onDraft: noop, onSourceDraft: noop, onPropertyDraft: noop,
       onSourcePropertyDraft: noop, onClaimsDraft: noop, onComputeDraft: noop, onRefactorDraft: noop, onReorgDraft: noop, onDeleteDraft: noop, onNoteBodyDraft: noop, onAskUser: noop, onTitleChanged: noop, onMcpConfirm: noop,
       saveUIState: vi.fn().mockResolvedValue(undefined),
       archive: vi.fn().mockResolvedValue(undefined),

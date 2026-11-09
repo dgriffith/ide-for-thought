@@ -218,7 +218,7 @@
            before iteration 2 starts) would otherwise have zero animated
            feedback; keeping the dots visible throughout means the user always
            knows the turn is still working. -->
-      <TurnStatus startedAt={tab.turnStartedAt} />
+      <TurnStatus startedAt={tab.turnStartedAt} waiting={tab.waiting} />
     </div>
   {/if}
 

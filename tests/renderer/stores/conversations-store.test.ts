@@ -51,6 +51,7 @@ const h = vi.hoisted(() => {
     conversations: {
       // subscriptions — captured so tests can inject drafts / questions.
       onStream: cap('onStream'),
+      onWait: cap('onWait'),
       onDraft: cap('onDraft'),
       onSourceDraft: cap('onSourceDraft'),
       onPropertyDraft: cap('onPropertyDraft'),
@@ -72,6 +73,7 @@ const h = vi.hoisted(() => {
         makeConv(bundle, trigger, options)),
       load: vi.fn(async (_id: string) => null as Conversation | null),
       archive: vi.fn().mockResolvedValue(undefined),
+      branch: vi.fn(),
       // turn
       send: vi.fn().mockResolvedValue(undefined),
       retry: vi.fn().mockResolvedValue(undefined),
@@ -371,7 +373,7 @@ describe('send()', () => {
     // copy of a cancelled turn's output.
     const tab = await freshTab();
     conv().send.mockImplementationOnce(async () => {
-      h.cbs.onStream?.('three useful paragraphs');
+      h.cbs.onStream?.({ conversationId: tab.id, text: 'three useful paragraphs' });
       throw Object.assign(new Error('aborted'), { name: 'AbortError' });
     });
 
@@ -480,7 +482,7 @@ describe('cancel / setModel / setEffort / setComposer', () => {
     tab.streaming = true;
     tab.streamedChunks = 'three useful paragraphs';
     await store.cancel();
-    expect(conv().cancel).toHaveBeenCalledTimes(1);
+    expect(conv().cancel).toHaveBeenCalledWith(tab.id);
     expect(tab.streamedChunks).toBe('three useful paragraphs');
   });
 
@@ -989,7 +991,7 @@ describe('turn announcements', () => {
   it('a streamed reply of 500 chunks produces exactly two announcements: start and completion', async () => {
     const tab = await freshTab();
     conv().send.mockImplementationOnce(async () => {
-      for (let i = 0; i < 500; i++) h.cbs.onStream?.(`tok${i} `);
+      for (let i = 0; i < 500; i++) h.cbs.onStream?.({ conversationId: tab.id, text: `tok${i} ` });
     });
     conv().load.mockResolvedValueOnce(reply('The answer is 42.', tab.id));
 
@@ -1004,7 +1006,7 @@ describe('turn announcements', () => {
   it('retry announces the same two edges', async () => {
     const tab = await freshTab();
     conv().retry.mockImplementationOnce(async () => {
-      for (let i = 0; i < 50; i++) h.cbs.onStream?.('x');
+      for (let i = 0; i < 50; i++) h.cbs.onStream?.({ conversationId: tab.id, text: 'x' });
     });
     conv().load.mockResolvedValueOnce(reply('Second try.', tab.id));
 
@@ -1017,9 +1019,9 @@ describe('turn announcements', () => {
   });
 
   it('a stopped turn announces that it stopped, not that it completed', async () => {
-    await freshTab();
+    const tab = await freshTab();
     conv().send.mockImplementationOnce(async () => {
-      h.cbs.onStream?.('partial');
+      h.cbs.onStream?.({ conversationId: tab.id, text: 'partial' });
       throw Object.assign(new Error('aborted'), { name: 'AbortError' });
     });
 
@@ -1038,5 +1040,144 @@ describe('turn announcements', () => {
     expect(last[0]).toMatch(/^Response failed\. /);
     expect(last[1]).toBe('assertive');
     expect(h.announce).toHaveBeenCalledTimes(2);
+  });
+});
+
+// ───────────────── several conversations at once (#2969) ─────────────────
+
+describe('several conversations running at once (#2969)', () => {
+  type Stream = (c: { conversationId: string; text: string }) => void;
+  type Wait = (w: { conversationId: string; status: unknown }) => void;
+  const deferred = () => {
+    let resolve!: () => void;
+    const promise = new Promise<void>((r) => { resolve = r; });
+    return { promise, resolve };
+  };
+
+  it('two tabs stream at once: each chunk lands in its own tab, the front one or not', async () => {
+    const a = await freshTab();
+    const b = await freshTab();
+    const turnA = deferred();
+    const turnB = deferred();
+    conv().send.mockImplementationOnce(() => turnA.promise).mockImplementationOnce(() => turnB.promise);
+
+    store.setActiveTab(a.id);
+    const sendA = store.send('first question');
+    store.setActiveTab(b.id);
+    const sendB = store.send('second question');
+    expect(a.streaming).toBe(true);
+    expect(b.streaming).toBe(true);
+
+    const stream = h.cbs.onStream as Stream;
+    stream({ conversationId: a.id, text: 'for A ' });
+    stream({ conversationId: b.id, text: 'for B' });
+    stream({ conversationId: a.id, text: 'again' });
+    expect(a.streamedChunks).toBe('for A again');
+    expect(b.streamedChunks).toBe('for B');
+
+    turnA.resolve();
+    await sendA;
+    expect(a.streaming).toBe(false);
+    expect(b.streaming).toBe(true);
+    turnB.resolve();
+    await sendB;
+  });
+
+  it('Stop names the conversation it stops, and the composer\'s tab when given', async () => {
+    const a = await freshTab();
+    const b = await freshTab();
+    await store.cancel(a.id);
+    expect(conv().cancel).toHaveBeenLastCalledWith(a.id);
+    await store.cancel();
+    expect(conv().cancel).toHaveBeenLastCalledWith(b.id);
+  });
+
+  it('a chunk for a conversation that is not mid-turn, or not open, goes nowhere', async () => {
+    const a = await freshTab();
+    (h.cbs.onStream as Stream)({ conversationId: a.id, text: 'stray' });
+    (h.cbs.onStream as Stream)({ conversationId: 'elsewhere', text: 'stray' });
+    expect(a.streamedChunks).toBe('');
+  });
+
+  it('a turn waiting for a slot says so, and the wait clears when the turn settles', async () => {
+    const tab = await freshTab();
+    const turn = deferred();
+    conv().send.mockImplementationOnce(() => turn.promise);
+    const sending = store.send('busy day');
+    (h.cbs.onWait as Wait)({ conversationId: tab.id, status: { kind: 'queued', ahead: 1 } });
+    expect(tab.waiting).toEqual({ kind: 'queued', ahead: 1 });
+    (h.cbs.onWait as Wait)({ conversationId: tab.id, status: null });
+    expect(tab.waiting).toBeNull();
+    (h.cbs.onWait as Wait)({ conversationId: tab.id, status: { kind: 'rate-limited', retryInMs: 5000, attempt: 1 } });
+    turn.resolve();
+    await sending;
+    expect(tab.waiting).toBeNull();
+  });
+
+  it('a reply finishing in a background tab names the conversation instead of reading the reply out', async () => {
+    const a = await freshTab();
+    a.conversation = { ...a.conversation, title: 'Tuning history' };
+    const turn = deferred();
+    conv().send.mockImplementationOnce(() => turn.promise);
+    conv().load.mockResolvedValueOnce({ ...a.conversation, messages: [{ role: 'assistant', content: 'A long reply.', timestamp: 't' }] });
+    const sending = store.send('tell me');
+    await freshTab(); // the user moves on to another conversation
+    turn.resolve();
+    await sending;
+    expect(h.announce).toHaveBeenLastCalledWith('“Tuning history” finished replying');
+  });
+});
+
+describe('branches (#2970)', () => {
+  const branchConv = (parentId: string, id: string, last: 'user' | 'assistant' = 'user'): Conversation => ({
+    id, contextBundle: {}, status: 'active', startedAt: 't', title: 'Risks', titleSource: 'user',
+    branch: { parentId, atMessage: 0, context: 'summary' },
+    messages: [{ role: last, content: 'Summary… **This branch:** list the risks', timestamp: 't' }],
+  });
+
+  it('a branch opens as a tab right under its parent and runs its first turn', async () => {
+    const parent = await freshTab();
+    const other = await freshTab();
+    conv().branch.mockResolvedValueOnce(branchConv(parent.id, 'conv-branch-1'));
+    const tab = await store.branchConversation(parent.id, { title: 'Risks', instructions: 'list the risks' });
+    expect(conv().branch).toHaveBeenCalledWith(parent.id, { title: 'Risks', instructions: 'list the risks' });
+    const ids = store.tabs.map((t) => t.id);
+    expect(ids.indexOf('conv-branch-1')).toBe(ids.indexOf(parent.id) + 1);
+    expect(ids.indexOf(other.id)).toBeGreaterThan(ids.indexOf('conv-branch-1'));
+    expect(store.activeTabId).toBe(tab!.id);
+    await vi.waitFor(() => expect(conv().retry).toHaveBeenCalledWith('conv-branch-1', undefined, undefined, undefined));
+  });
+
+  it('a branch with nothing to answer yet waits for the user', async () => {
+    const parent = await freshTab();
+    conv().branch.mockResolvedValueOnce(branchConv(parent.id, 'conv-branch-2', 'assistant'));
+    await store.branchConversation(parent.id, { title: 'Risks' });
+    expect(conv().retry).not.toHaveBeenCalled();
+  });
+
+  it('closing a parent closes its open branches with it, and nothing else', async () => {
+    const parent = await freshTab();
+    const other = await freshTab();
+    conv().branch.mockResolvedValueOnce(branchConv(parent.id, 'conv-b1', 'assistant'));
+    await store.branchConversation(parent.id, { title: 'B1' });
+    conv().branch.mockResolvedValueOnce(branchConv('conv-b1', 'conv-b1x', 'assistant'));
+    await store.branchConversation('conv-b1', { title: 'B1x' });
+    await store.closeTab(parent.id);
+    expect(conv().archive).toHaveBeenCalledTimes(1);
+    expect(conv().archive).toHaveBeenCalledWith(parent.id);
+    expect(store.tabs.map((t) => t.id)).not.toContain('conv-b1');
+    expect(store.tabs.map((t) => t.id)).not.toContain('conv-b1x');
+    expect(store.tabs.map((t) => t.id)).toContain(other.id);
+    expect(store.activeTabId).not.toBe('conv-b1x');
+  });
+
+  it('after a branch\'s turn, the list picks up how it ended', async () => {
+    const parent = await freshTab();
+    const b = branchConv(parent.id, 'conv-b3');
+    conv().branch.mockResolvedValueOnce(b);
+    conv().retry.mockRejectedValueOnce(new Error('overloaded'));
+    conv().load.mockResolvedValue({ ...b, branch: { ...b.branch!, outcome: 'failed' } });
+    const tab = await store.branchConversation(parent.id, { title: 'Risks', instructions: 'go' });
+    await vi.waitFor(() => expect(tab!.conversation.branch?.outcome).toBe('failed'));
   });
 });

@@ -39,6 +39,8 @@ const h = vi.hoisted(() => {
     create: vi.fn(),
     replaceMessages: vi.fn(),
     setTitle: vi.fn(),
+    listAll: vi.fn(async () => []),
+    setBranchOutcome: vi.fn(async () => null),
     getSettings: vi.fn(),
     proposeWrite: vi.fn(),
     approveProposal: vi.fn(),
@@ -101,6 +103,8 @@ vi.mock('../../../src/main/llm/conversation', () => ({
   create: h.create,
   replaceMessages: h.replaceMessages,
   setTitle: h.setTitle,
+  listAll: h.listAll,
+  setBranchOutcome: h.setBranchOutcome,
   DEFAULT_UI_STATE: { visible: false, height: 320, activeTabId: null },
 }));
 
@@ -287,7 +291,7 @@ describe('CONVERSATION_SEND (#1612)', () => {
     // The model calls ask_user, then a cancel arrives before the user answers.
     h.completeWithTools.mockImplementation(async ({ callbacks }: { callbacks: { askUser: (q: { question: string }) => Promise<string> } }) => {
       const answer = callbacks.askUser({ question: 'pick one?' });
-      cancel(evt); // abort mid-question
+      cancel(evt, 'conv-1'); // abort mid-question
       await expect(answer).rejects.toThrow('aborted');
       return completion('unwound');
     });
@@ -337,7 +341,7 @@ describe('CONVERSATION_SEND (#1612)', () => {
       }
       await Promise.resolve();
       expect(settled).toBe(false);
-      cancel(evt);
+      cancel(evt, 'conv-1');
       await expect(decision).resolves.toEqual({ allow: false, reason: 'cancelled' });
       return completion('ok');
     });
@@ -347,7 +351,7 @@ describe('CONVERSATION_SEND (#1612)', () => {
   it('stopping the turn resolves a pending card as cancelled (never hangs, never allows)', async () => {
     h.completeWithTools.mockImplementation(async ({ callbacks }: { callbacks: { confirmMcpCall: Confirm } }) => {
       const decision = callbacks.confirmMcpCall(PROMPT);
-      cancel(evt);
+      cancel(evt, 'conv-1');
       await expect(decision).resolves.toEqual({ allow: false, reason: 'cancelled' });
       return completion('unwound');
     });
@@ -573,7 +577,7 @@ describe('stream tail flush (#2219)', () => {
   const streamed = (): string =>
     h.fakeWin.webContents.send.mock.calls
       .filter((c) => c[0] === Channels.CONVERSATION_STREAM)
-      .map((c) => c[1] as string)
+      .map((c) => (c[1] as { text: string }).text)
       .join('');
 
   it('ships text buffered when the turn completes normally', async () => {
@@ -672,5 +676,200 @@ describe('conversation titles', () => {
     await new Promise((r) => setTimeout(r, 20));
     expect(h.complete).not.toHaveBeenCalled();
     expect(titleEvents()).toHaveLength(0);
+  });
+});
+
+// ── Several conversations at once (#2969) ────────────────────────────────
+describe('turns keyed by conversation, not window (#2969)', () => {
+  type Params = { toolContext: { conversationId: string }; callbacks: { signal: AbortSignal; onChunk: (s: string) => void; askUser: (q: { question: string }) => Promise<string> } };
+  /** Start a turn whose completion waits until released; hands back its callbacks. */
+  const startTurns = (ids: string[]) => {
+    const running = new Map<string, { params: Params; release: () => void }>();
+    h.completeWithTools.mockImplementation((params: Params) => new Promise((resolve, reject) => {
+      const id = params.toolContext.conversationId;
+      running.set(id, { params, release: () => resolve(completion(`reply for ${id}`)) });
+      params.callbacks.signal.addEventListener('abort', () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' })));
+    }));
+    // Started one after another, each once the one before has reached the
+    // model, and then all in flight together. (Started in the same tick,
+    // vitest's loader never resolves the second lazy import of the mocked
+    // LLM client while the first is pending; Node's own loader shares it.)
+    const sends: Promise<unknown>[] = [];
+    const launching = (async () => {
+      for (const id of ids) {
+        const sent = send(evt, id, 'hello') as Promise<unknown>;
+        sent.catch(() => undefined);
+        sends.push(sent);
+        for (let i = 0; i < 200 && !running.has(id); i++) await new Promise((r) => setTimeout(r, 0));
+      }
+    })();
+    const started = () => launching;
+    return { running, sends, started };
+  };
+  const settle = () => new Promise((r) => setTimeout(r, 0));
+  beforeEach(async () => {
+    h.getSettings.mockResolvedValue({ autoTitleConversations: false });
+    // The handler imports the LLM client lazily; load it once up front, so two
+    // turns starting together don't both race the first (mocked) import.
+    await import('../../../src/main/llm/index');
+  });
+
+  it('two conversations in one window run at once; stopping one leaves the other running', async () => {
+    const { running, sends, started } = startTurns(['conv-a', 'conv-b']);
+    await started();
+    expect([...running.keys()].sort()).toEqual(['conv-a', 'conv-b']);
+
+    cancel(evt, 'conv-a');
+    await expect(sends[0]).rejects.toThrow('aborted');
+    expect(running.get('conv-b')!.params.callbacks.signal.aborted).toBe(false);
+
+    running.get('conv-b')!.release();
+    await expect(sends[1]).resolves.toBeDefined();
+  });
+
+  it('streamed text names its conversation', async () => {
+    const { running, sends, started } = startTurns(['conv-a', 'conv-b']);
+    await started();
+    running.get('conv-a')!.params.callbacks.onChunk('for A');
+    running.get('conv-b')!.params.callbacks.onChunk('for B');
+    running.get('conv-a')!.release();
+    running.get('conv-b')!.release();
+    await Promise.all(sends);
+    const chunks = h.fakeWin.webContents.send.mock.calls.filter((c) => c[0] === Channels.CONVERSATION_STREAM).map((c) => c[1]);
+    expect(chunks).toEqual(expect.arrayContaining([
+      { conversationId: 'conv-a', text: 'for A' },
+      { conversationId: 'conv-b', text: 'for B' },
+    ]));
+  });
+
+  it('a second turn for a conversation already answering is refused, and the first runs on', async () => {
+    const { running, sends, started } = startTurns(['conv-a']);
+    await started();
+    await expect(send(evt, 'conv-a', 'again')).rejects.toThrow(/already answering/);
+    expect(running.get('conv-a')!.params.callbacks.signal.aborted).toBe(false);
+    running.get('conv-a')!.release();
+    await expect(sends[0]).resolves.toBeDefined();
+  });
+
+  it('stopping one conversation rejects only its own pending question', async () => {
+    const { running, sends, started } = startTurns(['conv-a', 'conv-b']);
+    await started();
+    const qa = running.get('conv-a')!.params.callbacks.askUser({ question: 'a?' });
+    let bSettled = false;
+    // Settled either way is what's watched; the rejection when conv-b stops below is expected.
+    void running.get('conv-b')!.params.callbacks.askUser({ question: 'b?' }).finally(() => { bSettled = true; }).catch(() => {});
+    cancel(evt, 'conv-a');
+    await expect(qa).rejects.toThrow('aborted');
+    await expect(sends[0]).rejects.toThrow();
+    await settle();
+    expect(bSettled).toBe(false);
+    cancel(evt, 'conv-b');
+    await expect(sends[1]).rejects.toThrow();
+  });
+
+  it('Stop from another window, or for a conversation not running, does nothing', async () => {
+    const { running, sends, started } = startTurns(['conv-a']);
+    await started();
+    cancel(evt, 'conv-zzz');
+    h.fakeWin.id = 2;
+    try { cancel(evt, 'conv-a'); } finally { h.fakeWin.id = 1; }
+    expect(running.get('conv-a')!.params.callbacks.signal.aborted).toBe(false);
+    running.get('conv-a')!.release();
+    await expect(sends[0]).resolves.toBeDefined();
+  });
+
+  // ── Branches (#2970) ──
+  const branchOf = (id: string, parentId: string) => ({ id, status: 'active', branch: { parentId, atMessage: 0, context: 'summary' } });
+
+  it('stopping a parent stops its branches, and theirs, and no other conversation (#2970)', async () => {
+    h.listAll.mockResolvedValue([{ id: 'conv-a', status: 'active' }, branchOf('conv-b', 'conv-a'), branchOf('conv-c', 'conv-b'), { id: 'conv-d', status: 'active' }]);
+    const { running, sends, started } = startTurns(['conv-a', 'conv-b', 'conv-c', 'conv-d']);
+    await started();
+    await cancel(evt, 'conv-a');
+    for (const i of [0, 1, 2]) await expect(sends[i]).rejects.toThrow('aborted');
+    expect(running.get('conv-d')!.params.callbacks.signal.aborted).toBe(false);
+    running.get('conv-d')!.release();
+    await expect(sends[3]).resolves.toBeDefined();
+  });
+
+  it('stopping a branch stops only it (#2970)', async () => {
+    h.listAll.mockResolvedValue([{ id: 'conv-a', status: 'active' }, branchOf('conv-b', 'conv-a')]);
+    const { running, sends, started } = startTurns(['conv-a', 'conv-b']);
+    await started();
+    await cancel(evt, 'conv-b');
+    await expect(sends[1]).rejects.toThrow('aborted');
+    expect(running.get('conv-a')!.params.callbacks.signal.aborted).toBe(false);
+    running.get('conv-a')!.release();
+    await expect(sends[0]).resolves.toBeDefined();
+  });
+
+  it('a branch records how its turn ended: done, stopped, failed (#2970)', async () => {
+    const branch = { ...CONV, id: 'conv-b', branch: { parentId: 'conv-a', atMessage: 0, context: 'summary' } };
+    h.appendMessage.mockResolvedValue(branch);
+    h.setBranchOutcome.mockImplementation(async (_r: string, _id: string, outcome: string) => ({ ...branch, branch: { ...branch.branch, outcome } }));
+    h.completeWithTools.mockResolvedValueOnce(completion('ok'));
+    const done = await send(evt, 'conv-b', 'go') as { branch: { outcome: string } };
+    expect(done.branch.outcome).toBe('done');
+    h.completeWithTools.mockRejectedValueOnce(new Error('overloaded'));
+    await expect(send(evt, 'conv-b', 'go')).rejects.toThrow('overloaded');
+    const { sends, started } = startTurns(['conv-b']);
+    await started();
+    await cancel(evt, 'conv-b');
+    await expect(sends[0]).rejects.toThrow('aborted');
+    expect(h.setBranchOutcome.mock.calls.map((c) => c[2])).toEqual(['done', 'failed', 'stopped']);
+    // An ordinary conversation records nothing.
+    h.appendMessage.mockResolvedValue(CONV);
+    h.completeWithTools.mockResolvedValueOnce(completion('ok'));
+    await send(evt, 'conv-1', 'hi');
+    expect(h.setBranchOutcome).toHaveBeenCalledTimes(3);
+  });
+
+  it('closing the window stops every turn it started', async () => {
+    const { sends, started } = startTurns(['conv-a', 'conv-b']);
+    await started();
+    const closers = h.fakeWin.once.mock.calls.filter((c) => c[0] === 'closed').map((c) => c[1] as () => void);
+    for (const close of closers) close();
+    await expect(sends[0]).rejects.toThrow('aborted');
+    await expect(sends[1]).rejects.toThrow('aborted');
+  });
+
+  it('a turn waiting for a slot tells the window, by conversation', async () => {
+    h.completeWithTools.mockImplementation(async (params: { callbacks: { onWait: (s: unknown) => void } }) => {
+      params.callbacks.onWait({ kind: 'queued', ahead: 0 });
+      params.callbacks.onWait(null);
+      return completion('ok');
+    });
+    await send(evt, 'conv-1', 'hello');
+    const waits = h.fakeWin.webContents.send.mock.calls.filter((c) => c[0] === Channels.CONVERSATION_WAIT).map((c) => c[1]);
+    expect(waits).toEqual([
+      { conversationId: 'conv-1', status: { kind: 'queued', ahead: 0 } },
+      { conversationId: 'conv-1', status: null },
+    ]);
+  });
+});
+
+// ── Branch + archive handlers (#2970) ─────────────────────────────────────
+describe('branch and archive handlers (#2970)', () => {
+  it('CONVERSATION_BRANCH forks in main, linking the branch to its parent', async () => {
+    h.load.mockResolvedValue({ ...CONV, status: 'active', messages: [{ role: 'user', content: 'hello', timestamp: 't' }] });
+    h.create.mockImplementation(async (_r: string, bundle: unknown, _t: unknown, opts: unknown, seed: unknown) => ({ id: 'conv-2', contextBundle: bundle, opts, seed }));
+    const made = await h.handlers.get(Channels.CONVERSATION_BRANCH)!(evt, 'conv-1', { title: 'Risks', context: 'full', instructions: 'List them.' }) as { seed: { branch: unknown; title: string; messages: { content: string }[] }; opts: { model: string } };
+    expect(made.seed.branch).toEqual({ parentId: 'conv-1', atMessage: 1, context: 'full' });
+    expect(made.seed.title).toBe('Risks');
+    expect(made.seed.messages.map((m) => m.content)).toEqual(['hello', 'List them.']);
+    expect(made.opts.model).toBe('claude-x');
+  });
+
+  it('CONVERSATION_ARCHIVE archives the conversation and its active branches', async () => {
+    h.archive.mockImplementation(async (_r: string, id: string) => ({ id, status: 'archived' }));
+    h.listAll.mockResolvedValue([
+      { id: 'conv-1', status: 'active' },
+      { id: 'conv-2', status: 'active', branch: { parentId: 'conv-1', atMessage: 0, context: 'summary' } },
+      { id: 'conv-3', status: 'archived', branch: { parentId: 'conv-1', atMessage: 0, context: 'summary' } },
+      { id: 'conv-4', status: 'active' },
+    ]);
+    const out = await h.handlers.get(Channels.CONVERSATION_ARCHIVE)!(evt, 'conv-1') as { id: string };
+    expect(out.id).toBe('conv-1');
+    expect(h.archive.mock.calls.map((c) => c[1])).toEqual(['conv-1', 'conv-2']);
   });
 });
