@@ -202,7 +202,7 @@ describe('hydrateObjectViewBlocks (#2067)', () => {
     expect(block.querySelector('.tv-header')).toBeNull();
   });
 
-  describe('note actions in an embed (#2774)', () => {
+  describe('note actions in an embed (#2774; several notes since #2940)', () => {
     const actions = () => ({ editProperties: vi.fn(), addTag: vi.fn(), removeTag: vi.fn(), clearProperty: vi.fn() });
     const TWO = [
       { path: 'Dune.md', title: 'Dune', values: { author: 'Frank Herbert' }, cover: null, tags: ['scifi'] },
@@ -225,10 +225,51 @@ describe('hydrateObjectViewBlocks (#2067)', () => {
       item(/Add Tag/).click();
       expect(noteActions.addTag).toHaveBeenCalledWith(['Dune.md']);
       await waitFor(() => expect(document.querySelector('.tv-menu')).toBeNull());
-      // A click still opens the note, and selects nothing.
+      // A click still opens the note — and, as in the tab, selects just it (#2940).
       row.click();
       expect(onOpenNote).toHaveBeenCalledWith('Dune.md');
-      expect(row.classList.contains('selected')).toBe(false);
+    });
+
+    it('⌘-click two rows, and they stay selected through a graph change; Add Tag… reaches both (#2940)', async () => {
+      instancesMock.mockResolvedValue({ type: TYPE, instances: TWO });
+      const noteActions = actions();
+      const onOpenNote = vi.fn();
+      const spec = '{"typeId":"book","layout":"table"}';
+      const root = previewWith(spec);
+      hydrateObjectViewBlocks(root, deps({ onOpenNote, noteActions }));
+      await waitFor(() => expect(root.textContent).toContain('Snow Crash'));
+      const row = (title: string) => [...root.querySelectorAll('tr')].find((r) => r.textContent.includes(title))!;
+      row('Dune').dispatchEvent(new MouseEvent('click', { bubbles: true, metaKey: true }));
+      row('Snow Crash').dispatchEvent(new MouseEvent('click', { bubbles: true, metaKey: true }));
+      await waitFor(() => expect(row('Snow Crash').classList.contains('selected')).toBe(true));
+      expect(onOpenNote).not.toHaveBeenCalled();
+      // The preview re-renders after a graph change: a fresh placeholder, the live mount moved in, a new revision.
+      root.querySelector('.object-view-block')!.replaceWith(Object.assign(document.createElement('div'), { className: 'object-view-block', textContent: spec }));
+      hydrateObjectViewBlocks(root, deps({ onOpenNote, noteActions, revision: 1 }));
+      await waitFor(() => expect(instancesMock).toHaveBeenCalledTimes(2));
+      await waitFor(() => expect(row('Dune').classList.contains('selected')).toBe(true));
+      expect(row('Snow Crash').classList.contains('selected')).toBe(true);
+      row('Snow Crash').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 5, clientY: 5 }));
+      await waitFor(() => expect(document.querySelector('.tv-menu')).not.toBeNull());
+      [...document.querySelectorAll<HTMLButtonElement>('.tv-menu [role="menuitem"]')].find((b) => /Add Tag/.test(b.textContent))!.click();
+      expect(noteActions.addTag).toHaveBeenCalledWith(['Dune.md', 'Snow.md']);
+    });
+
+    it('⌘A selects the embed\'s notes only while focus is inside it; elsewhere it stays the page\'s', async () => {
+      instancesMock.mockResolvedValue({ type: TYPE, instances: TWO });
+      const root = previewWith('{"typeId":"book","layout":"table"}');
+      hydrateObjectViewBlocks(root, deps({ noteActions: actions() }));
+      await waitFor(() => expect(root.textContent).toContain('Snow Crash'));
+      const outside = new KeyboardEvent('keydown', { key: 'a', metaKey: true, bubbles: true, cancelable: true });
+      document.body.dispatchEvent(outside);
+      expect(outside.defaultPrevented).toBe(false); // the page's select-all
+      expect(root.querySelectorAll('tr.selected')).toHaveLength(0);
+      const row = [...root.querySelectorAll<HTMLElement>('tr')].find((r) => r.textContent.includes('Dune'))!;
+      row.focus();
+      const inside = new KeyboardEvent('keydown', { key: 'a', metaKey: true, bubbles: true, cancelable: true });
+      row.dispatchEvent(inside);
+      expect(inside.defaultPrevented).toBe(true);
+      await waitFor(() => expect(root.querySelectorAll('tr.selected')).toHaveLength(2));
     });
 
     it('an embedded board offers the note actions but no Move to (#2604)', async () => {
