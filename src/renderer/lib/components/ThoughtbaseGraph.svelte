@@ -164,6 +164,7 @@
         picked = isNoteKind(kind) ? [n.id()] : [];
       });
       cy.on('tap', (evt) => { if (evt.target === cy) { selected = null; picked = []; menu = null; } });
+      cy.on('tapstart scrollzoom', () => { following = null; }); // the user has the camera now
       // The note menu (#2773): for the picked notes when the right-click is on one of them, else for this note.
       cy.on('cxttap', 'node', (evt) => {
         const n = evt.target as NodeSingular;
@@ -222,6 +223,7 @@
       nodes: nodes.map((n) => ({ id: n.id, group: n.folder || n.kind, fixed: graphState.pins[n.id] })),
       edges: shown.edges.map((e) => ({ source: e.source, target: e.target })),
     };
+    settled = false;
     worker?.postMessage(request);
     applyMarks();
   }
@@ -252,10 +254,12 @@
   }
 
   function centreOn(id: string | undefined): void {
+    following = null;
     if (!cy || !id) return;
     const n = cy.getElementById(id);
     // At once, not animated: a click straight after finding lands on the note found.
     if (n.nonempty()) cy.center(n);
+    following = id; // and kept there while the layout settles, rather than fitted away from
   }
   function onFind(e: Event & { currentTarget: HTMLInputElement }): void {
     query = e.currentTarget.value;
@@ -288,6 +292,10 @@
   }
 
   let fitted = false;
+  /** The note Find centred on: the layout's settling keeps it centred instead of fitting the view. */
+  let following: string | null = null;
+  /** The layout has finished (`data-settled`): where the notes are now is where they stay. */
+  let settled = $state(false);
   function applyPositions(r: LayoutResponse): void {
     if (!cy || r.seq !== seq) return; // a stale layout: the filters moved on
     const nodes = shown.nodes;
@@ -298,7 +306,10 @@
         cy!.getElementById(n.id).position(p);
       });
     });
-    if (!r.done || fitted) return;
+    if (following) cy.center(cy.getElementById(following));
+    if (!r.done) return;
+    settled = true;
+    if (fitted || following) return;
     fitted = true;
     const cam = graphState.camera;
     if (cam) { cy.zoom(cam.zoom); cy.pan(cam.pan); return; }
@@ -400,7 +411,7 @@
     <p class="note">Showing the first {data.nodes.filter((n) => n.kind === 'note' || n.kind === 'term').length.toLocaleString()} of {data.total.toLocaleString()} notes. Narrow it with a folder, type or tag.</p>
   {/if}
   <div class="body">
-    <div class="canvas" bind:this={container} class:hidden={showList} role="img" aria-label="Graph of {shown.nodes.length} notes; use List for the same notes as text"></div>
+    <div class="canvas" bind:this={container} class:hidden={showList} data-settled={settled ? '' : undefined} role="img" aria-label="Graph of {shown.nodes.length} notes; use List for the same notes as text"></div>
     {#if showList}
       <ul class="list" aria-label="Notes in the graph">
         {#each shown.nodes as n (n.id)}

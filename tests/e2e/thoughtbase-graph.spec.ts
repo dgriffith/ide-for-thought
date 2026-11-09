@@ -105,11 +105,16 @@ test('the graph: find a note, trace a connection, the note menu, pin and release
     const graph = win.locator('.tb-graph');
     await app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0]!.webContents.send('menu:command', 'view.openGraph'); });
     await expect(graph.locator('.count')).toHaveText(/^5 of 5 nodes/, { timeout: 15_000 });
-    await win.waitForTimeout(1500); // the layout settles and fits once
     const canvas = graph.locator('.canvas');
+    await expect(canvas).toHaveAttribute('data-settled', '', { timeout: 15_000 }); // the layout has finished: nothing moves now
     const find = graph.getByRole('searchbox', { name: 'Find a note' });
     const centreOf = async () => { const b = (await canvas.boundingBox())!; return { x: b.x + b.width / 2, y: b.y + b.height / 2 }; };
-    const findAndCentre = async (q: string) => { await find.fill(q); return centreOf(); };
+    // Settled first: a layout still running (Release all starts one) moves the note out from under the click.
+    const findAndCentre = async (q: string) => {
+      await expect(canvas).toHaveAttribute('data-settled', '', { timeout: 15_000 });
+      await find.fill(q);
+      return centreOf();
+    };
 
     await test.step('find marks the matches and steps through them', async () => {
       await find.fill('a');
