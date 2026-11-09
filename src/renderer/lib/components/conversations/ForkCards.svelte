@@ -4,6 +4,7 @@
   import { formatElapsed } from '../../conversations/turn-status';
   import { formatUSD } from '../../conversations/conversation-cost';
   import { renderMarkdownCached } from '../../conversations/markdown-render';
+  import DraftCards from './DraftCards.svelte';
   import type { ForkBranchState, ForkCardBranch } from '../../../../shared/conversation';
 
   interface Props {
@@ -92,6 +93,12 @@
           {:else if b.note}
             <p class="fork-note">{b.note}</p>
           {/if}
+          {#if b.conversationId}
+            <!-- What this branch proposed (#2973), reviewed here in the parent. -->
+            <div class="fork-drafts">
+              <DraftCards {tab} index={null} fromBranch={b.conversationId} />
+            </div>
+          {/if}
         </li>
       {/each}
     </ul>
@@ -179,4 +186,11 @@
   }
   .fork-answer :global(p) { margin: 0.4em 0; }
   .fork-note { margin: 2px 0 0 1.6em; font-size: 12px; color: var(--text-muted); }
+  .fork-drafts {
+    margin: 4px 0 0 1.6em;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .fork-drafts:empty { display: none; }
 </style>

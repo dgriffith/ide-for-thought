@@ -30,6 +30,7 @@ const h = vi.hoisted(() => {
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({ api: h.api }));
 vi.mock('../../../src/renderer/lib/stores/announcer.svelte', () => ({ announce: vi.fn() }));
 vi.mock('../../../src/renderer/lib/stores/conversations.svelte', () => ({ getConversationsStore: () => h.store }));
+vi.mock('../../../src/renderer/lib/stores/editor.svelte', () => ({ getEditorStore: () => ({ openFile: vi.fn(), openSource: vi.fn() }) }));
 
 import ForkCards from '../../../src/renderer/lib/components/conversations/ForkCards.svelte';
 import { clearForkCards, subscribeForkCards } from '../../../src/renderer/lib/stores/fork-cards.svelte';
@@ -49,7 +50,12 @@ const progress = (states: ForkBranchState[], over: Partial<ForkProgress> = {}): 
 });
 const fork = (p: ForkProgress) => { h.cbs.onFork!(p); flushSync(); };
 
-const tab = { id: 'conv-p', conversation: { messages: [{}, {}] } } as unknown as TabRuntime;
+const EMPTY_DRAFTS = {
+  drafts: [], sourceDrafts: [], sourceDraftResults: {}, noteDraftResults: {}, propertyDrafts: [], propertyDraftResults: {},
+  sourcePropertyDrafts: [], sourcePropertyDraftResults: {}, claimsDrafts: [], claimsDraftResults: {}, computeDrafts: [],
+  refactorDrafts: [], reorgDrafts: [], deleteDrafts: [], noteBodyDrafts: [], computeDraftState: {},
+};
+const tab = { id: 'conv-p', conversation: { messages: [{}, {}] }, ...EMPTY_DRAFTS } as unknown as TabRuntime;
 function mount() {
   const target = document.body.appendChild(document.createElement('main'));
   return render(ForkCards, { target, props: { tab, index: 1 } });
@@ -120,5 +126,23 @@ describe('the fork card (#2972)', () => {
     const target = document.body.appendChild(document.createElement('main'));
     const r = render(ForkCards, { target, props: { tab, index: 0 } });
     expect(r.queryByRole('list')).toBeNull();
+  });
+
+  it('shows what each branch proposed under its row, for review in the parent (#2973)', async () => {
+    fork(progress(['running', 'running']));
+    const withDrafts = {
+      ...tab,
+      drafts: [{
+        draftId: 'bd', conversationId: 'b2', createdAt: 't', note: 'Demand notes, filed', afterMessageIndex: 1,
+        branch: { parentId: 'conv-p', title: 'Demand' }, payloads: [{ kind: 'note', relativePath: 'notes/demand.md', content: '# Demand' }],
+      }],
+    } as unknown as TabRuntime;
+    const target = document.body.appendChild(document.createElement('main'));
+    const r = render(ForkCards, { target, props: { tab: withDrafts, index: 1 } });
+    const demand = r.getByRole('listitem', { name: 'Demand, running' });
+    const supply = r.getByRole('listitem', { name: 'Supply, running' });
+    expect(within(demand).getByText('Demand notes, filed')).toBeTruthy();
+    expect(within(supply).queryByText('Demand notes, filed')).toBeNull();
+    await expectNoA11yViolations(document.body);
   });
 });

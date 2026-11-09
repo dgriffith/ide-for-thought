@@ -274,6 +274,8 @@
 
   {#if tab.pendingQuestion}
     <div class="ask-user-card">
+      <!-- A fork's branch asking (#2973): it waits on the answer here, in the parent. -->
+      {#if tab.pendingQuestion.branch}<div class="ask-user-from">Branch “{tab.pendingQuestion.branch.title}” asks</div>{/if}
       <div class="ask-user-q">{tab.pendingQuestion.question}</div>
       {#if tab.pendingQuestion.choices && tab.pendingQuestion.choices.length > 0}
         <div class="ask-user-choices">
@@ -297,6 +299,7 @@
   {#if tab.pendingMcpConfirm}
     {@const confirm = tab.pendingMcpConfirm}
     {#key confirm.requestId}
+      {#if confirm.branch}<div class="ask-user-from">Branch “{confirm.branch.title}” wants to call a tool</div>{/if}
       <McpConfirmCard
         request={confirm}
         onAnswer={(allow, remember) => void store.answerMcpConfirm(tab.id, allow, remember)}
@@ -472,6 +475,7 @@
     gap: 8px;
   }
   .ask-user-q { font-size: 13px; color: var(--text); font-weight: 600; }
+  .ask-user-from { font-size: 11.5px; color: var(--text-muted); }
   .ask-user-choices { display: flex; gap: 6px; flex-wrap: wrap; }
   .ask-user-chip {
     padding: 4px 10px;

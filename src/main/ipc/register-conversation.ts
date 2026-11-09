@@ -28,7 +28,7 @@ import { withSkillContext } from '../llm/skill-context';
 import { runCompletionWithContainerRecovery } from '../llm/container-recovery';
 import { compactConversation } from '../llm/compact';
 import { archiveWithBranches, createBranch, defaultBranchDeps, descendantsOf, sharedSummary } from '../llm/conversation-branch';
-import { branchInstructions, FORK_TIME_BUDGET_MS, runFork, type ForkBranchSpec, type ForkOutcome } from '../llm/fork';
+import { branchInstructions, FORK_TIME_BUDGET_MS, oneAtATime, runFork, type ForkBranchSpec, type ForkOutcome } from '../llm/fork';
 import { resolveForkConfirmAboveUsd, resolveForkMaxBranches } from '../../shared/tools/fork-settings';
 import { buildStreamCallbacks, type PendingAskUser, type PendingMcpConfirm } from './conversation-stream';
 import type { BranchCreateOptions, ContextBundle, ConversationCreateOptions, ConversationMessage } from '../../shared/conversation';
@@ -108,9 +108,11 @@ export function registerConversation(): void {
 
   /**
    * The turn itself, for a window. `branchRun` marks a branch's turn started by
-   * a fork (#2971): it stops with the fork (`signal`), reports its reply as it
-   * streams (`onChunk`), and gets no UI callbacks — no draft cards, questions or
-   * MCP confirms (those reach the parent in #2973) — and no fork of its own.
+   * a fork (#2971): it stops with the fork (`signal`) and reports its reply as
+   * it streams (`onChunk`). Its draft cards, questions and MCP confirms go to
+   * the parent's transcript, labelled with the branch, the questions and
+   * confirms one at a time across the fork (`oneAtATime`, #2973). It can't
+   * fork, and it offers no drafted extension.
    */
   const runTurn = async (
     win: Electron.BrowserWindow,
@@ -120,7 +122,7 @@ export function registerConversation(): void {
     systemPrompt?: string,
     currentNotePath?: string,
     extraTools?: import('../../shared/conversation-tools').ConversationToolKey[],
-    branchRun?: { signal: AbortSignal; onChunk: (text: string) => void },
+    branchRun?: { signal: AbortSignal; onChunk: (text: string) => void; oneAtATime: <T>(fn: () => Promise<T>) => Promise<T> },
   ): Promise<import('../../shared/conversation').Conversation> => {
     // The renderer won't send to a tab mid-turn; a second turn for the same
     // conversation would interleave two replies into one transcript.
@@ -181,15 +183,16 @@ export function registerConversation(): void {
 
         // Every draft kind shares one streaming callback set; the divergent
         // per-kind work is in the CONVERSATION_FILE_*_DRAFT handlers, not here (#980).
-        const stream = buildStreamCallbacks(win, convId, controller.signal, pendingAskUser, pendingMcpConfirm);
+        const stream = buildStreamCallbacks(
+          win, convId, controller.signal, pendingAskUser, pendingMcpConfirm,
+          branchRun && conv.branch
+            ? { label: { parentId: conv.branch.parentId, title: conv.title ?? 'Branch' }, oneAtATime: branchRun.oneAtATime }
+            : undefined,
+        );
         // What this turn's forks cost (#2971), rolled into its reply's cost.
         let forkCostUSD = 0;
         const callbacks: import('../llm/index').StreamCallbacks = branchRun
-          ? {
-            signal: stream.callbacks.signal,
-            onWait: stream.callbacks.onWait,
-            onChunk: (text: string) => { branchRun.onChunk(text); stream.callbacks.onChunk(text); },
-          }
+          ? branchCallbacks(stream.callbacks, branchRun.onChunk)
           : {
             ...stream.callbacks,
             runBranches: async (specs) => {
@@ -310,6 +313,7 @@ export function registerConversation(): void {
     const settings = await getSettings();
     const summary = sharedSummary(defaultBranchDeps);
     const forkId = randomUUID();
+    const interactions = oneAtATime();
     return runFork({
       parent, signal,
       maxBranches: resolveForkMaxBranches(settings.forkMaxBranches),
@@ -319,7 +323,7 @@ export function registerConversation(): void {
         title: spec.title, instructions: branchInstructions(spec), ...(spec.model ? { model: spec.model } : {}),
       }, summary),
       runTurn: (branch, branchSignal, onChunk) =>
-        runTurn(win, rootPath, branch.id, null, undefined, currentNotePath, undefined, { signal: branchSignal, onChunk }),
+        runTurn(win, rootPath, branch.id, null, undefined, currentNotePath, undefined, { signal: branchSignal, onChunk, oneAtATime: interactions }),
       ask: askUser ? (question, choices) => askUser({ question, choices }) : undefined,
       onProgress: (progress) => {
         if (!win.isDestroyed()) broadcast(win, Channels.CONVERSATION_FORK, { conversationId: parent.id, forkId, ...progress });
@@ -370,4 +374,22 @@ export function registerConversation(): void {
 
   handle(Channels.CONVERSATION_BRANCH, withRootPath((rootPath, parentId: string, options: BranchCreateOptions) =>
     createBranch(rootPath, parentId, options)));
+}
+
+/**
+ * A branch's callbacks (#2973): everything a conversation's turn has, routed to
+ * the parent by `buildStreamCallbacks`, except a fork of its own (depth 1) and
+ * a drafted extension, and with its streaming text also handed to the fork.
+ */
+function branchCallbacks(
+  callbacks: import('../llm/index').StreamCallbacks,
+  onChunk: (text: string) => void,
+): import('../llm/index').StreamCallbacks {
+  const routed: import('../llm/index').StreamCallbacks = {
+    ...callbacks,
+    onChunk: (text: string) => { onChunk(text); callbacks.onChunk(text); },
+  };
+  delete routed.offerExtensionDraft;
+  delete routed.runBranches;
+  return routed;
 }

@@ -11,7 +11,7 @@ import type { NotebaseTool, ToolResult } from './types';
  * (`callbacks.runBranches`, wired by the conversation registrar onto
  * `llm/fork.ts`), so this module neither imports the LLM client (a cycle) nor
  * writes anything: no fs, no approvals, no trusted context. Branches write
- * the way any conversation does — by proposal.
+ * the way any conversation does — by proposal, reviewed in the parent (#2973).
  *
  * Every answer comes back delimited as `branch-result` content: a branch is a
  * model that read the thoughtbase, so its answer is material to weigh, never
@@ -70,8 +70,9 @@ export const fork: NotebaseTool = {
     description:
       'Split independent work into branches that run at the same time, then get each one\'s final ' +
       'answer back. Each branch is a new conversation that starts from a summary of this one plus ' +
-      'its instructions. A branch can read the thoughtbase but can\'t propose changes, ask the user or fork: ' +
-      'propose any changes yourself from what the branches send back. ' +
+      'its instructions. A branch can read the thoughtbase, propose changes and ask the user — its proposals ' +
+      'and questions appear in this conversation, labelled with the branch, for the user to review — but ' +
+      'can\'t fork. ' +
       'Use it for independent sub-questions (three hypotheses, four perspectives on one claim, one ' +
       'question asked of several models), not for steps that depend on each other — do those in order ' +
       'yourself. Give every branch a short `title` and self-contained `instructions`; optionally a ' +

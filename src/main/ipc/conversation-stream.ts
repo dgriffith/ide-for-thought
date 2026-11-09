@@ -30,6 +30,18 @@ import type { ExtensionDraftOutcome } from '../../shared/extensions/drafts';
 import type { CheckedExtensionDraft } from '../extensions/draft-check';
 import { pendingExtensionDrafts } from './extension-draft-offers';
 import type { RequestWaitStatus } from '../../shared/tools/concurrent-requests';
+import type { ForkBranchLabel } from '../../shared/conversation';
+
+/**
+ * A fork's branch (#2973): its drafts, questions and MCP confirms carry the
+ * label so the renderer shows them in the parent, and its questions and
+ * confirms go `oneAtATime` — the parent shows one of each at a time, and
+ * several branches may ask at once.
+ */
+export interface BranchRouting {
+  label: ForkBranchLabel;
+  oneAtATime: <T>(fn: () => Promise<T>) => Promise<T>;
+}
 
 /** Pending `ask_user` prompts keyed by question id, owned by the registrar so
  *  aborting a send can reject every question that window is waiting on. */
@@ -107,6 +119,7 @@ export function buildStreamCallbacks(
   signal: AbortSignal,
   pendingAskUser: PendingAskUser,
   pendingMcpConfirm: PendingMcpConfirm = new Map(),
+  branch?: BranchRouting,
 ): StreamCallbackHandle {
   // ── Chunk coalescing (#2219) ───────────────────────────────────────────────
   // ONE buffer, ONE timer, ONE reader (`flush`). That shape is the whole
@@ -161,8 +174,34 @@ export function buildStreamCallbacks(
     (channel: keyof EventMap) =>
     (draft: ConversationDraftBase) => {
       flush();
-      if (!win.isDestroyed()) win.webContents.send(channel, draft);
+      if (!win.isDestroyed()) win.webContents.send(channel, branch ? { ...draft, branch: branch.label } : draft);
     };
+  const labelled = branch ? { branch: branch.label } : {};
+  const queued = <T>(fn: () => Promise<T>): Promise<T> => (branch ? branch.oneAtATime(fn) : fn());
+  // The mcp_call confirmation card (#2439); a branch's waits its turn in line (#2973).
+  const confirmMcpCall = (prompt: McpCallConfirmPrompt): Promise<McpCallDecision> => {
+    if (signal.aborted) return Promise.resolve({ allow: false, reason: 'cancelled' });
+    if (win.isDestroyed()) return Promise.resolve({ allow: false, reason: 'no-ui' });
+    const requestId = randomUUID();
+    return new Promise<McpCallDecision>((resolve) => {
+      // One exit, however the card ends. Removing the entry and both
+      // listeners here is what keeps a stopped turn or a closed window from
+      // leaving a promise (and this closure) behind.
+      const settle = (decision: McpCallDecision): void => {
+        if (!pendingMcpConfirm.delete(requestId)) return;
+        signal.removeEventListener('abort', onAbort);
+        win.removeListener('closed', onClosed);
+        resolve(decision);
+      };
+      const onAbort = (): void => settle({ allow: false, reason: 'cancelled' });
+      const onClosed = (): void => settle({ allow: false, reason: 'no-ui' });
+      pendingMcpConfirm.set(requestId, { winId: win.id, settle });
+      signal.addEventListener('abort', onAbort);
+      win.once('closed', onClosed);
+      broadcast(win, Channels.CONVERSATION_MCP_CONFIRM, { requestId, conversationId: convId, ...prompt, ...labelled });
+    });
+  };
+
   const callbacks: StreamCallbacks = {
     onChunk: (chunk: string) => {
       // An empty delta carries no text; buffering it would arm a timer for a
@@ -193,46 +232,32 @@ export function buildStreamCallbacks(
       // Same ordering rule as the drafts above: the question card must not
       // overtake the text the model wrote to introduce it.
       flush();
-      const questionId = randomUUID();
-      return new Promise<string>((resolve, reject) => {
-        pendingAskUser.set(questionId, { winId: win.id, conversationId: convId, resolve, reject });
-        if (!win.isDestroyed()) {
-          broadcast(win, Channels.CONVERSATION_ASK_USER, {
-            questionId,
-            conversationId: convId,
-            question,
-            // `choices` is optional (exactOptionalPropertyTypes) — omit when absent.
-            ...(choices ? { choices } : {}),
-          });
-        } else {
-          pendingAskUser.delete(questionId);
-          reject(new Error('window destroyed'));
-        }
+      return queued(() => {
+        // A branch stopped while its question waited in line never asks it.
+        if (signal.aborted) return Promise.reject(new Error('aborted'));
+        const questionId = randomUUID();
+        return new Promise<string>((resolve, reject) => {
+          pendingAskUser.set(questionId, { winId: win.id, conversationId: convId, resolve, reject });
+          if (!win.isDestroyed()) {
+            broadcast(win, Channels.CONVERSATION_ASK_USER, {
+              questionId,
+              conversationId: convId,
+              question,
+              // `choices` is optional (exactOptionalPropertyTypes) — omit when absent.
+              ...(choices ? { choices } : {}),
+              ...labelled,
+            });
+          } else {
+            pendingAskUser.delete(questionId);
+            reject(new Error('window destroyed'));
+          }
+        });
       });
     },
     confirmMcpCall: (prompt: McpCallConfirmPrompt) => {
       // Same ordering rule: the card must not overtake the text that led to it.
       flush();
-      if (signal.aborted) return Promise.resolve({ allow: false, reason: 'cancelled' });
-      if (win.isDestroyed()) return Promise.resolve({ allow: false, reason: 'no-ui' });
-      const requestId = randomUUID();
-      return new Promise<McpCallDecision>((resolve) => {
-        // One exit, however the card ends. Removing the entry and both
-        // listeners here is what keeps a stopped turn or a closed window from
-        // leaving a promise (and this closure) behind.
-        const settle = (decision: McpCallDecision): void => {
-          if (!pendingMcpConfirm.delete(requestId)) return;
-          signal.removeEventListener('abort', onAbort);
-          win.removeListener('closed', onClosed);
-          resolve(decision);
-        };
-        const onAbort = (): void => settle({ allow: false, reason: 'cancelled' });
-        const onClosed = (): void => settle({ allow: false, reason: 'no-ui' });
-        pendingMcpConfirm.set(requestId, { winId: win.id, settle });
-        signal.addEventListener('abort', onAbort);
-        win.once('closed', onClosed);
-        broadcast(win, Channels.CONVERSATION_MCP_CONFIRM, { requestId, conversationId: convId, ...prompt });
-      });
+      return queued(() => confirmMcpCall(prompt));
     },
     offerExtensionDraft: (draft: CheckedExtensionDraft) => {
       // The drafted-extension card (#2652), shaped like the confirm card above:

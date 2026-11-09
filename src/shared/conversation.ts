@@ -125,6 +125,16 @@ export interface ConversationBranch {
 }
 
 /**
+ * Which fork branch a draft, question or MCP confirm came from (#2973). The
+ * request's own `conversationId` stays the branch's — the branch is what
+ * proposed or asked — and the renderer shows it in the parent's transcript.
+ */
+export interface ForkBranchLabel {
+  parentId: string;
+  title: string;
+}
+
+/**
  * A fork's progress (#2972), for the card in its parent's transcript. Sent
  * whole on every change: once when the branches are about to start, as each
  * one is created and as each settles, and once more at the join. Each branch's

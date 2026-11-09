@@ -1217,6 +1217,23 @@ describe('branches (#2970)', () => {
     expect(tab.streamedChunks).toBe('');
   });
 
+  it('a fork branch\'s draft, question and MCP confirm show in its parent\'s tab, labelled (#2973)', async () => {
+    const parent = await freshTab();
+    const label = { parentId: parent.id, title: 'Supply' };
+    (h.cbs.onDraft as (d: unknown) => void)({ draftId: 'bd-1', conversationId: 'conv-not-open', branch: label });
+    expect(parent.drafts.map((d) => d.draftId)).toEqual(['bd-1']);
+    expect(parent.drafts[0]).toMatchObject({ conversationId: 'conv-not-open', branch: label, afterMessageIndex: parent.conversation.messages.length });
+
+    (h.cbs.onAskUser as (r: AskUserRequest) => void)({ questionId: 'bq-1', conversationId: 'conv-not-open', question: 'Which?', branch: label });
+    expect(parent.pendingQuestion).toMatchObject({ questionId: 'bq-1', branch: label });
+    expect(conv().askUserReply).not.toHaveBeenCalled();
+
+    (h.cbs.onMcpConfirm as (r: McpConfirmRequest) => void)({ requestId: 'bm-1', conversationId: 'conv-not-open', serverName: 's', toolName: 't', argsJson: '{}', branch: label });
+    expect(parent.pendingMcpConfirm).toMatchObject({ requestId: 'bm-1' });
+    expect(h.announce).toHaveBeenCalledWith('Branch “Supply”: Confirm MCP tool call: t on s', 'assertive');
+    expect(conv().mcpConfirmReply).not.toHaveBeenCalled();
+  });
+
   it('a settled branch opens as an ordinary tab (#2972)', async () => {
     const parent = await freshTab();
     conv().load.mockResolvedValueOnce(branchConv(parent.id, 'conv-fork-b2', 'assistant'));

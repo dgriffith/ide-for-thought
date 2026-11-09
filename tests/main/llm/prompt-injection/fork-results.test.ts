@@ -133,7 +133,7 @@ describe('fork results are material, not instructions (#2971)', () => {
     const obey = executed.find((c) => c.name === 'propose_notes')!;
     expect(obey.isError).toBe(true);
     expect(drafts).toEqual([]);
-    expect(await listProposals(project.root)).toEqual([]);
+    expect(await listProposals(project.ctx)).toEqual([]);
     expect(fs.readFileSync(path.join(project.root, '.minerva', 'secrets.json'), 'utf-8')).toContain(SECRET);
     expect(JSON.stringify(requests)).not.toContain(SECRET);
   });

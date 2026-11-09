@@ -24,6 +24,11 @@ describe('describeProposalCause', () => {
       .toBe('Auto-link (inbound)');
   });
 
+  it('names the fork branch that proposed it (#2973)', () => {
+    expect(describeProposalCause({ proposedBy: 'llm:conversation:conv-b', operationType: 'component_creation', branchTitle: 'Supply' }))
+      .toBe('Branch “Supply”');
+  });
+
   it('falls back to "Conversation" for a chat with no skill behind it', () => {
     expect(describeProposalCause({ proposedBy: 'llm:conversation:conv-9', operationType: 'note_rewrite' }))
       .toBe('Conversation');

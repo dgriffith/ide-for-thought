@@ -22,10 +22,14 @@ const CONVERSATION_PROPOSER = 'llm:conversation:';
 
 export async function proposalCause(ctx: ProjectContext, proposal: Proposal): Promise<string> {
   let skillName: string | undefined;
+  let branchTitle: string | undefined;
   if (proposal.proposedBy.startsWith(CONVERSATION_PROPOSER)) {
     const convId = proposal.proposedBy.slice(CONVERSATION_PROPOSER.length);
     try {
-      skillName = (await conversation.load(ctx.rootPath, convId))?.skill?.name;
+      const conv = await conversation.load(ctx.rootPath, convId);
+      skillName = conv?.skill?.name;
+      // A fork's branch proposed it (#2973): name the branch.
+      if (conv?.branch) branchTitle = conv.title ?? 'Branch';
     } catch (err) {
       logger('proposal').warn(`could not resolve the skill behind ${proposal.uri}:`, err);
     }
@@ -34,5 +38,6 @@ export async function proposalCause(ctx: ProjectContext, proposal: Proposal): Pr
     proposedBy: proposal.proposedBy,
     operationType: proposal.operationType,
     skillName,
+    branchTitle,
   });
 }

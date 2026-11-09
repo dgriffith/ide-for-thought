@@ -15,6 +15,7 @@ import type {
   ConversationSkill,
   ContextBundle,
   ConversationsUIState,
+  ForkBranchLabel,
 } from '../../../shared/conversation';
 import type { ConversationDraft } from '../../../shared/conversation-drafts';
 import type { ConversationRefactorDraft, ConversationReorgDraft, ConversationDeleteDraft } from '../../../shared/conversation-refactor-drafts';
@@ -286,11 +287,16 @@ function scheduleSave(): void {
  * draft to `append`, which does the per-kind array push (and, for compute
  * drafts, seeds the state entry).
  */
-function draftHandler<T extends { conversationId: string; draftId: string }>(
+/** The tab a request shows in: its own conversation's, or a fork branch's parent (#2973). */
+function hostTab(req: { conversationId: string; branch?: ForkBranchLabel | undefined }): TabRuntime | undefined {
+  return findTab(req.branch?.parentId ?? req.conversationId);
+}
+
+function draftHandler<T extends { conversationId: string; draftId: string; branch?: ForkBranchLabel | undefined }>(
   append: (tab: TabRuntime, anchored: T & { afterMessageIndex: number }) => void,
 ): (draft: T) => void {
   return (draft) => {
-    const t = findTab(draft.conversationId);
+    const t = hostTab(draft);
     if (!t) return;
     const afterMessageIndex = t.conversation.messages.length;
     append(t, { ...draft, afterMessageIndex });
@@ -358,7 +364,7 @@ function ensureSubscriptions(): void {
   }
   if (!askUserSubscribed) {
     api.conversations.onAskUser((req) => {
-      const t = tabs.find((tab) => tab.id === req.conversationId);
+      const t = hostTab(req);
       if (!t) {
         // No matching tab — answer empty so the agent can continue rather
         // than hang. Should not happen unless a tab was just closed.
@@ -371,7 +377,7 @@ function ensureSubscriptions(): void {
   }
   if (!mcpConfirmSubscribed) {
     api.conversations.onMcpConfirm((req) => {
-      const t = tabs.find((tab) => tab.id === req.conversationId);
+      const t = hostTab(req);
       if (!t) {
         // Nowhere to show it: deny, so the turn continues without the call
         // rather than waiting on a card nobody can see.
@@ -379,7 +385,7 @@ function ensureSubscriptions(): void {
         return;
       }
       t.pendingMcpConfirm = req;
-      announce(`Confirm MCP tool call: ${req.toolName} on ${req.serverName}`, 'assertive');
+      announce(`${req.branch ? `Branch “${req.branch.title}”: ` : ''}Confirm MCP tool call: ${req.toolName} on ${req.serverName}`, 'assertive');
     });
     mcpConfirmSubscribed = true;
   }

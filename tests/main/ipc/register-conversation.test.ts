@@ -907,8 +907,13 @@ describe('a fork from a conversation turn (#2971)', () => {
     const seed = h.create.mock.calls[0]![4] as { branch: unknown; messages: { content: string }[] };
     expect(seed.branch).toEqual({ parentId: 'conv-1', atMessage: 1, context: 'summary' });
     expect(seed.messages[0]!.content).toMatch(/The user asked something\.[\s\S]*List the risks\./);
-    // Its turn streams and stops, but can't draft, ask, confirm or fork.
-    expect(Object.keys(branchCallbacks!).sort()).toEqual(['onChunk', 'onWait', 'signal']);
+    // Its turn streams, stops, drafts, asks and confirms — all routed to the
+    // parent (#2973) — but can't fork or offer a drafted extension.
+    expect(branchCallbacks).not.toHaveProperty('runBranches');
+    expect(branchCallbacks).not.toHaveProperty('offerExtensionDraft');
+    for (const key of ['onChunk', 'onWait', 'signal', 'onDraft', 'onClaimsDraft', 'onNoteBodyDraft', 'askUser', 'confirmMcpCall']) {
+      expect(branchCallbacks, key).toHaveProperty(key);
+    }
     expect(h.setBranchOutcome).toHaveBeenCalledWith('/root', 'conv-b', 'done');
     // The parent's reply carries what the branch cost.
     const parentAppend = h.appendMessage.mock.calls.find((c) => c[1] === 'conv-1' && c[2] === 'assistant')!;
@@ -920,5 +925,38 @@ describe('a fork from a conversation turn (#2971)', () => {
     expect(new Set(forkEvents.map((p) => p.forkId)).size).toBe(1);
     expect(forkEvents.every((p) => p.conversationId === 'conv-1')).toBe(true);
     expect(forkEvents.at(-1)!.branches[0]!.conversationId).toBe('conv-b');
+  });
+
+  it('a branch\'s draft and question reach the window labelled for its parent (#2973)', async () => {
+    h.getSettings.mockResolvedValue({ autoTitleConversations: false });
+    h.complete.mockResolvedValue('Summary.');
+    h.setBranchOutcome.mockResolvedValue(null);
+    const parent = { ...CONV, status: 'active', messages: [{ role: 'user', content: 'hello', timestamp: 't' }] };
+    const branch = { ...CONV, id: 'conv-b', title: 'Risks', status: 'active', branch: { parentId: 'conv-1', atMessage: 1, context: 'summary' }, messages: [{ role: 'user', content: 'opening', timestamp: 't' }] };
+    h.load.mockImplementation(async (_r: string, id: string) => (id === 'conv-b' ? branch : parent));
+    h.create.mockResolvedValue(branch);
+    h.appendMessage.mockImplementation(async (_r: string, id: string, role: string, content: string) =>
+      ({ ...(id === 'conv-b' ? branch : parent), messages: [{ role, content, timestamp: 't' }] }));
+    h.completeWithTools.mockImplementation(async (params: { toolContext: { conversationId: string }; callbacks: Record<string, (...a: unknown[]) => unknown> & { runBranches?: (s: unknown[]) => Promise<unknown> } }) => {
+      if (params.toolContext.conversationId === 'conv-1') {
+        await params.callbacks.runBranches!([{ title: 'Risks', instructions: 'List the risks.' }]);
+        return completion('parent reply');
+      }
+      params.callbacks.onDraft!({ draftId: 'd-1', conversationId: 'conv-b', createdAt: 't', note: 'n', payloads: [] });
+      const asked = params.callbacks.askUser!({ question: 'Which risk first?' }) as Promise<string>;
+      await vi.waitFor(() => expect(h.fakeWin.webContents.send.mock.calls.some((c) => c[0] === Channels.CONVERSATION_ASK_USER)).toBe(true));
+      const q = h.fakeWin.webContents.send.mock.calls.find((c) => c[0] === Channels.CONVERSATION_ASK_USER)![1] as { questionId: string };
+      await h.handlers.get(Channels.CONVERSATION_ASK_USER_REPLY)!(evt, q.questionId, 'cost');
+      expect(await asked).toBe('cost');
+      return completion('branch answer');
+    });
+
+    await send(evt, 'conv-1', 'go');
+
+    const label = { parentId: 'conv-1', title: 'Risks' };
+    const draft = h.fakeWin.webContents.send.mock.calls.find((c) => c[0] === Channels.CONVERSATION_DRAFT)![1];
+    expect(draft).toMatchObject({ draftId: 'd-1', conversationId: 'conv-b', branch: label });
+    const question = h.fakeWin.webContents.send.mock.calls.find((c) => c[0] === Channels.CONVERSATION_ASK_USER)![1];
+    expect(question).toMatchObject({ conversationId: 'conv-b', question: 'Which risk first?', branch: label });
   });
 });

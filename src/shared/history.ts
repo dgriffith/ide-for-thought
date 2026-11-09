@@ -210,8 +210,8 @@ const OPERATION_CAUSES: Record<string, string> = {
 /**
  * Cause text for a revision produced by applying an approved proposal.
  *
- * Preference order: the launching skill's own name ("Antithesize"), then a
- * known built-in write path ("Auto-tag"), then the proposer's label (a fleet
+ * Preference order: the launching skill's own name ("Antithesize"), then the
+ * fork branch that proposed it ("Branch “Supply”"), then a known built-in write path ("Auto-tag"), then the proposer's label (a fleet
  * agent's name, "CLI", "Minerva AI"), then the operation type. The point is
  * that the timeline row answers "what did this?" the way the user thinks about
  * it — by the command they ran, not by the plumbing that ran it.
@@ -221,8 +221,11 @@ export function describeProposalCause(input: {
   operationType: string;
   /** Name of the skill whose conversation filed the proposal, when known. */
   skillName?: string | undefined;
+  /** The fork branch that filed it (#2973), when it was one. */
+  branchTitle?: string | undefined;
 }): string {
   if (input.skillName) return input.skillName;
+  if (input.branchTitle) return `Branch “${input.branchTitle}”`;
 
   const builtIn = BUILT_IN_PROPOSER_CAUSES[input.proposedBy];
   if (builtIn) return builtIn;
