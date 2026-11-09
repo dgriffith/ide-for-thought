@@ -277,7 +277,7 @@ export interface ChannelMap {
   'links:citationsForNote': (relativePath: string, content?: string) => CitationGroup[];
   'links:externalInbound': (paths: string[]) => SafeDeleteBlocker[];
   'links:neighborhood': (relativePath: string, opts?: NeighborhoodOptions) => NeighborhoodResult;
-  'links:expandNode': (relativePath: string) => NeighborhoodHop;
+  'links:expandNode': (relativePath: string, opts?: { tags?: boolean }) => NeighborhoodHop;
 
   // Embeddings (semantic search)
   'embeddings:related': (relativePath: string, limit?: number) => RelatedNotesResult;

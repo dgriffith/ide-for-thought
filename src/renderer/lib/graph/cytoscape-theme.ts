@@ -82,6 +82,11 @@ export function buildGraphStyle(tokens: GraphTokens): GraphStylesheet {
       style: { shape: 'round-tag', 'background-color': tokens.bgInset, 'border-color': tokens.iris, color: tokens.iris },
     },
     {
+      // Tags (#2957), when the graph is asked for them — small, muted leaves.
+      selector: 'node[kind = "tag"]',
+      style: { shape: 'tag', 'background-color': tokens.bgInset, 'border-color': tokens.textMuted, color: tokens.textMuted, 'font-size': 10 },
+    },
+    {
       // Link targets that don't exist on disk yet (View B).
       selector: 'node[?missing]',
       style: { 'background-color': tokens.bgInset, color: tokens.textMuted, 'border-style': 'dashed' },

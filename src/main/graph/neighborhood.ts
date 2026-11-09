@@ -11,10 +11,20 @@
  * Split into a pure BFS (`walkNeighborhood`, unit-tested over a mock hop) and a
  * store-backed one-hop (`noteHop`), so the traversal logic is testable without a
  * graph and the graph wiring is exercised end-to-end against a real store.
+ *
+ * **Every kind of connection** (#2957): besides the typed wiki-links, a hop
+ * follows argument relations in both forms (a typed Claim's `supports:` and a
+ * Turtle block's `thought:supports`), `link-to-type` properties and other
+ * frontmatter links — `queries/relation-edges.ts` — and, when asked
+ * (`tags: true`), the note's tags as leaf nodes. Each edge carries its kind
+ * from the one registry, `shared/graph/edge-kinds.ts`, as `linkType`.
  */
 
 import { LINK_TYPES, type LinkType } from '../../shared/link-types';
 import { outgoingLinks, backlinks, getExcerptSource, termNotePaths } from './queries';
+import { argumentEdgeIndex, frontmatterEdges, noteTags, titleOf, type RelationEdge } from './queries/relation-edges';
+import { edgeKindForPredicate, TAG_EDGE_KIND } from '../../shared/graph/edge-kinds';
+import { getState } from './state';
 import type { ProjectContext } from '../project-context-types';
 import { neighborhoodCache } from './note-caches';
 import type {
@@ -51,7 +61,7 @@ function idFromUri(uri: string, kind: 'source' | 'excerpt'): string | null {
 export function walkNeighborhood(
   root: NeighborhoodNode,
   hop: (nodeId: string) => NeighborhoodHop,
-  opts: Required<NeighborhoodOptions>,
+  opts: { depth: number; cap: number },
 ): NeighborhoodResult {
   const nodes = new Map<string, NeighborhoodNode>([[root.id, root]]);
   const edges = new Map<string, NeighborhoodEdge>();
@@ -90,11 +100,31 @@ export function walkNeighborhood(
  * One hop out of a note: its outgoing typed links (to notes and to sources via
  * cite/quote) plus its backlinks (notes that link in). Sources are leaves.
  */
+/** What a walk reads once and every hop shares (#2957). */
+export interface HopContext {
+  termPaths: Set<string>;
+  /** Argument edges by note path, in both forms. */
+  argumentEdges: Map<string, RelationEdge[]>;
+  /** A `link-to-type` property's label, as the catalog has it. */
+  propertyLabel: (name: string) => string | undefined;
+  /** Draw the note's tags as leaf nodes. */
+  tags: boolean;
+}
+
+export function hopContext(ctx: ProjectContext, opts: { tags?: boolean } = {}): HopContext {
+  const labels = new Map<string, string>();
+  for (const t of getState(ctx)?.typeCatalog.types ?? []) {
+    for (const p of t.properties) if (p.type === 'link-to-type' && p.label && !labels.has(p.name)) labels.set(p.name, p.label);
+  }
+  return { termPaths: termNotePaths(ctx), argumentEdges: argumentEdgeIndex(ctx), propertyLabel: (n) => labels.get(n), tags: opts.tags ?? false };
+}
+
 export function noteHop(
   ctx: ProjectContext,
   notePath: string,
-  termPaths: Set<string> = termNotePaths(ctx),
+  hc: HopContext = hopContext(ctx),
 ): NeighborhoodHop {
+  const termPaths = hc.termPaths;
   const nodes: NeighborhoodNode[] = [];
   const edges: NeighborhoodEdge[] = [];
   const expandTo: string[] = [];
@@ -132,10 +162,39 @@ export function noteHop(
     }
   }
 
+  // Typed wiki-links only: frontmatter and argument edges come from relation-edges, both ways.
   for (const bl of backlinks(ctx, notePath)) {
+    if (!TYPE_BY_NAME.has(bl.linkType)) continue;
     nodes.push({ id: bl.source, kind: noteKind(bl.source), label: bl.sourceTitle, exists: true });
     edges.push({ source: bl.source, target: notePath, linkType: bl.linkType, linkLabel: bl.linkLabel, linkColor: bl.linkColor, direction: 'in' });
     expandTo.push(bl.source);
+  }
+
+  // Argument relations, link properties and frontmatter links (#2957), each with its kind.
+  const relationPairs = new Set<string>();
+  for (const e of [...(hc.argumentEdges.get(notePath) ?? []), ...frontmatterEdges(ctx, notePath)]) {
+    relationPairs.add(`${e.source}\u0000${e.target}`);
+    const other = e.source === notePath ? e.target : e.source;
+    const kind = edgeKindForPredicate(e.predicate, hc.propertyLabel);
+    nodes.push({ id: other, kind: noteKind(other), label: titleOf(ctx, other), exists: true });
+    edges.push({ source: e.source, target: e.target, linkType: kind.id, linkLabel: kind.label, linkColor: kind.color, direction: e.source === notePath ? 'out' : 'in' });
+    expandTo.push(other);
+  }
+
+  // A `[[…]]` in frontmatter is also indexed as a plain wiki-link, so the same
+  // connection would be drawn twice: the specific kind (a property, an argument
+  // relation, a frontmatter key) wins over the generic `references`.
+  const kept = edges.filter((e) => e.linkType !== 'references' || !relationPairs.has(`${e.source}\u0000${e.target}`));
+  edges.length = 0;
+  edges.push(...kept);
+
+  // Tags, when asked: leaves, since a tag joins every note that carries it.
+  if (hc.tags) {
+    for (const name of noteTags(ctx, notePath)) {
+      const id = `tag:${name}`;
+      nodes.push({ id, kind: 'tag', label: `#${name}`, exists: true });
+      edges.push({ source: notePath, target: id, linkType: TAG_EDGE_KIND.id, linkLabel: TAG_EDGE_KIND.label, linkColor: TAG_EDGE_KIND.color, direction: 'out' });
+    }
   }
 
   return { nodes, edges, expandTo };
@@ -161,8 +220,9 @@ export function neighborhood(
 ): NeighborhoodResult {
   const depth = Math.max(1, opts.depth ?? DEFAULT_DEPTH);
   const cap = Math.max(1, opts.cap ?? DEFAULT_CAP);
+  const tags = opts.tags ?? false;
 
-  const cacheKey = `${relativePath}\u0000${depth}\u0000${cap}`;
+  const cacheKey = `${relativePath}\u0000${depth}\u0000${cap}\u0000${tags}`;
   const cache = neighborhoodCache(ctx);
   if (cache) {
     const hit = cache.get(cacheKey);
@@ -174,11 +234,11 @@ export function neighborhood(
     }
   }
 
-  // Resolve the term set once and thread it through every hop, so classifying
-  // glossary terms doesn't re-scan the store per node.
-  const termPaths = termNotePaths(ctx);
+  // Read the term set, the argument edges and the property labels once and thread
+  // them through every hop, so no hop re-scans the store for them.
+  const hc = hopContext(ctx, { tags });
   const result = walkNeighborhood(
-    rootNode(relativePath, termPaths), (id) => noteHop(ctx, id, termPaths), { depth, cap },
+    rootNode(relativePath, hc.termPaths), (id) => noteHop(ctx, id, hc), { depth, cap },
   );
 
   if (cache) {
@@ -192,6 +252,6 @@ export function neighborhood(
 }
 
 /** A single hop from a note id — for expand-on-demand in the render layer (#847). */
-export function expandNode(ctx: ProjectContext, notePath: string): NeighborhoodHop {
-  return noteHop(ctx, notePath);
+export function expandNode(ctx: ProjectContext, notePath: string, opts: { tags?: boolean } = {}): NeighborhoodHop {
+  return noteHop(ctx, notePath, hopContext(ctx, opts));
 }
