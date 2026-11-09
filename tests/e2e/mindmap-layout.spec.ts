@@ -4,13 +4,21 @@
  * parent set to the node; ⌘] moves a note under the one before it, one
  * field written, and ⌘Z puts it back; F2 renames the note's file.
  */
-import { test, expect } from './helpers/test';
+import { test, expect, type Page } from './helpers/test';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { closeMinerva, launchMinerva } from './helpers/launch';
 
-test('a type as a mindmap: make a child, move one, undo it, rename one (#2966)', async () => {
+async function runExport(win: Page, args: Record<string, unknown>): Promise<string[]> {
+  const res = await win.evaluate(async (a) => (window as unknown as {
+    api: { publish: { runExport(a: unknown): Promise<{ writtenPaths: string[] } | null> } };
+  }).api.publish.runExport(a), args);
+  expect(res).not.toBeNull();
+  return res!.writtenPaths;
+}
+
+test('a type as a mindmap: make a child, move one, undo it, rename one (#2966); copy it as Mermaid, export it (#2967)', async () => {
   const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-mm-layout-userdata-'));
   const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-mm-layout-project-'));
   const write = (rel: string, content: string) => { fs.mkdirSync(path.dirname(path.join(projectDir, rel)), { recursive: true }); fs.writeFileSync(path.join(projectDir, rel), content); };
@@ -20,6 +28,8 @@ test('a type as a mindmap: make a child, move one, undo it, rename one (#2966)',
   write('Build.md', '---\ntype: task\nparent: "[[Launch]]"\n---\n# Build\n');
   write('Market.md', '---\ntype: task\nparent: "[[Launch]]"\n---\n# Market\n');
   const market = read('Market.md');
+  write('Board.md', ['# Board', '', '```object-view', JSON.stringify({ typeId: 'task', layout: 'mindmap' }), '```', ''].join('\n'));
+  const outDir = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-mm-layout-out-'));
   fs.writeFileSync(path.join(userDataDir, 'session.json'), JSON.stringify([{ x: 80, y: 80, width: 1300, height: 900, rootPath: projectDir }]));
   const app = await launchMinerva({ userDataDir, env: { MINERVA_E2E: '1' } });
   try {
@@ -58,6 +68,21 @@ test('a type as a mindmap: make a child, move one, undo it, rename one (#2966)',
       await expect(node('Market')).toHaveAttribute('aria-level', '3');
     });
 
+    await test.step('Copy as Mermaid puts the hierarchy on the clipboard as Mermaid text (#2967)', async () => {
+      await win.locator('.mm-tools').getByRole('button', { name: 'Copy as Mermaid' }).click();
+      await expect.poll(() => app.evaluate(({ clipboard }) => clipboard.readText())).toBe(
+        'mindmap\n  root(("Task"))\n    n1["Launch"]\n      n2["Build"]\n        n3["Write code"]\n      n4["Market"]\n',
+      );
+    });
+
+    await test.step('a mindmap view in a note exports to HTML as a still picture of it (#2967)', async () => {
+      const written = await runExport(win, { exporterId: 'note-html', input: { kind: 'single-note', relativePath: 'Board.md' }, outputDir: outDir, linkPolicy: 'inline-title' });
+      const html = fs.readFileSync(written.find((p) => p.endsWith('.html'))!, 'utf-8');
+      expect(html).toMatch(/<svg[^>]*aria-label="Task by Parent"/);
+      for (const name of ['Task', 'Launch', 'Build', 'Write code', 'Market']) expect(html).toContain(`>${name}</tspan>`);
+      expect(html, 'no toolbar in an export').not.toContain('Left to right');
+    });
+
     await test.step('F2 renames the note\'s file', async () => {
       await node('Market').focus();
       await win.keyboard.press('F2');
@@ -69,6 +94,6 @@ test('a type as a mindmap: make a child, move one, undo it, rename one (#2966)',
     });
   } finally {
     await closeMinerva(app);
-    for (const d of [userDataDir, projectDir]) fs.rmSync(d, { recursive: true, force: true });
+    for (const d of [userDataDir, projectDir, outDir]) fs.rmSync(d, { recursive: true, force: true });
   }
 });

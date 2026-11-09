@@ -23,6 +23,9 @@ const RENDERER = path.join(__dirname, '..', '..', 'src', 'renderer');
 
 /** `file → { expression → why it is safe }`. */
 const REVIEWED_SINKS: Record<string, Record<string, string>> = {
+  'lib/components/type-view/MindmapLayout.svelte': {
+    exportSvg: "the mindmap layout's export (#2967): SVG built by shared/mindmap/mindmap-svg.ts, which escapes every label and attribute it writes; no note HTML reaches it",
+  },
   'lib/components/plugins/PluginLayout.svelte': {
     exported: "a plugin layout's export HTML (#2828), through sanitizePluginExportHtml (DOMPurify, static-only, no URLs)",
   },
