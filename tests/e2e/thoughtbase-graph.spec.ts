@@ -147,6 +147,23 @@ test('the graph: find a note, trace a connection, the note menu, pin and release
       await win.keyboard.press('Escape');
     });
 
+    await test.step('a found note stays centred when the canvas resizes under it (#3066)', async () => {
+      // Narrowing the window narrows the canvas by 400px: a note centred before that would sit 200px
+      // off the new centre, and a click there would miss it. (On Linux the toolbar wrapping did the
+      // same, by a row, whenever Find or a selection added to it.)
+      const resize = (w: number) => app.evaluate(({ BrowserWindow }, width) => { BrowserWindow.getAllWindows()[0]!.setSize(width, 900); }, w);
+      const before = (await canvas.boundingBox())!.width;
+      await findAndCentre('Kampa');
+      await resize(900);
+      await expect.poll(async () => (await canvas.boundingBox())!.width, { timeout: 5_000 }).toBeLessThan(before - 300);
+      const at = await centreOf();
+      await win.mouse.click(at.x, at.y);
+      // The click landed on Kampa: it's selected (Focus on shows for whatever is selected, trace or not).
+      await expect(graph.getByRole('button', { name: 'Focus on “Kampa”' })).toBeVisible();
+      await resize(1300);
+      await expect.poll(async () => (await canvas.boundingBox())!.width, { timeout: 5_000 }).toBe(before);
+    });
+
     await test.step('right-click a note: the note menu', async () => {
       const at = await findAndCentre('Kampa');
       await win.mouse.click(at.x, at.y, { button: 'right' });
