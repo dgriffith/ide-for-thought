@@ -16,7 +16,7 @@ const h = vi.hoisted(() => {
   let noteBodyCb: ((draft: ConversationNoteBodyDraft) => void) | null = null;
   const api = {
     conversations: {
-      onStream: noop, onDraft: noop, onSourceDraft: noop, onPropertyDraft: noop,
+      onStream: noop, onWait: noop, onDraft: noop, onSourceDraft: noop, onPropertyDraft: noop,
       onSourcePropertyDraft: noop, onClaimsDraft: noop, onComputeDraft: noop,
       onRefactorDraft: noop, onReorgDraft: noop, onDeleteDraft: noop,
       onNoteBodyDraft: (cb: (draft: ConversationNoteBodyDraft) => void) => { noteBodyCb = cb; },

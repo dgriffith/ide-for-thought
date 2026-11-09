@@ -58,12 +58,15 @@ export function registerConversation(): void {
       conversation.saveUIState(rootPath, state)),
   );
 
-  // Conversation send + LLM streaming
-  const convAbortControllers = new Map<number, AbortController>();
+  // Conversation send + LLM streaming. One running turn per CONVERSATION, not
+  // per window (#2969): two tabs in one window can each be mid-turn, and Stop
+  // names the one it stops. Each entry remembers its window, so closing the
+  // window stops every turn it started and nothing else.
+  const runningTurns = new Map<string, { controller: AbortController; winId: number }>();
   // Pending ask_user prompts keyed by question id. The CONVERSATION_SEND
   // handler creates an entry when the agent calls ask_user, and the
   // CONVERSATION_ASK_USER_REPLY handler resolves (or rejects) it. Aborting
-  // the send rejects every pending question for that window so the agent
+  // a turn rejects every pending question for that conversation so the agent
   // loop unwinds cleanly instead of hanging on an answered-never promise.
   const pendingAskUser: PendingAskUser = new Map();
 
@@ -97,18 +100,24 @@ export function registerConversation(): void {
   const runConversationTurn = async (e: Electron.IpcMainInvokeEvent, convId: string, userMessage: string | null, systemPrompt?: string, currentNotePath?: string, extraTools?: import('../../shared/conversation-tools').ConversationToolKey[]) => {
     const win = winFromEvent(e);
     const rootPath = rootPathFromEvent(e);
+    // The renderer won't send to a tab mid-turn; a second turn for the same
+    // conversation would interleave two replies into one transcript.
+    if (runningTurns.has(convId)) throw new Error('This conversation is already answering — wait for it, or stop it first.');
     const controller = new AbortController();
-    convAbortControllers.set(win.id, controller);
-    // When this send is aborted, fail any in-flight ask_user prompts so
+    runningTurns.set(convId, { controller, winId: win.id });
+    // When this turn is aborted, fail its in-flight ask_user prompts so
     // the agent's tool-call loop unwinds.
     controller.signal.addEventListener('abort', () => {
       for (const [qid, pending] of pendingAskUser) {
-        if (pending.winId === win.id) {
+        if (pending.conversationId === convId) {
           pendingAskUser.delete(qid);
           pending.reject(new Error('aborted'));
         }
       }
     });
+    // Closing the window stops the turn, as Stop would.
+    const onWindowClosed = (): void => controller.abort();
+    win.once('closed', onWindowClosed);
 
     // Unconditional log so we can prove the current build is loaded —
     // if the user reports "no log messages" again, this is missing too.
@@ -225,7 +234,8 @@ export function registerConversation(): void {
         return updated;
       });
     } finally {
-      convAbortControllers.delete(win.id);
+      if (runningTurns.get(convId)?.controller === controller) runningTurns.delete(convId);
+      win.removeListener('closed', onWindowClosed);
     }
   };
 
@@ -236,13 +246,13 @@ export function registerConversation(): void {
   handle(Channels.CONVERSATION_RETRY, (e, convId: string, systemPrompt?: string, currentNotePath?: string, extraTools?: import('../../shared/conversation-tools').ConversationToolKey[]) =>
     runConversationTurn(e, convId, null, systemPrompt, currentNotePath, extraTools));
 
-  handle(Channels.CONVERSATION_CANCEL, (e) => {
-    const win = winFromEvent(e);
-    const controller = convAbortControllers.get(win.id);
-    if (controller) {
-      controller.abort();
-      convAbortControllers.delete(win.id);
-    }
+  // Stop one conversation's turn (#2969). Only the window that started it may
+  // stop it; a conversation that isn't running is a no-op.
+  handle(Channels.CONVERSATION_CANCEL, (e, conversationId: string) => {
+    const turn = runningTurns.get(conversationId);
+    if (!turn || turn.winId !== winFromEvent(e).id) return;
+    turn.controller.abort();
+    runningTurns.delete(conversationId);
   });
 
   handle(Channels.CONVERSATION_SET_MODEL, withRootPath(async (rootPath, convId: string, model: string | undefined) => {

@@ -97,6 +97,7 @@ exports[`preload contextBridge contract (#676) > matches the full method surface
     "onSourcePropertyDraft",
     "onStream",
     "onTitleChanged",
+    "onWait",
     "retry",
     "runComputeDraft",
     "saveUIState",

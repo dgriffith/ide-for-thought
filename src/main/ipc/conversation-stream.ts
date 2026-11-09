@@ -29,12 +29,13 @@ import { broadcast } from './broadcast';
 import type { ExtensionDraftOutcome } from '../../shared/extensions/drafts';
 import type { CheckedExtensionDraft } from '../extensions/draft-check';
 import { pendingExtensionDrafts } from './extension-draft-offers';
+import type { RequestWaitStatus } from '../../shared/tools/concurrent-requests';
 
 /** Pending `ask_user` prompts keyed by question id, owned by the registrar so
  *  aborting a send can reject every question that window is waiting on. */
 export type PendingAskUser = Map<
   string,
-  { winId: number; resolve: (answer: string) => void; reject: (err: Error) => void }
+  { winId: number; conversationId: string; resolve: (answer: string) => void; reject: (err: Error) => void }
 >;
 
 /**
@@ -137,7 +138,9 @@ export function buildStreamCallbacks(
     if (buffer === '') return;
     const payload = buffer;
     buffer = '';
-    if (!win.isDestroyed()) broadcast(win, Channels.CONVERSATION_STREAM, payload);
+    // Every chunk names its conversation (#2969): several can stream into one
+    // window at once, and the renderer routes each to its own tab.
+    if (!win.isDestroyed()) broadcast(win, Channels.CONVERSATION_STREAM, { conversationId: convId, text: payload });
   };
 
 
@@ -171,6 +174,11 @@ export function buildStreamCallbacks(
       // debounce, which on a continuous stream never fires at all.
       if (timer === null) timer = setTimeout(flush, STREAM_COALESCE_MS);
     },
+    // A slot to wait for, or a rate limit to clear (#2969) — the turn's status line says so.
+    onWait: (status: RequestWaitStatus) => {
+      if (status) flush();
+      if (!win.isDestroyed()) broadcast(win, Channels.CONVERSATION_WAIT, { conversationId: convId, status });
+    },
     onDraft: draftEmit(Channels.CONVERSATION_DRAFT),
     onSourceDraft: draftEmit(Channels.CONVERSATION_SOURCE_DRAFT),
     onPropertyDraft: draftEmit(Channels.CONVERSATION_PROPERTY_DRAFT),
@@ -187,7 +195,7 @@ export function buildStreamCallbacks(
       flush();
       const questionId = randomUUID();
       return new Promise<string>((resolve, reject) => {
-        pendingAskUser.set(questionId, { winId: win.id, resolve, reject });
+        pendingAskUser.set(questionId, { winId: win.id, conversationId: convId, resolve, reject });
         if (!win.isDestroyed()) {
           broadcast(win, Channels.CONVERSATION_ASK_USER, {
             questionId,
