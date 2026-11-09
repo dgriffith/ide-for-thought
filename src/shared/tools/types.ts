@@ -384,6 +384,10 @@ export interface LLMSettings {
   /** Model requests that may run at once per provider (#2969); more wait their
    *  turn. Absent ⇒ 4 (`request-limiter.ts`). */
   concurrentRequests?: number;
+  /** The most branches one `fork` may start (#2971). Absent ⇒ 4 (`fork-settings.ts`). */
+  forkMaxBranches?: number;
+  /** A fork estimated above this many dollars asks first; 0 asks every time (#2971). Absent ⇒ 0.50. */
+  forkConfirmAboveUsd?: number;
 }
 
 /**
@@ -399,6 +403,10 @@ export interface LLMSettingsView {
   autoTitleConversations?: boolean;
   /** See `LLMSettings.concurrentRequests`; main always resolves it, so the field shows the number in force. */
   concurrentRequests?: number;
+  /** See `LLMSettings.forkMaxBranches`; resolved by main, like `concurrentRequests`. */
+  forkMaxBranches?: number;
+  /** See `LLMSettings.forkConfirmAboveUsd`; resolved by main. */
+  forkConfirmAboveUsd?: number;
   web?: WebSettings;
   effort?: import('./effort').Effort;
   toolModelOverrides?: Record<string, string>;
@@ -440,6 +448,10 @@ export interface LLMSettingsUpdate {
   autoTitleConversations?: boolean;
   /** See `LLMSettings.concurrentRequests`. Omitted ⇒ the default. */
   concurrentRequests?: number;
+  /** See `LLMSettings.forkMaxBranches`. Omitted ⇒ the default. */
+  forkMaxBranches?: number;
+  /** See `LLMSettings.forkConfirmAboveUsd`. Omitted ⇒ the default. */
+  forkConfirmAboveUsd?: number;
 }
 
 /** Source-scoped tools (#103) live in the Source viewer; everything else is

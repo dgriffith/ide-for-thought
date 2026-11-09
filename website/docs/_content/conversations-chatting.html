@@ -80,6 +80,28 @@ description: How to start a conversation with the assistant, how it searches you
     <p><b>Branch…</b>, above a conversation, starts a new conversation from this one to look into something on the side. Say what the branch should look into and it opens under its parent in the list, starting from a summary of the conversation so far plus what you asked, and begins answering straight away. It's an ordinary conversation from then on: you can read it, reply in it and carry it on, and nothing you do there changes the one it came from.</p>
     <p>A branch keeps its parent's model, the note it was about and anything a skill gave it to work on. In the list it sits indented under its parent and says how it last ran: <i>Running</i>, <i>Done</i>, <i>Stopped</i> or <i>Failed</i>. Stopping the parent while it's replying stops its branches too; stopping a branch stops only that branch. Closing a conversation closes its branches with it, and the confirmation says how many.</p>
 
+    <h2 id="forks">When the assistant forks</h2>
+    <p>Some questions split into parts that don't depend on each other: three hypotheses to look into, one claim argued from several sides, the same question put to different models. For those the assistant can <b>fork</b>. It starts a branch for each part, and the branches work at the same time. Each one starts from a summary of the conversation so far plus its own part of the task. When they finish, the assistant gets back each branch's final answer and carries on with all of them in front of it.</p>
+    <p>Branches are ordinary conversations, so you can open one later and read how it got its answer. A few limits keep a fork in proportion:</p>
+    <div class="deflist">
+      <div class="row">
+        <div class="k">A few at a time</div>
+        <div class="v">A fork starts at most 4 branches unless you <a href="settings-ai.html#model">change the limit</a>, and a branch can't fork again.</div>
+      </div>
+      <div class="row">
+        <div class="k">It asks before an expensive one</div>
+        <div class="v">Before starting, the assistant estimates the fork's cost from what this conversation's replies have cost. If the estimate is over your threshold ($0.50 unless you change it), it asks first, naming the branches and the estimate. What the branches cost is added to the reply that forked them.</div>
+      </div>
+      <div class="row">
+        <div class="k">Stopping</div>
+        <div class="v">Cancel stops the conversation and every branch it started. A fork also has a time limit. A branch still working when that runs out is stopped, and the assistant gets whatever the branch had written so far.</div>
+      </div>
+      <div class="row">
+        <div class="k">Answers are material, not orders</div>
+        <div class="v">A branch's answer comes back marked as something to weigh, like anything else a tool returns. If an answer tells the assistant to do something, it doesn't. Branches read your notes but don't change them. When a part calls for a change, the assistant proposes it from what the branch found, and you review it as usual.</div>
+      </div>
+    </div>
+
     <h2 id="model">Choosing a model for one conversation</h2>
     <p>Above each conversation is a model picker. It starts on <b>Default</b> — which names the model your <a href="settings-ai.html#model">AI settings</a> currently point at, so you can see what "default" actually means without going to look — and switching it affects only that conversation. Two conversations open side by side can be running on different models from different companies.</p>
     <p>The list is grouped by who makes each model: Claude, GPT and the o-series, Gemini, and any local models you've added. You'll only get an answer from a service you've <a href="settings-ai.html#keys">set a key for</a>; pick one you haven't and Minerva says so and offers to open Settings rather than failing quietly.</p>

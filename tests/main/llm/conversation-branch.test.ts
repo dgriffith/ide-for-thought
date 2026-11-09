@@ -6,7 +6,7 @@
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { appendMessage, archive, create, listAll, load, setBranchOutcome } from '../../../src/main/llm/conversation';
-import { archiveWithBranches, createBranch, descendantsOf, type BranchDeps } from '../../../src/main/llm/conversation-branch';
+import { archiveWithBranches, createBranch, descendantsOf, sharedSummary, type BranchDeps } from '../../../src/main/llm/conversation-branch';
 import * as graph from '../../../src/main/graph/index';
 import { projectContext } from '../../../src/main/project-context-types';
 import { useGraphProject } from '../../helpers/temp-project';
@@ -104,6 +104,18 @@ describe('conversation branches (#2970)', () => {
     expect((await load(root, child.id))?.status).toBe('archived');
     expect((await load(root, grandchild.id))?.status).toBe('archived');
     expect((await load(root, other.id))?.status).toBe('active');
+  });
+
+  it('a fork\'s branches share one summary call, charged to the first (#2971)', async () => {
+    const parent = await parentWithTurns();
+    const shared = sharedSummary(deps);
+    const [a, b] = await Promise.all([
+      createBranch(root, parent.id, { title: 'A', instructions: 'one' }, shared),
+      createBranch(root, parent.id, { title: 'B', instructions: 'two' }, shared),
+    ]);
+    expect(complete).toHaveBeenCalledTimes(1);
+    for (const x of [a, b]) expect(x.messages[0]!.content).toContain('They are planning a launch.');
+    expect([a, b].filter((x) => x.messages[0]!.usage)).toHaveLength(1);
   });
 
   it('the graph says which conversation a branch came from', async () => {

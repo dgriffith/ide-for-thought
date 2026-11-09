@@ -53,6 +53,8 @@ export interface SettingsHost {
   effort: Effort | undefined;
   autoTitle: boolean;
   concurrentRequests: number;
+  forkMaxBranches: number;
+  forkConfirmAboveUsd: number;
   providerInputs: Record<ProviderId, ProviderInput>;
   customModels: CustomModel[];
   readonly providerViews: Partial<Record<ProviderId, ProviderConfigView>>;

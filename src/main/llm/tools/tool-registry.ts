@@ -23,7 +23,9 @@ export type ToolClass =
   /** Runs a stock/user skill as a sub-prompt; its output is drafts. */
   | 'skill'
   /** Round-trips a question to the user. */
-  | 'interactive';
+  | 'interactive'
+  /** Starts other conversations and waits for them: `fork` (#2971). Writes nothing itself. */
+  | 'orchestrate';
 
 /**
  * How a tool's path-shaped arguments are kept out of `.minerva/` (#2453), and
