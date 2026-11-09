@@ -430,7 +430,7 @@
       filters: tab.filters,
       mapStyle: tab.mapStyle,
       groupBy: groupByForType(tab.groupBy, tab.typeId, objectTypesStore.types),
-      columnOrder: tab.columnOrder, showEmptyColumns: tab.showEmptyColumns, cardOrder: tab.cardOrder,
+      columnOrder: tab.columnOrder, showEmptyColumns: tab.showEmptyColumns, cardOrder: tab.cardOrder, edges: tab.edges, outside: tab.outside,
     });
     return true;
   }
@@ -1454,7 +1454,7 @@
                     mapStyle={active.mapStyle}
                     groupBy={active.groupBy}
                     columnOrder={active.columnOrder} showEmptyColumns={active.showEmptyColumns} cardOrder={active.cardOrder}
-                    from={active.from} to={active.to} month={active.month} mode={active.mode} date={active.date} dateBy={active.dateBy}
+                    from={active.from} to={active.to} month={active.month} mode={active.mode} date={active.date} dateBy={active.dateBy} edges={active.edges} outside={active.outside}
                     revision={graphRevision}
                     onStateChange={(patch) => editor.setTypeViewState(active.typeId, active.folder, patch)}
                     onClearFolder={() => editor.rescopeTypeView(active.typeId, active.folder, null)}

@@ -86,6 +86,7 @@ import { isViewLayout, layoutIdList } from '../../../shared/objects/view-layouts
 import { normalizeFolder, parseViewFilters, type ViewFilter } from '../../../shared/objects/view-spec';
 import { escapeHtml } from '../../../shared/text-escape';
 import { parseMapStyle, type MapStyle } from '../../../shared/objects/map-style';
+import { parseGraphEdges, parseGraphOutside, type GraphOutside } from '../../../shared/objects/graph-view';
 import { parseColumnOrder, parseCardOrder, parseGroupBy, parseShowEmptyColumns } from '../../../shared/objects/kanban';
 import { parseTimelineRange } from '../../../shared/objects/timeline';
 import { parseCalendarDate, parseCalendarMode, parseCalendarMonth } from '../../../shared/objects/calendar';
@@ -147,6 +148,10 @@ export interface ObjectViewSpec {
   /** The date property the view places notes by (#2701); only its shape is
    *  checked here — `TypeView` checks it against the type, as with `groupBy`. */
   dateBy: string | null;
+  /** Graph's drawn link properties (#2960); absent or malformed → null, all of them. */
+  edges: string[] | null;
+  /** Graph's notes outside the view (#2960); only `"hide"` leaves them out. */
+  outside: GraphOutside;
 }
 
 
@@ -185,6 +190,8 @@ export function parseObjectViewSpec(raw: string): ObjectViewSpec {
     mode: parseCalendarMode(spec.mode),
     date: parseCalendarDate(spec.date),
     dateBy: parseDateBy(spec.dateBy),
+    edges: parseGraphEdges(spec.edges),
+    outside: parseGraphOutside(spec.outside),
   };
 }
 
@@ -219,6 +226,8 @@ type ViewProps = {
   mode: 'week' | 'day' | null;
   date: string | null;
   dateBy: string | null;
+  edges: string[] | null;
+  outside: GraphOutside;
   revision: number;
   chromeless: boolean;
   onStateChange: () => void;
@@ -315,6 +324,8 @@ export function hydrateObjectViewBlocks(root: HTMLElement, deps: ObjectViewDeps)
       mode: spec.mode,
       date: spec.date,
       dateBy: spec.dateBy,
+      edges: spec.edges,
+      outside: spec.outside,
       revision: deps.revision,
       chromeless: true,
       // No in-preview UI for changing the embedded spec (#2067) — a

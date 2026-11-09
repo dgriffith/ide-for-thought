@@ -65,6 +65,8 @@ export interface ViewLayoutDef {
   everyRow?: true;
   /** What a query's columns must have for it (#2946), for the line a query view shows when its data stops having it. */
   needs?: string;
+  /** Draws the notes its notes link to, in the view or not (#2960, a graph): the plugin's frame is given them too. */
+  linkedNotes?: true;
 }
 
 const always = (): boolean => true;
@@ -83,6 +85,9 @@ export const VIEW_LAYOUTS = [
   { id: 'timeline', label: 'Timeline', noteName: 'timeline', appliesTo: datedRule, dated: true, grouped: false, specFields: ['from', 'to', 'dateBy'], plugin: 'timeline', needs: 'a date column' },
   // The same rule as Timeline (#2702).
   { id: 'calendar', label: 'Calendar', noteName: 'calendar', appliesTo: datedRule, dated: true, grouped: false, specFields: ['month', 'mode', 'date', 'dateBy'], plugin: 'calendar', moves: 'calendar', needs: 'a date column' },
+  // A link to another note (#2960): the view's notes as a graph, its link properties as the edges.
+  // A query view's link column is a `link-to-type` too. Drawn by the built-in Graph plugin.
+  { id: 'graph', label: 'Graph', noteName: 'graph', appliesTo: (ctx) => ctx.properties.some((p) => p.type === 'link-to-type'), dated: false, grouped: false, specFields: ['edges', 'outside'], plugin: 'graph', linkedNotes: true, needs: 'a column of links to notes' },
 ] as const satisfies readonly ViewLayoutDef[];
 
 /** A layout id — derived from the registry, so adding one is one entry. */

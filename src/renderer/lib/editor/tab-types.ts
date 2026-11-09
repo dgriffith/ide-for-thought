@@ -1,6 +1,7 @@
 import type { QuerySourceSpec } from '../../../shared/views/view-source-spec';
 import type { ViewFilter } from '../../../shared/objects/view-spec';
 import type { MapStyle } from '../../../shared/objects/map-style';
+import type { GraphOutside } from '../../../shared/objects/graph-view';
 import type { ViewLayout } from '../../../shared/objects/view-layouts';
 import type { ThoughtbaseGraphState } from '../graph/whole-graph-filter';
 /**
@@ -140,6 +141,10 @@ export interface TypeViewState {
   /** The date property the view places notes by (#2701, `date-by.ts`); null =
    *  the type's default (`date`, else its first date property). */
   dateBy: string | null;
+  /** Graph's drawn link properties (#2960, `graph-view.ts`); null = all. */
+  edges: string[] | null;
+  /** Graph's notes outside the view (#2960): drawn muted, or left out. */
+  outside: GraphOutside;
 }
 export interface TypeViewTab extends TypeViewState {
   type: 'type-view';

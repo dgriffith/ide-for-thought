@@ -11,6 +11,7 @@
 import { parseViewSource, sourceFields, viewKeyFor } from '../../../shared/views/view-source-spec';
 import { normalizeFolder, parseViewFilters } from '../../../shared/objects/view-spec';
 import { parseMapStyle } from '../../../shared/objects/map-style';
+import { parseGraphEdges, parseGraphOutside } from '../../../shared/objects/graph-view';
 import { parseCardOrder, parseColumnOrder, parseGroupBy, parseShowEmptyColumns } from '../../../shared/objects/kanban';
 import { parseTimelineRange } from '../../../shared/objects/timeline';
 import { parseCalendarDate, parseCalendarMode, parseCalendarMonth } from '../../../shared/objects/calendar';
@@ -68,6 +69,8 @@ export function toSavedTab(t: Tab): SavedTab {
       ...(t.mode !== null ? { mode: t.mode } : {}),
       ...(t.date !== null ? { date: t.date } : {}),
       ...(t.dateBy ? { dateBy: t.dateBy } : {}),
+      ...(t.edges ? { edges: [...t.edges] } : {}),
+      ...(t.outside === 'hide' ? { outside: 'hide' } : {}),
     };
   } else {
     return {
@@ -166,6 +169,8 @@ export async function reconstructTab(saved: SavedTab, nextQueryId: () => string)
       mode: parseCalendarMode(saved.mode),
       date: parseCalendarDate(saved.date),
       dateBy: parseDateBy(saved.dateBy),
+      edges: parseGraphEdges(saved.edges),
+      outside: parseGraphOutside(saved.outside),
     };
   } else {
     return { type: 'source', sourceId: saved.sourceId, highlightExcerptId: saved.highlightExcerptId };

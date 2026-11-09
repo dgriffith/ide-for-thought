@@ -187,6 +187,33 @@ const CORE_PLUGIN_DEFINITIONS: readonly CorePluginDefinition[] = [
     defaultEnabled: true,
   },
   {
+    // The Graph layout (#2960), drawn the same way (`plugins/graph/`). It
+    // reads the notes a view shows and the notes their links name, and
+    // writes nothing to them: which links it draws and whether it shows the
+    // notes outside the view are the view's own, through `view.setState`.
+    manifest: {
+      id: 'graph',
+      name: 'Graph',
+      version: '1.0.0',
+      minerva: '>=4.0.0',
+      description: [
+        "Show a type view as a graph: its notes as nodes, coloured by type, and their links to each other as connections, one kind for each link property.",
+        "",
+        "Pick **Graph** in a type or query view's layouts, for any view with a column of links to notes. Turn a kind of link off in the legend; a note the view doesn't show, but one of its notes links to, is drawn faded, or left out with **Outside notes**. Hover or focus a note for its preview, right-click it for its tags and properties, and select notes as in any view. **Table** shows the same notes with their links as a table.",
+        "",
+        "## Security",
+        "",
+        "The graph is drawn in a sandboxed frame. It can't reach the network or your files, and sees only the notes in the view and the notes they link to.",
+        "",
+        "- It writes nothing to your notes. The only things it changes are the view's own: which links it draws and whether it shows notes outside the view.",
+        "- Tags and properties changed from its menu are Minerva's edits, made the same way as from any view.",
+      ].join('\n'),
+      contributes: {},
+      code: { capabilities: ['notes:read', 'ui'], api: '^1.18.0' },
+    },
+    defaultEnabled: true,
+  },
+  {
     // The Reading Queue (#2640): the worked example of a global view, a
     // panel fed by a query it declares (`plugins/reading-queue/public/queue.rq`).
     // It lists and opens the books and articles that query names, and marks

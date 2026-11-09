@@ -27,8 +27,15 @@ describe('layoutsFor', () => {
     expect(layoutsFor({ typeId: 't', properties: [prop('date', 'date')], catalog })).toContain('timeline');
   });
 
+  it('graph: a link to another note, own or a query view\'s link column (#2960)', () => {
+    expect(layoutsFor(ctx([prop('l', 'link-to-type')]))).toContain('graph');
+    expect(layoutsFor(ctx([prop('t', 'text'), prop('s', 'enum'), prop('d', 'date')]))).not.toContain('graph');
+    expect(layoutsFor({ ...ctx([prop('l', 'link-to-type')]), pluginOn: (id) => id !== 'graph' })).not.toContain('graph');
+    expect(layoutDef('graph')).toMatchObject({ plugin: 'graph', specFields: ['edges', 'outside'], linkedNotes: true });
+  });
+
   it('everything at once, in registry order', () => {
-    expect(layoutsFor(ctx([prop('w', 'geo'), prop('s', 'enum'), prop('d', 'datetime')])))
+    expect(layoutsFor(ctx([prop('w', 'geo'), prop('s', 'enum'), prop('d', 'datetime'), prop('l', 'link-to-type')])))
       .toEqual(VIEW_LAYOUTS.map((l) => l.id));
   });
 });
@@ -47,6 +54,6 @@ describe('lookups', () => {
   });
 
   it('the id list reads as the embed parser\'s message always did', () => {
-    expect(layoutIdList()).toBe('"list", "table", "gallery", "map", "kanban", "timeline", "calendar"');
+    expect(layoutIdList()).toBe('"list", "table", "gallery", "map", "kanban", "timeline", "calendar", "graph"');
   });
 });

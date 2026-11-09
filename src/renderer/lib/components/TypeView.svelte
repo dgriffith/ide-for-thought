@@ -117,12 +117,13 @@
     month?: string | null; dateBy?: string | null;
     /** Calendar's week or day page and its anchor (#2950, `calendar.ts`); null = the month grid, and today. */
     mode?: string | null; date?: string | null;
+    edges?: ViewStatePatch['edges']; outside?: ViewStatePatch['outside']; // Graph's link kinds and outside notes (#2960)
     /** The note actions for selected rows (#2431, #2773): the bulk property
      *  panel, tags and properties. Absent (an embed, an export) → rows don't
      *  multi-select; a click just opens the note. */
     noteActions?: TypeViewNoteActions | undefined;
   }
-  let { typeId: typeIdProp = '', source, layout, sortColumn, sortDir, columns, revision, onStateChange, onOpenNote, onSaveView, chromeless = false, onLoaded, mapExport, pluginExport, folder = null, filters = [], onClearFolder, mapStyle = 'auto', groupBy = null, columnOrder = [], showEmptyColumns = true, cardOrder = [], exportMode = false, from = null, to = null, month = null, mode = null, date = null, dateBy = null, noteActions }: Props = $props();
+  let { typeId: typeIdProp = '', source, layout, sortColumn, sortDir, columns, revision, onStateChange, onOpenNote, onSaveView, chromeless = false, onLoaded, mapExport, pluginExport, folder = null, filters = [], onClearFolder, mapStyle = 'auto', groupBy = null, columnOrder = [], showEmptyColumns = true, cardOrder = [], exportMode = false, from = null, to = null, month = null, mode = null, date = null, dateBy = null, edges = null, outside = 'show', noteActions }: Props = $props();
 
   const src = $derived(source ?? typeSource(typeIdProp));
   /** The type behind the view, or null (#2943): only a type source has the Type filter, subtypes, moves and Save. */
@@ -255,7 +256,7 @@
   async function copyAsMarkdown(): Promise<void> {
     // A `groupBy` the type no longer has as an enum is dropped, not copied.
     if (!canEmbed) return;
-    const md = buildViewEmbed({ typeId: typeId ?? src.key, source: src.query, ...timelineSpec, ...calendarSpec, sortColumn, sortDir, columns, folder, filters: viewFilters, mapStyle, groupBy: groupByForSpec(groupBy, type ? allColumns : null), columnOrder, showEmptyColumns, cardOrder });
+    const md = buildViewEmbed({ typeId: typeId ?? src.key, source: src.query, ...timelineSpec, ...calendarSpec, sortColumn, sortDir, columns, folder, filters: viewFilters, mapStyle, groupBy: groupByForSpec(groupBy, type ? allColumns : null), columnOrder, showEmptyColumns, cardOrder, edges, outside });
     try {
       await navigator.clipboard.writeText(md);
       markdownCopied = true;
@@ -407,7 +408,7 @@
     onRowClick: (e, p) => { if (!noNote.has(p)) sel.click(e, p); },
     onRowKey: (e, p, steps) => { if (!noNote.has(p)) sel.rowKey(e, p, steps); },
     onRowContextMenu: (e, p) => { if (noNote.has(p)) e.preventDefault(); else sel.contextMenu(e, p); },
-    refPath: (prop, value) => (noteActions && prop.type === 'link-to-type' && value ? notePathForIri(value, knownNotePaths) : null),
+    linkPath: (prop, value) => (prop.type === 'link-to-type' && value ? notePathForIri(value, knownNotePaths) : null), refPath: (prop, value) => (noteActions ? view.linkPath(prop, value) : null),
     onRefContextMenu: (e, p, label) => { refLabel = label; sel.contextMenuFor(e, p); },
     openRowMenu: (all, x, y, opts) => {
       const paths = all.filter((p) => !noNote.has(p)); if (paths.length === 0) return;
@@ -422,7 +423,7 @@
     get readOnly() { return chromeless; },
     get exportMode() { return exportMode; },
     get spec() {
-      return { groupBy: groupProp?.name ?? null, columnOrder, showEmptyColumns, cardOrder, mapStyle, from: timelineSpec.from, to: timelineSpec.to, month: calendarSpec.month, mode: calendarSpec.mode, date: calendarSpec.date, dateBy: calendarSpec.dateBy };
+      return { groupBy: groupProp?.name ?? null, columnOrder, showEmptyColumns, cardOrder, mapStyle, from: timelineSpec.from, to: timelineSpec.to, month: calendarSpec.month, mode: calendarSpec.mode, date: calendarSpec.date, dateBy: calendarSpec.dateBy, edges, outside };
     },
     get locationProperty() { return locationProperty; },
     get mapStyle() { return mapStyle; },

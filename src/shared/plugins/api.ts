@@ -28,7 +28,7 @@ import type { PluginCapability } from './capabilities';
  * The API's semver version (#2826), its own and not the app's: the host sends
  * it with the port, and a plugin's `code.api` range must accept it.
  */
-export const PLUGIN_API_VERSION = '1.17.0';
+export const PLUGIN_API_VERSION = '1.18.0';
 
 export const PLUGIN_METHODS = {
   'notes.list': { capability: 'notes:read', describes: 'The notes this view or call was given.' },
@@ -344,7 +344,12 @@ export type PluginViewInstance = {
   tags?: string[];
   fields: PluginViewField[];
   icon?: PluginViewIcon;
+  /** Every note its link properties name, resolved — in the view or not (1.18.0, #2960: a graph's edges). */
+  links?: PluginViewLink[];
 };
+
+/** A link from a note: the property it's in, the note it names, and that note's title. */
+export type PluginViewLink = { property: string; path: string; title: string };
 
 /** One field on a note's card: as the app shows it, and the note a link names. */
 export type PluginViewField = { name: string; label: string; text: string; ref?: string };
