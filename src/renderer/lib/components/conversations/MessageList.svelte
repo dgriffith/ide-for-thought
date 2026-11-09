@@ -4,6 +4,7 @@
   import StreamingMessageBody from './StreamingMessageBody.svelte';
   import DraftCards from './DraftCards.svelte';
   import ForkCards from './ForkCards.svelte';
+  import ForkAnswers from './ForkAnswers.svelte';
   import McpConfirmCard from './McpConfirmCard.svelte';
   import ExtensionDraftCard from './ExtensionDraftCard.svelte';
   import { extensionDraftsStore } from '../../stores/extension-drafts.svelte';
@@ -167,7 +168,12 @@
              DOM write when the string is unchanged, but the markdown re-parse
              happens first — 29ms per turn on an 80-message transcript. The memo
              makes the repeat renders free; see markdown-render.ts. -->
-        <div class="msg-content">{@html renderMarkdownCached(msg.content)}</div>
+        {#if msg.forkAnswers}
+          <!-- An "Ask in parallel" join (#2974): the answers side by side. -->
+          <ForkAnswers answers={msg.forkAnswers} />
+        {:else}
+          <div class="msg-content">{@html renderMarkdownCached(msg.content)}</div>
+        {/if}
         {#if msg.citations && msg.citations.length > 0}
           <MessageCitations
             citations={msg.citations}

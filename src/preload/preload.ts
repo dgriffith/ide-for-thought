@@ -393,6 +393,8 @@ const api = {
       invoke(Channels.CONVERSATION_COMPACT, conversationId),
     branch: (parentId: string, options: import('../shared/conversation').BranchCreateOptions) =>
       invoke(Channels.CONVERSATION_BRANCH, parentId, options),
+    askParallel: (convId: string, message: string, branches: import('../shared/conversation').ParallelBranch[], currentNotePath?: string) =>
+      invoke(Channels.CONVERSATION_ASK_PARALLEL, convId, message, branches, currentNotePath),
   },
   proposals: {
     list: (status?: string) => invoke(Channels.PROPOSAL_LIST, status),

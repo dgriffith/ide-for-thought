@@ -613,6 +613,8 @@ export const Channels = {
   CONVERSATION_BRANCH: 'conversation:branch',
   /** main → renderer: a fork's progress (#2972), for its card in the parent's transcript. */
   CONVERSATION_FORK: 'conversation:fork',
+  /** Send one message as several branches — models, perspectives or attempts — and join their answers (#2974). */
+  CONVERSATION_ASK_PARALLEL: 'conversation:askParallel',
   /** Load tool-window UI state (.minerva/conversations/_ui.json). */
   CONVERSATION_UI_STATE_LOAD: 'conversation:uiStateLoad',
   /** Persist tool-window UI state (visibility, height, last-active tab). */

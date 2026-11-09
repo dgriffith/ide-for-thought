@@ -62,6 +62,7 @@ exports[`preload contextBridge contract (#676) > matches the full method surface
   "conversations": [
     "append",
     "archive",
+    "askParallel",
     "askUserReply",
     "branch",
     "cancel",

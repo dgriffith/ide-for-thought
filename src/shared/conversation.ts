@@ -66,6 +66,29 @@ export interface ConversationMessage {
    * UI then shows tokens only, never a guessed dollar figure.
    */
   costUSD?: number;
+  /**
+   * An "Ask in parallel" join (#2974): each branch's answer, shown side by
+   * side. `content` is the same answers as plain markdown for anything that
+   * reads text; the model reads them delimited as branch results, since a
+   * branch read the thoughtbase and its answer is material, not instructions.
+   */
+  forkAnswers?: ForkAnswer[];
+}
+
+/** One branch's answer in an "Ask in parallel" join (#2974). */
+export interface ForkAnswer {
+  title: string;
+  conversationId: string;
+  status: BranchOutcome;
+  answer: string;
+  note?: string;
+}
+
+/** One branch of an "Ask in parallel" (#2974): the same message, on a model or from a perspective. */
+export interface ParallelBranch {
+  title: string;
+  model?: string;
+  perspective?: string;
 }
 
 export type ConversationStatus = 'active' | 'archived';

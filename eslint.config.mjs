@@ -47,7 +47,7 @@ const DATAFLOW_MUTATION_METHODS =
   // (list/getRevision are reads)
   'restore|setLabel|labelNotes|' +
   // conversations
-  'setModel|setEffort|setTitle|compact|branch|saveUIState|askUserReply|append|archive|send|' +
+  'setModel|setEffort|setTitle|compact|branch|askParallel|saveUIState|askUserReply|append|archive|send|' +
   'fileDraft|fileSourceDraft|filePropertyDraft|fileSourcePropertyDraft|fileClaimsDraft|' +
   'runComputeDraft|insertComputeDraft|fileRefactorDraft|fileReorgDraft|fileDeleteDraft|fileNoteBodyDraft|' +
   // generic mutation verbs (mutations only — no read shares these names)

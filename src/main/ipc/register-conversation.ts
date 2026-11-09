@@ -28,10 +28,12 @@ import { withSkillContext } from '../llm/skill-context';
 import { runCompletionWithContainerRecovery } from '../llm/container-recovery';
 import { compactConversation } from '../llm/compact';
 import { archiveWithBranches, createBranch, defaultBranchDeps, descendantsOf, sharedSummary } from '../llm/conversation-branch';
-import { branchInstructions, FORK_TIME_BUDGET_MS, oneAtATime, runFork, type ForkBranchSpec, type ForkOutcome } from '../llm/fork';
+import { branchInstructions, FORK_TIME_BUDGET_MS, oneAtATime, runFork, type ForkBranchSpec, type ForkDeps, type ForkOutcome } from '../llm/fork';
+import { forkAnswersForModel } from '../llm/tools/fork';
+import { joinedAnswersMarkdown, parallelMessage } from '../../shared/conversation-parallel';
 import { resolveForkConfirmAboveUsd, resolveForkMaxBranches } from '../../shared/tools/fork-settings';
 import { buildStreamCallbacks, type PendingAskUser, type PendingMcpConfirm } from './conversation-stream';
-import type { BranchCreateOptions, ContextBundle, ConversationCreateOptions, ConversationMessage } from '../../shared/conversation';
+import type { BranchCreateOptions, ContextBundle, ConversationCreateOptions, ConversationMessage, ForkAnswer, ParallelBranch } from '../../shared/conversation';
 import { rootPathFromEvent, winFromEvent, withRootPath, withRootPathOr } from './helpers';
 import { handle } from './typed-ipc';
 import { broadcast } from './broadcast';
@@ -164,13 +166,14 @@ export function registerConversation(): void {
         if (!conv) throw new Error(`Conversation not found: ${convId}`);
         branchTurn = conv.branch !== undefined;
 
-        const { completeWithTools } = await import('../llm/index');
+        const { completeWithTools } = await llmClient();
         // A skill's note/source material rides at the head of the first user
         // turn, never in the system prompt (#2438).
         const messages = withSkillContext(
           conv.messages
             .filter(m => m.role !== 'system')
-            .map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })),
+            // An "Ask in parallel" join reaches the model delimited (#2974).
+            .map(m => ({ role: m.role as 'user' | 'assistant', content: m.forkAnswers ? forkAnswersForModel(m.forkAnswers) : m.content })),
           conv.skillContext,
         );
 
@@ -270,7 +273,7 @@ export function registerConversation(): void {
         if (wantsAutoTitle(updated)) {
           void (async () => {
             await autoTitleConversation(updated, {
-              complete: (prompt, options) => import('../llm/index').then((m) => m.complete(prompt, options)),
+              complete: (prompt, options) => llmClient().then((m) => m.complete(prompt, options)),
               settings: await getSettings(),
               setTitle: (title) => conversation.setTitle(rootPath, convId, title, 'auto'),
               notify: (title) => {
@@ -312,7 +315,6 @@ export function registerConversation(): void {
   ): Promise<ForkOutcome> => {
     const settings = await getSettings();
     const summary = sharedSummary(defaultBranchDeps);
-    const forkId = randomUUID();
     const interactions = oneAtATime();
     return runFork({
       parent, signal,
@@ -325,11 +327,81 @@ export function registerConversation(): void {
       runTurn: (branch, branchSignal, onChunk) =>
         runTurn(win, rootPath, branch.id, null, undefined, currentNotePath, undefined, { signal: branchSignal, onChunk, oneAtATime: interactions }),
       ask: askUser ? (question, choices) => askUser({ question, choices }) : undefined,
-      onProgress: (progress) => {
-        if (!win.isDestroyed()) broadcast(win, Channels.CONVERSATION_FORK, { conversationId: parent.id, forkId, ...progress });
-      },
+      onProgress: forkProgressTo(win, parent.id),
     }, specs);
   };
+
+  /**
+   * "Ask in parallel" (#2974): the user's message, sent as one branch per
+   * model, perspective or attempt, each with the conversation so far, then the
+   * answers joined into the conversation side by side. It runs as the
+   * conversation's turn, so Stop stops it (and every branch); the user chose
+   * the fork, so it doesn't ask about cost, but the branch limit holds.
+   */
+  const askInParallel = async (
+    win: Electron.BrowserWindow,
+    rootPath: string | null,
+    convId: string,
+    message: string,
+    branches: ParallelBranch[],
+    currentNotePath?: string,
+  ): Promise<void> => {
+    if (!rootPath) throw new Error('No thoughtbase is open — cannot send conversation message.');
+    const text = typeof message === 'string' ? message.trim() : '';
+    if (!text) throw new Error('Ask in parallel needs a message.');
+    if (!Array.isArray(branches) || branches.length === 0) throw new Error('Ask in parallel needs at least one branch.');
+    const specs: ForkBranchSpec[] = branches.map((b) => {
+      if (!b || typeof b.title !== 'string' || !b.title.trim()) throw new Error('Each parallel branch needs a title.');
+      return {
+        title: b.title.trim().slice(0, 120),
+        instructions: parallelMessage(text, b),
+        ...(typeof b.model === 'string' && b.model ? { model: b.model } : {}),
+      };
+    });
+    if (runningTurns.has(convId)) throw new Error('This conversation is already answering — wait for it, or stop it first.');
+    const controller = new AbortController();
+    runningTurns.set(convId, { controller, winId: win.id, rootPath });
+    const onWindowClosed = (): void => controller.abort();
+    win.once('closed', onWindowClosed);
+    try {
+      await graph.withLLMContext(async () => {
+        const before = await conversation.load(rootPath, convId);
+        if (!before) throw new Error(`Conversation not found: ${convId}`);
+        const parent = await conversation.appendMessage(rootPath, convId, 'user', text);
+        const settings = await getSettings();
+        // Branches propose and ask through this conversation, one card at a time (#2973).
+        const interactions = oneAtATime();
+        const deps: ForkDeps = {
+          parent, signal: controller.signal,
+          maxBranches: resolveForkMaxBranches(settings.forkMaxBranches),
+          confirmAboveUsd: Number.POSITIVE_INFINITY,
+          timeBudgetMs: FORK_TIME_BUDGET_MS,
+          // The conversation so far, then the message: each branch answers it as this conversation would.
+          createBranch: (spec) => createBranch(rootPath, convId, {
+            title: spec.title, instructions: spec.instructions, context: 'full', atMessage: before.messages.length,
+            ...(spec.model ? { model: spec.model } : {}),
+          }),
+          runTurn: (branch, branchSignal, onChunk) =>
+            runTurn(win, rootPath, branch.id, null, undefined, currentNotePath, undefined, { signal: branchSignal, onChunk, oneAtATime: interactions }),
+          onProgress: forkProgressTo(win, convId),
+        };
+        const outcome = await runFork(deps, specs);
+        if (!outcome.ok) throw new Error(outcome.reason);
+        const answers: ForkAnswer[] = outcome.results.map((r) => ({
+          title: r.title, conversationId: r.conversationId, status: r.status, answer: r.answer, ...(r.note ? { note: r.note } : {}),
+        }));
+        await conversation.appendMessage(rootPath, convId, 'assistant', joinedAnswersMarkdown(answers), {
+          forkAnswers: answers, ...(outcome.costUSD > 0 ? { addCostUSD: outcome.costUSD } : {}),
+        });
+      });
+    } finally {
+      if (runningTurns.get(convId)?.controller === controller) runningTurns.delete(convId);
+      win.removeListener('closed', onWindowClosed);
+    }
+  };
+
+  handle(Channels.CONVERSATION_ASK_PARALLEL, (e, convId: string, message: string, branches: ParallelBranch[], currentNotePath?: string) =>
+    askInParallel(winFromEvent(e), rootPathFromEvent(e), convId, message, branches, currentNotePath));
 
   handle(Channels.CONVERSATION_SEND, (e, convId: string, userMessage: string, systemPrompt?: string, currentNotePath?: string, extraTools?: import('../../shared/conversation-tools').ConversationToolKey[]) =>
     runConversationTurn(e, convId, userMessage, systemPrompt, currentNotePath, extraTools));
@@ -392,4 +464,22 @@ function branchCallbacks(
   delete routed.offerExtensionDraft;
   delete routed.runBranches;
   return routed;
+}
+
+/** A fork's progress, to the window that started it, for the card in the parent's transcript (#2972). */
+function forkProgressTo(win: Electron.BrowserWindow, parentId: string): NonNullable<ForkDeps['onProgress']> {
+  const forkId = randomUUID();
+  return (progress) => {
+    if (!win.isDestroyed()) broadcast(win, Channels.CONVERSATION_FORK, { conversationId: parentId, forkId, ...progress });
+  };
+}
+
+/**
+ * The LLM client, imported lazily and once: the promise is cached, not the
+ * module (#2974). A fork starts several turns together, and each used to run
+ * its own `import()` of the client.
+ */
+let llmClientImport: Promise<typeof import('../llm/index')> | null = null;
+function llmClient(): Promise<typeof import('../llm/index')> {
+  return (llmClientImport ??= import('../llm/index'));
 }

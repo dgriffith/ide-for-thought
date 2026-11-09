@@ -148,7 +148,7 @@ export function appendMessage(
   id: string,
   role: ConversationMessage['role'],
   content: string,
-  extra?: Partial<Pick<ConversationMessage, 'citations' | 'usage' | 'usageModel'>> & { addCostUSD?: number },
+  extra?: Partial<Pick<ConversationMessage, 'citations' | 'usage' | 'usageModel' | 'forkAnswers'>> & { addCostUSD?: number },
 ): Promise<Conversation> {
   return withConversationLock(rootPath, id, async () => {
     const conv = await load(rootPath, id);
@@ -177,6 +177,7 @@ export function appendMessage(
     }
     // What the turn's forked branches cost (#2971), counted in the turn that forked them.
     if (extra?.addCostUSD) message.costUSD = (message.costUSD ?? 0) + extra.addCostUSD;
+    if (extra?.forkAnswers) message.forkAnswers = extra.forkAnswers;
     conv.messages.push(message);
     await persist(rootPath, conv);
     return conv;

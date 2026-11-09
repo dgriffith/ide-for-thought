@@ -47,6 +47,7 @@ exports[`preload behaviour: surface-wide invariants (#2367) > the full method â†
   "compute.setPythonSettings": "invoke compute:setPythonSettings",
   "conversations.append": "invoke conversation:append",
   "conversations.archive": "invoke conversation:archive",
+  "conversations.askParallel": "invoke conversation:askParallel",
   "conversations.askUserReply": "invoke conversation:askUserReply",
   "conversations.branch": "invoke conversation:branch",
   "conversations.cancel": "invoke conversation:cancel",

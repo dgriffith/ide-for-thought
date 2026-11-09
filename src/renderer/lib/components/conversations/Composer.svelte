@@ -8,6 +8,8 @@
   import { getSlashCommands } from '../../tools/tool-registry';
   import { slashQueryFromComposer, buildSlashMenu, type SlashMenuItem } from '../../conversations/slash-commands';
   import { costBadgeFor } from '../../conversations/conversation-cost';
+  import AskParallelDialog from './AskParallelDialog.svelte';
+  import type { ParallelBranch } from '../../../../shared/conversation';
 
   interface Props {
     /** The active conversation tab (non-null: the panel renders the composer
@@ -36,6 +38,13 @@
   async function handleSend() {
     const text = tab.composer;
     await store.send(text, currentNotePath ?? undefined);
+  }
+
+  // "Ask in parallel…" (#2974): the message as several branches at once.
+  let parallelOpen = $state(false);
+  function askInParallel(branches: ParallelBranch[]) {
+    parallelOpen = false;
+    void store.askInParallel(branches, currentNotePath ?? undefined);
   }
 
   // ── Dictation (#voice) ──────────────────────────────────────────────────
@@ -210,6 +219,13 @@
       {#if tab.streaming}
         <button type="button" class="send-btn" onclick={() => store.cancel(tab.id)}>Cancel</button>
       {:else}
+        <button
+          type="button"
+          class="parallel-btn"
+          onclick={() => { parallelOpen = true; }}
+          disabled={!tab.composer.trim()}
+          title="Send this as several branches — models, perspectives or attempts — and see the answers side by side"
+        >Ask in parallel…</button>
         <button type="button" class="send-btn" onclick={handleSend} disabled={!tab.composer.trim()}>
           <Icon name="send" size={11} />
           Send
@@ -219,7 +235,22 @@
   </div>
 </div>
 
+{#if parallelOpen}
+  <AskParallelDialog message={tab.composer.trim()} onConfirm={askInParallel} onCancel={() => { parallelOpen = false; }} />
+{/if}
+
 <style>
+  .parallel-btn {
+    padding: 4px 10px;
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 11.5px;
+    cursor: pointer;
+  }
+  .parallel-btn:hover:not(:disabled) { color: var(--text); background: var(--bg-button-hover); }
+  .parallel-btn:disabled { opacity: 0.5; cursor: default; }
   .composer {
     display: flex;
     padding: 12px;

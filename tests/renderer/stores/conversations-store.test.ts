@@ -75,6 +75,7 @@ const h = vi.hoisted(() => {
       load: vi.fn(async (_id: string) => null as Conversation | null),
       archive: vi.fn().mockResolvedValue(undefined),
       branch: vi.fn(),
+      askParallel: vi.fn().mockResolvedValue(undefined),
       // turn
       send: vi.fn().mockResolvedValue(undefined),
       retry: vi.fn().mockResolvedValue(undefined),
@@ -1232,6 +1233,36 @@ describe('branches (#2970)', () => {
     expect(parent.pendingMcpConfirm).toMatchObject({ requestId: 'bm-1' });
     expect(h.announce).toHaveBeenCalledWith('Branch “Supply”: Confirm MCP tool call: t on s', 'assertive');
     expect(conv().mcpConfirmReply).not.toHaveBeenCalled();
+  });
+
+  it('Ask in parallel sends the composer\'s message as branches, runs as the tab\'s turn, and reloads the join (#2974)', async () => {
+    const tab = await freshTab();
+    store.setComposer('  Is it safe?  ');
+    const joined = { ...tab.conversation, messages: [
+      { role: 'user' as const, content: 'Is it safe?', timestamp: 't' },
+      { role: 'assistant' as const, content: '### A\n\nYes.', timestamp: 't', forkAnswers: [{ title: 'A', conversationId: 'b1', status: 'done' as const, answer: 'Yes.' }] },
+    ] };
+    let during: { streaming: boolean; messages: number; composer: string } | null = null;
+    conv().askParallel.mockImplementationOnce(async () => {
+      during = { streaming: tab.streaming, messages: tab.conversation.messages.length, composer: tab.composer };
+    });
+    conv().load.mockResolvedValueOnce(joined);
+    const branches = [{ title: 'A', model: 'm-a' }, { title: 'B', perspective: 'a skeptic' }];
+    await store.askInParallel(branches, 'notes/x.md');
+    expect(conv().askParallel).toHaveBeenCalledWith(tab.id, 'Is it safe?', branches, 'notes/x.md');
+    expect(during).toEqual({ streaming: true, messages: 1, composer: '' });
+    expect(tab.streaming).toBe(false);
+    expect(tab.conversation.messages.at(-1)!.forkAnswers).toHaveLength(1);
+    expect(h.announce).toHaveBeenCalledWith('Asking 2 ways at once');
+  });
+
+  it('Ask in parallel that fails shows the failure where the reply would be (#2974)', async () => {
+    const tab = await freshTab();
+    store.setComposer('Is it safe?');
+    conv().askParallel.mockRejectedValueOnce(new Error('A fork may start at most 4 branches'));
+    await store.askInParallel([{ title: 'A' }, { title: 'B' }]);
+    expect(tab.failure).toMatchObject({ message: expect.stringMatching(/at most 4 branches/) });
+    expect(tab.streaming).toBe(false);
   });
 
   it('a settled branch opens as an ordinary tab (#2972)', async () => {
