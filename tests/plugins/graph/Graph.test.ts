@@ -38,7 +38,7 @@ vi.mock('cytoscape', () => ({
       toggleClass: (c: string, on: boolean) => { if (on) n?.classes.add(c); else n?.classes.delete(c); },
     });
     const core = {
-      on: (event: string, _sel: string, fn: Handler) => { cy.handlers.set(event, fn); },
+      on: (event: string, sel: string | Handler, fn?: Handler) => { cy.handlers.set(event, (typeof sel === 'function' ? sel : fn)!); },
       batch: (fn: () => void) => fn(),
       elements: () => ({ remove: () => { cy.nodes.clear(); cy.edges = []; } }),
       add: (defs: Array<{ group: string; data: Record<string, unknown>; classes: string[] }>) => {
@@ -95,6 +95,11 @@ function draw(over: Partial<PluginViewState> = {}) {
 
 const fire = (event: string, id: string, originalEvent: Partial<MouseEvent> = {}) =>
   cy.handlers.get(event)!({ target: cy.nodes.get(id) as FakeNode, originalEvent: { clientX: 50, clientY: 60, metaKey: false, ctrlKey: false, shiftKey: false, ...originalEvent } });
+/** A right-click on a note: the button goes down on it, then the page's `contextmenu` (after the button is up, as on Windows). */
+const rightClick = (id: string) => {
+  fire('cxttapstart', id);
+  screen.getByRole('application').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 50, clientY: 60 }));
+};
 
 describe('nodes and edges (#2960)', () => {
   it("draws the view's notes, coloured by type, and the note outside it a link names, muted", () => {
@@ -157,14 +162,14 @@ describe('pointer: the view\'s selection, the note menu, the preview (#2960)', (
     await tick();
     expect(cy.nodes.get('a.md')!.classes.has('selected')).toBe(true);
     expect(cy.nodes.get('c.md')!.classes.has('selected')).toBe(false);
-    fire('cxttap', 'b.md');
-    fire('cxttap', 'c.md');
+    rightClick('b.md');
+    rightClick('c.md');
     expect(api.of('ui.showNoteMenu')).toEqual([{ paths: ['a.md', 'b.md'], x: 50, y: 60 }, { paths: ['c.md'], x: 50, y: 60 }]);
   });
 
   it('no menu where the view has none', () => {
     const { api } = draw({ rowMenu: false });
-    fire('cxttap', 'a.md');
+    rightClick('a.md');
     expect(api.of('ui.showNoteMenu')).toEqual([]);
   });
 

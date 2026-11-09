@@ -34,6 +34,8 @@
   let container = $state<HTMLDivElement>();
   let showTable = $state(false);
   let focused = $state<string | null>(null);
+  /** The note the right button last went down on, for the `contextmenu` that follows. */
+  let menuNote: string | null = null;
   let cy: Core | null = null;
   let worker: Worker | null = null;
   let seq = 0;
@@ -165,20 +167,28 @@
       focused = n.id();
       click(n.id(), mods);
     });
-    c.on('cxttap', 'node', (evt) => {
-      const n = evt.target as NodeSingular;
-      const at = evt.originalEvent;
-      focused = n.id();
-      menu(n.id(), at.clientX, at.clientY);
-    });
+    // The note menu opens on the page's own `contextmenu`, for the note the right button went down on —
+    // not on `cxttap` (button up), which Windows follows with a `contextmenu` that can land on the
+    // menu's backdrop and close it (the thoughtbase graph's bug, #2959).
+    c.on('cxttapstart', (evt) => { menuNote = evt.target !== c ? (evt.target as NodeSingular).id() : null; });
     c.on('mouseover', 'node', (evt) => preview((evt.target as NodeSingular).id(), 'pointer'));
     c.on('mouseout', 'node', (evt) => unpreview((evt.target as NodeSingular).id(), 'pointer'));
     // Cytoscape caches where its container is: tell it when the frame resizes.
     const resized = new ResizeObserver(() => c.resize());
     if (container) resized.observe(container);
+    const onContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+      const id = menuNote;
+      menuNote = null;
+      if (!id) return;
+      focused = id;
+      menu(id, e.clientX, e.clientY);
+    };
+    container?.addEventListener('contextmenu', onContextMenu);
     draw();
     return () => {
       resized.disconnect();
+      container?.removeEventListener('contextmenu', onContextMenu);
       worker?.terminate();
       worker = null;
       c.destroy();
