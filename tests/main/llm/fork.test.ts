@@ -130,7 +130,7 @@ describe('runFork (#2971)', () => {
     const run = runFork(deps, SPECS.slice(0, 2));
     await started(2);
     pending.get('Supply')!.reject(toLlmFailureError(new Error('Request was aborted.'), 'local', { aborted: true }));
-    pending.get('Demand')!.reject(new DOMException('This operation was aborted', 'AbortError') as unknown as Error);
+    pending.get('Demand')!.reject(new DOMException('This operation was aborted', 'AbortError'));
     const out = await run;
     expect(out.ok && out.results.map((r) => r.status)).toEqual(['stopped', 'stopped']);
   });
