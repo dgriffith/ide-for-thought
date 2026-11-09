@@ -639,10 +639,12 @@ function buildEditorStore() {
     resolveGroup(groupId).viewMode = mode;
   }
 
+  /** Source → Preview → Side by side → Mindmap (#2965) → Source. */
   function cycleViewMode(groupId?: string) {
     const grp = resolveGroup(groupId);
     if (grp.viewMode === 'source') grp.viewMode = 'preview';
     else if (grp.viewMode === 'preview') grp.viewMode = 'editor-preview';
+    else if (grp.viewMode === 'editor-preview') grp.viewMode = 'mindmap';
     else grp.viewMode = 'source';
   }
 

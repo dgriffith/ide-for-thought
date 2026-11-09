@@ -11,6 +11,7 @@
   import { collectGroupIds } from './lib/editor/layout-tree';
   import QueryPanel from './lib/components/QueryPanel.svelte';
   import ThoughtbaseGraph from './lib/components/ThoughtbaseGraph.svelte';
+  import NoteMindmap from './lib/components/mindmap/NoteMindmap.svelte';
   import { NEW_GRAPH_STATE } from './lib/graph/whole-graph-filter';
   import TypeView from './lib/components/TypeView.svelte';
   import PluginViewTab from './lib/components/plugins/PluginViewTab.svelte';
@@ -591,7 +592,7 @@
     cycleTheme: () => handleCycleTheme(),
     getThemeLabel: () => themeLabel,
     hasSelection: () => cursorInfo.selectionLength > 0,
-    cycleViewMode: () => cycleViewMode(),
+    cycleViewMode: () => cycleViewMode(), toggleMindmap: () => editor.setViewMode(editor.viewMode === 'mindmap' || editor.viewMode === 'editor-mindmap' ? 'source' : 'mindmap'),
     refreshSourcesCache: () => { void refreshSourcesCache(); },
     refreshSavedQueriesCache: () => { void refreshSavedQueriesCache(); },
     getEditorFontSize: () => editorFontSize,
@@ -1244,16 +1245,18 @@
                         onclick={() => editor.setViewMode('source', groupId)}
                         title="Source (Cmd+Shift+P to cycle)"
                       >Source</button>
+                      <!-- Side by side pairs the editor with the preview, or with the map when that's what's showing (#2965). -->
                       <button
-                        class:active={group.viewMode === 'editor-preview'}
-                        onclick={() => editor.setViewMode('editor-preview', groupId)}
-                        title="Source + preview side by side"
+                        class:active={group.viewMode === 'editor-preview' || group.viewMode === 'editor-mindmap'}
+                        onclick={() => editor.setViewMode(group.viewMode === 'mindmap' || group.viewMode === 'editor-mindmap' ? 'editor-mindmap' : 'editor-preview', groupId)}
+                        title="Source beside the preview, or beside the mindmap"
                       >Side by side</button>
                       <button
                         class:active={group.viewMode === 'preview'}
                         onclick={() => editor.setViewMode('preview', groupId)}
                         title="Preview"
                       >Preview</button>
+                      {#if !note.plainText}<button class:active={group.viewMode === 'mindmap'} onclick={() => editor.setViewMode('mindmap', groupId)} title="Mindmap (Cmd+Shift+M)">Mindmap</button>{/if}
                     </div>
                   {/if}
                   <button
@@ -1278,9 +1281,10 @@
                     title="Toggle Right Sidebar (Cmd+Shift+B)"
                   ><Icon name="outline" size={12} /></button>
                 </div>
-                <div class="editor-content" class:editor-preview={group.viewMode === 'editor-preview' && (!note.plainText || isHtmlPreview)}>
-                  {#if (note.plainText && !isHtmlPreview) || group.viewMode === 'source' || group.viewMode === 'editor-preview'}
-                    <div class="editor-panel">
+                <div class="editor-content" class:editor-preview={(group.viewMode === 'editor-preview' && (!note.plainText || isHtmlPreview)) || (group.viewMode === 'editor-mindmap' && !note.plainText)}>
+                  <!-- The map's edits go through the editor, so it stays mounted (hidden) under the Mindmap mode (#2965). -->
+                  {#if (note.plainText && !isHtmlPreview) || group.viewMode !== 'preview'}
+                    <div class="editor-panel" style:display={group.viewMode === 'mindmap' && !note.plainText ? 'none' : null}>
                       {#key groupId + ':' + note.relativePath}
                         <Editor
                           bind:this={tabViews.editor[groupId]}
@@ -1374,6 +1378,11 @@
                         onApplyCellOutputEdit={(newContent) => { editor.setContent(newContent, groupId); }}
                         onApplyEdit={(newContent) => { editor.setContent(newContent, groupId); }}
                       />
+                    </div>
+                  {/if}
+                  {#if !note.plainText && (group.viewMode === 'mindmap' || group.viewMode === 'editor-mindmap')}
+                    <div class="preview-panel">
+                      <NoteMindmap content={note.content} title={note.fileName.replace(/\.[^.]+$/, '')} stateKey={`${notebase.meta?.rootPath ?? ''}:${note.relativePath}`} getView={() => tabViews.editor[groupId]?.getView()} beside={group.viewMode === 'editor-mindmap'} cursorLine={cursorInfo.line} />
                     </div>
                   {/if}
                   {#if isHtmlPreview && (group.viewMode === 'preview' || group.viewMode === 'editor-preview')}

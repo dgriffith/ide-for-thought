@@ -83,12 +83,18 @@ describe('one-group parity (#811)', () => {
     expect(editor.isDirty).toBe(false);
   });
 
-  it('view mode cycles source → preview → editor-preview → source', () => {
+  it('view mode cycles source → preview → editor-preview → mindmap (#2965) → source', () => {
     expect(editor.viewMode).toBe('source');
     editor.cycleViewMode();
     expect(editor.viewMode).toBe('preview');
     editor.cycleViewMode();
     expect(editor.viewMode).toBe('editor-preview');
+    editor.cycleViewMode();
+    expect(editor.viewMode).toBe('mindmap');
+    editor.cycleViewMode();
+    expect(editor.viewMode).toBe('source');
+    // From the map beside the editor, too.
+    editor.setViewMode('editor-mindmap');
     editor.cycleViewMode();
     expect(editor.viewMode).toBe('source');
     editor.setViewMode('preview');
