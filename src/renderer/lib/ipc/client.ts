@@ -358,6 +358,7 @@ export type { ExportGroupId, ExportGroupMeta } from '../../../shared/export-grou
 import type { ExportGroupMeta } from '../../../shared/export-groups';
 import type { VocabularyImportPreview, VocabularyStatus } from '../../../shared/ontology-vocabularies';
 import type { PluginList, PluginRecommendation, PluginSettingsPatch, PluginSettingsView } from '../../../shared/plugins/format';
+import type { RequestWaitStatus } from '../../../shared/tools/concurrent-requests';
 
 /** One registered exporter, as surfaced to the menu + export dialog. */
 export interface ExporterInfo {
@@ -749,8 +750,12 @@ export interface ConversationsApi {
   onExtensionDraft(cb: (offer: import('../../../shared/extensions/drafts').ExtensionDraftOffer) => void): () => void;
   /** Save, save to a folder, or dismiss a drafted extension. Main writes, from its own copy. */
   extensionDraftAction(offerId: string, action: import('../../../shared/extensions/drafts').ExtensionDraftAction): Promise<import('../../../shared/extensions/drafts').ExtensionDraftActionResult>;
-  onStream(cb: (chunk: string) => void): () => void;
-  cancel(): Promise<void>;
+  /** Streamed reply text, named by conversation: several can stream at once (#2969). */
+  onStream(cb: (chunk: { conversationId: string; text: string }) => void): () => void;
+  /** A turn's next request waiting for a slot or a rate limit; `status: null` once it runs (#2969). */
+  onWait(cb: (wait: { conversationId: string; status: RequestWaitStatus }) => void): () => void;
+  /** Stop that conversation's turn; the others keep running. */
+  cancel(conversationId: string): Promise<void>;
   setModel(conversationId: string, model: string | undefined): Promise<Conversation>;
   /** Per-conversation reasoning-effort override (#825). Pass undefined to
    *  clear it and inherit the global default. */
@@ -766,6 +771,8 @@ export interface ConversationsApi {
   /** Client-side compaction (#824): summarize earlier turns into a fresh
    *  conversation, archiving the original. */
   compact(conversationId: string): Promise<import('../../../shared/conversation').CompactResult>;
+  /** Fork a branch from a conversation (#2970). Resolves to the new branch. */
+  branch(parentId: string, options: import('../../../shared/conversation').BranchCreateOptions): Promise<Conversation>;
   /** Subscribe to drafts produced by the propose_notes tool. Drafts are scoped per conversation. */
   onDraft(cb: (draft: import('../../../shared/conversation-drafts').ConversationDraft) => void): () => void;
   /** File a draft as a Proposal AND auto-approve it (the user already reviewed the inline card). */

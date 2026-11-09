@@ -101,6 +101,8 @@ const EVENT_CHANNELS = new Set<string>([
   Channels.PROPOSALS_CHANGED,
   Channels.PROPOSALS_SHOW,
   Channels.CONVERSATION_STREAM,
+  // main → renderer: a turn waiting for a request slot or a rate limit (#2969).
+  Channels.CONVERSATION_WAIT,
   Channels.CONVERSATION_DRAFT,
   Channels.CONVERSATION_SOURCE_DRAFT,
   Channels.CONVERSATION_PROPERTY_DRAFT,

@@ -105,6 +105,38 @@ export interface ConversationSkill {
   name: string;
 }
 
+/**
+ * A branch (#2970): a conversation forked from another at one of its messages.
+ * It is an ordinary conversation — its own file, openable and continuable —
+ * that remembers where it came from.
+ *
+ * - `summary` starts it with a summary of the parent so far and its own
+ *   instructions (cheaper, and focused); `full` copies the parent's turns.
+ * - `outcome` is how its last turn ended. Running is live state, never stored.
+ */
+export type BranchContext = 'summary' | 'full';
+export type BranchOutcome = 'done' | 'stopped' | 'failed';
+export interface ConversationBranch {
+  parentId: string;
+  /** How many of the parent's messages it was forked after. */
+  atMessage: number;
+  context: BranchContext;
+  outcome?: BranchOutcome;
+}
+
+export interface BranchCreateOptions {
+  /** The branch's name in the list. */
+  title: string;
+  /** What the branch is for; ends its opening message, so a turn can run on it straight away. */
+  instructions?: string;
+  /** Default `summary`. */
+  context?: BranchContext;
+  /** Default: the parent's whole length. */
+  atMessage?: number;
+  /** Default: the parent's model. */
+  model?: string;
+}
+
 export interface ConversationCreateOptions {
   systemPrompt?: string;
   skillContext?: string;
@@ -192,4 +224,6 @@ export interface Conversation {
   containerId?: string;
   /** ISO timestamp when the sandbox container expires server-side. */
   containerExpiresAt?: string;
+  /** Set on a branch (#2970): its parent and how it started. */
+  branch?: ConversationBranch;
 }

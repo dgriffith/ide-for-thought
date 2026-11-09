@@ -19,6 +19,7 @@ import { providerForModel, DEFAULT_MODEL } from '../../shared/tools/models';
 import { encryptSecret, decryptSecret, isEncrypted, secretEncryptionAvailable, secretStorageStatus } from '../secret-storage';
 import { reportConfigError } from '../config/config-store';
 import { writeJsonFileAtomic, SECRET_FILE_MODE } from '../config/json-file';
+import { resolveConcurrentRequests } from './request-limiter';
 
 const DEPRECATED_MODELS = new Set<string>([
   'claude-sonnet-4-20250514',
@@ -102,6 +103,7 @@ interface StoredSettings {
   effort?: unknown;
   toolModelOverrides?: unknown;
   autoTitleConversations?: unknown;
+  concurrentRequests?: unknown;
 }
 
 /**
@@ -267,6 +269,7 @@ export async function getSettings(): Promise<LLMSettings> {
     ...(effort ? { effort } : {}),
     ...(toolModelOverrides ? { toolModelOverrides } : {}),
     ...(parsed.autoTitleConversations === false ? { autoTitleConversations: false } : {}),
+    concurrentRequests: resolveConcurrentRequests(parsed.concurrentRequests),
     ...(customModels ? { customModels } : {}),
   };
 }
@@ -294,6 +297,7 @@ export async function getSettingsForDisplay(): Promise<LLMSettingsView> {
     ...(effort ? { effort } : {}),
     ...(toolModelOverrides ? { toolModelOverrides } : {}),
     ...(parsed.autoTitleConversations === false ? { autoTitleConversations: false } : {}),
+    concurrentRequests: resolveConcurrentRequests(parsed.concurrentRequests),
     hasApiKey,
     providers,
     ...(customModels ? { customModels } : {}),

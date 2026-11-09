@@ -43,6 +43,8 @@ export interface ResolvedProvider {
   web: WebToolSettings;
   /** Global default reasoning effort, before per-call override/clamping. */
   effort: Effort | undefined;
+  /** Requests this provider may run at once (#2969); undefined ⇒ the limiter's default. */
+  concurrentRequests?: number | undefined;
 }
 
 /** The marker error the renderer detects to show the "Open Settings"
@@ -119,6 +121,7 @@ export async function getProvider(modelOverride?: string): Promise<ResolvedProvi
     model,
     web: settings.web ?? { ...DEFAULT_WEB_SETTINGS },
     effort: settings.effort,
+    concurrentRequests: settings.concurrentRequests,
   };
 }
 
