@@ -23,6 +23,7 @@ import {
   normalizeSession, resolveRestoredSession,
 } from '../../../src/renderer/lib/editor/tab-session';
 import { viewKeyFor } from '../../../src/shared/views/view-source-spec';
+import { NEW_GRAPH_STATE } from '../../../src/renderer/lib/graph/whole-graph-filter';
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -50,10 +51,12 @@ describe('the whole-thoughtbase graph tab (#2958)', () => {
     expect(await reconstructTab(toSavedTab(graph), () => 'q')).toEqual(graph);
   });
 
-  it('a neighbourhood graph tab is unchanged', async () => {
-    const hood: Tab = { type: 'graph', relativePath: 'a.md', depth: 2 };
-    expect(toSavedTab(hood)).toEqual({ type: 'graph', relativePath: 'a.md', depth: 2 });
-    expect(await reconstructTab(toSavedTab(hood), () => 'q')).toEqual(hood);
+  it('a per-note graph saved before #3056 reopens as the graph, centred on its note at its depth', async () => {
+    const restored = await reconstructTab({ type: 'graph', relativePath: 'a.md', depth: 2 }, () => 'q');
+    expect(restored).toEqual({ type: 'graph', relativePath: '', depth: 1, whole: true, graph: { ...NEW_GRAPH_STATE, focus: 'a.md', depth: 2 } });
+    // A depth out of range is brought into it; no note, no focus.
+    expect(await reconstructTab({ type: 'graph', relativePath: 'a.md', depth: 40 }, () => 'q')).toMatchObject({ graph: { depth: 6 } });
+    expect(await reconstructTab({ type: 'graph', relativePath: '', depth: 1 }, () => 'q')).toMatchObject({ graph: { focus: null } });
   });
 });
 

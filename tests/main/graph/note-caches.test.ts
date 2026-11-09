@@ -13,7 +13,7 @@
  *   - **the same emptiness contract** — `headingsFor` / `getAllFrontmatterKeys`
  *     answered `[]` for a project with no graph, and callers depend on that;
  *   - **the lifecycle hooks** the graph still drives: `forgetNote` on removal,
- *     `clearNeighborhoodCache` on every write, `clearNoteCaches` on rebuild.
+ *     `clearNoteCaches` on rebuild.
  *
  * The integration — that `indexNote` actually populates these, and that a
  * heading rename is still detected across two indexes — is covered by
@@ -26,20 +26,16 @@ import {
   setHeadings,
   setFrontmatterKeys,
   allFrontmatterKeys,
-  neighborhoodCache,
   forgetNote,
-  clearNeighborhoodCache,
   clearNoteCaches,
 } from '../../../src/main/graph/note-caches';
 import { projectContext } from '../../../src/main/project-context-types';
-import type { NeighborhoodResult } from '../../../src/shared/types';
 
 /** Distinct rootPaths per case — the store is module-level and keyed by them. */
 let n = 0;
 const freshCtx = () => projectContext(`/tmp/minerva-note-caches-${n++}`);
 
 const heading = (slug: string) => ({ slug, text: slug, level: 1 });
-const emptyNeighborhood = { nodes: [], edges: [] } as unknown as NeighborhoodResult;
 
 describe('note caches — headings', () => {
   it('round-trips a snapshot', () => {
@@ -101,56 +97,26 @@ describe('note caches — frontmatter keys', () => {
   });
 });
 
-describe('note caches — neighborhood memo', () => {
-  it('hands back a live map so neighborhood() can own its LRU policy', () => {
-    // Deliberately the map, not get/set wrappers: the recency refresh is a
-    // delete-then-set, which wrappers would hide.
-    const ctx = freshCtx();
-    neighborhoodCache(ctx).set('k', emptyNeighborhood);
-    expect(neighborhoodCache(ctx).get('k')).toBe(emptyNeighborhood);
-  });
-
-  it('is cleared wholesale on a graph write', () => {
-    const ctx = freshCtx();
-    neighborhoodCache(ctx).set('k', emptyNeighborhood);
-    clearNeighborhoodCache(ctx);
-    expect(neighborhoodCache(ctx).size).toBe(0);
-  });
-
-  it('clearing one project leaves another alone', () => {
-    const a = freshCtx();
-    const b = freshCtx();
-    neighborhoodCache(a).set('k', emptyNeighborhood);
-    neighborhoodCache(b).set('k', emptyNeighborhood);
-    clearNeighborhoodCache(a);
-    expect(neighborhoodCache(a).size).toBe(0);
-    expect(neighborhoodCache(b).size).toBe(1);
-  });
-});
-
 describe('note caches — lifecycle hooks are no-ops on an untouched project', () => {
-  it('forgetNote / clearNeighborhoodCache / clearNoteCaches do not throw or create state', () => {
+  it('forgetNote / clearNoteCaches do not throw or create state', () => {
     // `invalidate()` runs on every graph write, including writes to a project
     // whose caches nobody has populated yet — so these must tolerate a missing
     // slot rather than eagerly creating one.
     const ctx = freshCtx();
     expect(() => forgetNote(ctx, 'nope.md')).not.toThrow();
-    expect(() => clearNeighborhoodCache(ctx)).not.toThrow();
     expect(() => clearNoteCaches(ctx)).not.toThrow();
     expect(getHeadings(ctx, 'nope.md')).toEqual([]);
     expect(allFrontmatterKeys(ctx)).toEqual([]);
   });
 
-  it('clearNoteCaches drops all three at once — the full-rebuild path', () => {
+  it('clearNoteCaches drops both at once — the full-rebuild path', () => {
     const ctx = freshCtx();
     setHeadings(ctx, 'a.md', [heading('h')]);
     setFrontmatterKeys(ctx, 'a.md', ['title']);
-    neighborhoodCache(ctx).set('k', emptyNeighborhood);
 
     clearNoteCaches(ctx);
 
     expect(getHeadings(ctx, 'a.md')).toEqual([]);
     expect(allFrontmatterKeys(ctx)).toEqual([]);
-    expect(neighborhoodCache(ctx).size).toBe(0);
   });
 });

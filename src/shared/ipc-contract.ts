@@ -48,10 +48,7 @@ import type {
   Backlink,
   CitationGroup,
   SafeDeleteBlocker,
-  NeighborhoodOptions,
-  NeighborhoodResult,
   WholeGraphResult,
-  NeighborhoodHop,
   RelatedNotesResult,
   SourceDetail,
   CsvTableCollision,
@@ -279,8 +276,6 @@ export interface ChannelMap {
   'links:bundle': (relativePath: string) => { outgoing: OutgoingLink[]; backlinks: Backlink[] };
   'links:citationsForNote': (relativePath: string, content?: string) => CitationGroup[];
   'links:externalInbound': (paths: string[]) => SafeDeleteBlocker[];
-  'links:neighborhood': (relativePath: string, opts?: NeighborhoodOptions) => NeighborhoodResult;
-  'links:expandNode': (relativePath: string, opts?: { tags?: boolean }) => NeighborhoodHop;
 
   // Embeddings (semantic search)
   'embeddings:related': (relativePath: string, limit?: number) => RelatedNotesResult;

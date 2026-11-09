@@ -17,8 +17,7 @@ import { performance } from 'node:perf_hooks';
 import * as uriHelpers from './uri-helpers';
 import type { LinkType } from '../../shared/link-types';
 import type { TypeCatalog } from '../../shared/objects/type-def';
-import { projectContext, type ProjectContext } from '../project-context-types';
-import { clearNeighborhoodCache } from './note-caches';
+import type { ProjectContext } from '../project-context-types';
 import { createProjectStore } from '../project-store';
 import { checkStoreWriteGuard } from './write-guard';
 import { logger } from '../../shared/logger';
@@ -299,18 +298,16 @@ export function deleteState(ctx: ProjectContext): void {
   void store.dispose(ctx);
 }
 
-export function invalidate(state: GraphState): void {
+export function invalidate(_state: GraphState): void {
   // NOTE (#1110): this no longer nulls `n3Cache`. The N3 mirror is now
   // maintained incrementally by `instrumentStoreMirror` — every rdflib
   // add/removeMatches applies the same delta to the live mirror — so a write no
   // longer discards a mirror that may hold 100k triples for the next query to
   // rebuild from scratch. The only path that must drop the mirror is a
   // wholesale store swap (`indexAllNotes`), which calls `resetN3Mirror`.
-  // Any triple change can alter some note's neighborhood; drop the memo (#1113).
-  // The memo lives in ./note-caches now (#2234) — `state` carries the rootPath
-  // its project store keys on, so this stays a one-liner without re-coupling
-  // the cache's lifetime to the triple store's.
-  clearNeighborhoodCache(projectContext(state.rootPath));
+  // It used to clear the per-note graph walk's memo (#1113); that walk went
+  // with #3056, leaving nothing to clear. Kept as the one hook every graph
+  // write already calls, for the next derived cache that needs one.
 }
 
 // ── Incremental N3 mirror maintenance (#1110) ────────────────────────────────

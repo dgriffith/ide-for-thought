@@ -140,7 +140,9 @@ export async function reconstructTab(saved: SavedTab, nextQueryId: () => string)
     return { type: 'pdf', sourceId: saved.sourceId, page: saved.page ?? 1 };
   } else if (saved.type === 'graph') {
     if (saved.whole) return { type: 'graph', relativePath: '', depth: 1, whole: true, graph: restoredGraphState(saved.graph) };
-    return { type: 'graph', relativePath: saved.relativePath, depth: saved.depth ?? 1 };
+    // A note's own graph from before #3056 reopens as the graph, centred on that note at its depth.
+    const depth = Math.min(6, Math.max(1, Math.round(saved.depth ?? 1)));
+    return { type: 'graph', relativePath: '', depth: 1, whole: true, graph: { ...NEW_GRAPH_STATE, ...(saved.relativePath ? { focus: saved.relativePath, depth } : {}) } };
   } else if (saved.type === 'plugin-view') {
     // Read leniently: a session file is ours, but a hand-edit shouldn't crash the restore.
     if (typeof saved.pluginId !== 'string' || typeof saved.viewId !== 'string') return null;

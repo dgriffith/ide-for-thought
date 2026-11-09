@@ -109,14 +109,6 @@ export interface LinksApi {
   externalInbound(
     paths: string[],
   ): Promise<import('../../../shared/types').SafeDeleteBlocker[]>;
-  /** Depth-N link neighborhood for the graph view (#846). */
-  neighborhood(
-    relativePath: string,
-    opts?: import('../../../shared/types').NeighborhoodOptions,
-  ): Promise<import('../../../shared/types').NeighborhoodResult>;
-  /** A single hop out of a node — expand-on-demand (#846). */
-  /** `tags`: draw the note's tags, as the neighborhood does when asked (#2957). */
-  expandNode(relativePath: string, opts?: { tags?: boolean }): Promise<import('../../../shared/types').NeighborhoodHop>;
 }
 
 export interface QueriesApi {

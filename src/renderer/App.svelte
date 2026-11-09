@@ -10,7 +10,6 @@
   import { dropZoneFromFraction, splitForZone, type DropZone } from './lib/editor/drop-zone';
   import { collectGroupIds } from './lib/editor/layout-tree';
   import QueryPanel from './lib/components/QueryPanel.svelte';
-  import NeighborhoodGraph from './lib/components/NeighborhoodGraph.svelte';
   import ThoughtbaseGraph from './lib/components/ThoughtbaseGraph.svelte';
   import { NEW_GRAPH_STATE } from './lib/graph/whole-graph-filter';
   import TypeView from './lib/components/TypeView.svelte';
@@ -252,7 +251,7 @@
   const graphRevision = $derived(graphRevisionStore.revision);
   const editorComponent = $derived(tabViews.editor[editor.activeGroupId]);
   const queryPanelComponent = $derived(tabViews.query[editor.activeGroupId]);
-  const neighborhoodGraphComponent = $derived(tabViews.graph[editor.activeGroupId]);
+  const graphComponent = $derived(tabViews.graph[editor.activeGroupId]);
   const previewComponent = $derived(tabViews.preview[editor.activeGroupId]);
   let toolPanelComponent = $state<ToolPanel>();
   let cursorInfo = $state<CursorInfo>({ line: 1, column: 1, selectionLength: 0, wordCount: 0 });
@@ -870,7 +869,7 @@
     editorComponent?.updateTheme();
     queryPanelComponent?.updateTheme();
     previewComponent?.updateTheme();
-    neighborhoodGraphComponent?.updateTheme();
+    graphComponent?.updateTheme();
     rightSidebar?.updateTheme();
   }
 
@@ -1421,25 +1420,16 @@
                     />
                   {/await}
                 {/key}
-              {:else if active?.type === 'graph' && active.whole}
+              {:else if active?.type === 'graph'}
                 <ThoughtbaseGraph
+                  bind:this={tabViews.graph[groupId]}
                   state={active.graph ?? NEW_GRAPH_STATE}
-                  onState={(patch) => editor.setGraphState(patch)}
+                  onState={(patch) => editor.setGraphState(patch, active)}
                   revision={graphRevision}
                   onOpenNote={(p) => handleFileSelect(p)}
                   onOpenSource={(id) => editor.openSource(id)}
                   noteActions={viewNoteActions}
                 />
-              {:else if active?.type === 'graph'}
-                {#key active.relativePath}
-                  <NeighborhoodGraph
-                    bind:this={tabViews.graph[groupId]}
-                    relativePath={active.relativePath}
-                    depth={active.depth}
-                    revision={graphRevision}
-                    onOpenNote={(p) => handleFileSelect(p)}
-                  />
-                {/key}
               {:else if active?.type === 'type-view'}
                 {#key `${active.typeId}:${active.folder ?? ''}`}
                   <TypeView
@@ -1561,7 +1551,7 @@
           onOpenSource={handleOpenSource}
           onOpenExcerpt={handleOpenExcerpt}
           onContentChange={editor.setContent}
-          onOpenGraph={(p) => editor.openNeighborhood(p)}
+          onOpenGraph={(p) => editor.openGraph({ focus: p })}
           indexing={embeddingProgress !== null}
         />
       {/if}

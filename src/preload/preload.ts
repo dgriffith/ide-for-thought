@@ -9,7 +9,7 @@ importLegacyOriginStorage(
   () => ipcRenderer.sendSync(Channels.STORAGE_LEGACY_ORIGIN_ENTRIES) as Record<string, string> | null,
   () => window.localStorage,
 );
-import type { SearchInNotesOptions, ReplaceInNotesOptions, MenuEditorState, BookmarkNode, LayoutSession, NeighborhoodOptions } from '../shared/types';
+import type { SearchInNotesOptions, ReplaceInNotesOptions, MenuEditorState, BookmarkNode, LayoutSession } from '../shared/types';
 import type { ThemeMode } from '../shared/theme';
 import type { CommandId } from '../shared/commands';
 import type { PluginSettingsPatch } from '../shared/plugins/format';
@@ -124,10 +124,6 @@ const api = {
       invoke(Channels.LINKS_CITATIONS_FOR_NOTE, relativePath, content),
     externalInbound: (paths: string[]) =>
       invoke(Channels.LINKS_EXTERNAL_INBOUND, paths),
-    neighborhood: (relativePath: string, opts?: NeighborhoodOptions) =>
-      invoke(Channels.LINKS_NEIGHBORHOOD, relativePath, opts),
-    expandNode: (relativePath: string, opts?: { tags?: boolean }) =>
-      invoke(Channels.LINKS_EXPAND_NODE, relativePath, opts),
   },
   queries: {
     list: () => invoke(Channels.QUERIES_LIST),

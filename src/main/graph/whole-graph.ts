@@ -20,7 +20,7 @@ import type { ProjectContext } from '../project-context-types';
 import { indexedNotePaths } from './note-index';
 import { getExcerptSource, outgoingLinks, termNotePaths } from './queries';
 import { frontmatterOutEdges, noteIriIndex, noteTags, titleOf } from './queries/relation-edges';
-import { hopContext } from './neighborhood';
+import { hopContext } from './hop-context';
 import { getNoteTypeMap } from './note-properties';
 
 export type { WholeGraphNode, WholeGraphResult };

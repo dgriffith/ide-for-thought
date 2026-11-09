@@ -41,8 +41,6 @@ const h = vi.hoisted(() => ({
   backlinks: vi.fn(),
   citationsForNote: vi.fn(),
   findExternalInboundLinks: vi.fn(),
-  neighborhood: vi.fn(),
-  expandNode: vi.fn(),
   // notebase fs
   readFile: vi.fn(),
 }));
@@ -70,8 +68,6 @@ vi.mock('../../../src/main/graph/index', () => ({
   backlinks: h.backlinks,
   citationsForNote: h.citationsForNote,
   findExternalInboundLinks: h.findExternalInboundLinks,
-  neighborhood: h.neighborhood,
-  expandNode: h.expandNode,
 }));
 vi.mock('../../../src/main/notebase/fs', () => ({ readFile: h.readFile }));
 
@@ -118,8 +114,6 @@ describe('register-links — the #1631 project guard', () => {
     [Channels.LINKS_BUNDLE, ['a.md'], { outgoing: [], backlinks: [] }],
     [Channels.LINKS_CITATIONS_FOR_NOTE, ['a.md'], []],
     [Channels.LINKS_EXTERNAL_INBOUND, [['a.md']], []],
-    [Channels.LINKS_NEIGHBORHOOD, ['a.md'], { nodes: [], edges: [], truncated: false }],
-    [Channels.LINKS_EXPAND_NODE, ['a.md'], { nodes: [], edges: [], expandTo: [] }],
   ];
 
   it.each(fallbacks)('%s answers with its empty value and no project', async (channel, args, expected) => {
@@ -319,25 +313,6 @@ describe('register-links — the link panels', () => {
     expect(call(Channels.LINKS_EXTERNAL_INBOUND, ['a.md', 'b.md']))
       .toEqual([{ source: 'x.md', target: 'a.md' }]);
     expect(h.findExternalInboundLinks).toHaveBeenCalledWith(CTX, ['a.md', 'b.md']);
-  });
-
-  it('LINKS_NEIGHBORHOOD substitutes empty options when the view passed none', () => {
-    h.neighborhood.mockReturnValue({ nodes: [], edges: [], truncated: false });
-    call(Channels.LINKS_NEIGHBORHOOD, 'a.md');
-    expect(h.neighborhood).toHaveBeenCalledWith(CTX, 'a.md', {});
-  });
-
-  it('LINKS_NEIGHBORHOOD forwards the depth the view asked for', () => {
-    h.neighborhood.mockReturnValue({ nodes: [], edges: [], truncated: true });
-    expect(call(Channels.LINKS_NEIGHBORHOOD, 'a.md', { depth: 3 }))
-      .toEqual({ nodes: [], edges: [], truncated: true });
-    expect(h.neighborhood).toHaveBeenCalledWith(CTX, 'a.md', { depth: 3 });
-  });
-
-  it('LINKS_EXPAND_NODE reports the single hop out of a node', () => {
-    h.expandNode.mockReturnValue({ nodes: [{ id: 'b.md' }], edges: [], expandTo: ['b.md'] });
-    expect(call(Channels.LINKS_EXPAND_NODE, 'a.md'))
-      .toEqual({ nodes: [{ id: 'b.md' }], edges: [], expandTo: ['b.md'] });
   });
 });
 
