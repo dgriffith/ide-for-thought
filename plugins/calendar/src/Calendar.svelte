@@ -152,7 +152,7 @@
   const readOnly = $derived(view.readOnly);
   const exportMode = $derived(view.exportMode);
   // The view's own selection (#2938), for every part of the calendar to read.
-  const selection = createCalendarSelection(minerva, () => view);
+  const selection = createCalendarSelection(connection, () => view);
   provideSelection(selection);
   /** A click on an event: with its modifiers where the view selects (⌘ toggles, ⇧ extends); a plain one opens it. */
   const onOpenNote = (path: string, e?: MouseEvent) => selection.click(path, e);
