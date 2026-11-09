@@ -125,6 +125,7 @@
   import { isMenuKey, openMenuAt } from './drag-keys';
   import CalendarMoveBar from './CalendarMoveBar.svelte';
   import { createReschedule } from './reschedule-controller.svelte';
+  import { createCalendarSelection, provideSelection } from './selection.svelte';
 
   interface Props {
     minerva: MinervaPlugin;
@@ -150,7 +151,14 @@
   const dateBy = $derived(str(view.spec['dateBy']));
   const readOnly = $derived(view.readOnly);
   const exportMode = $derived(view.exportMode);
-  const onOpenNote = (path: string) => quietly(minerva.view.click({ path }));
+  // The view's own selection (#2938), for every part of the calendar to read.
+  const selection = createCalendarSelection(minerva, () => view);
+  provideSelection(selection);
+  /** A click on an event: with its modifiers where the view selects (⌘ toggles, ⇧ extends); a plain one opens it. */
+  const onOpenNote = (path: string, e?: MouseEvent) => selection.click(path, e);
+  const selectsWith = (e?: MouseEvent) => selection.selectable && !!e && (e.metaKey || e.ctrlKey || e.shiftKey);
+  /** A drag or *Move to date…* on a selected event moves the selection (#2938). */
+  const groupFor = (key: string): string[] | undefined => (selection.selectable && selection.has(key) && selection.paths.length > 1 ? [...selection.paths] : undefined);
   const onStateChange = (patch: Record<string, string | null>) => quietly(minerva.view.setState({ patch }));
 
   const uid = $props.id();
@@ -474,7 +482,28 @@
     e.preventDefault();
     e.stopPropagation(); // an event in a day cell: not the cell's as well
     hover.close();
-    quietly(minerva.ui.showNoteMenu({ paths: [key], x: e.clientX, y: e.clientY }));
+    // A selected event's menu is the selection's; any other's, its own (#2938, Kanban's rule).
+    menuKey = key;
+    quietly(minerva.ui.showNoteMenu({ paths: groupFor(key) ?? [key], x: e.clientX, y: e.clientY }));
+  }
+  let undatedList = $state<HTMLUListElement>();
+  function focusUndated(key: string): void {
+    [...(undatedList?.querySelectorAll<HTMLElement>('[data-note-path]') ?? [])].find((r) => r.dataset['notePath'] === key)?.focus();
+  }
+  /** The event the last menu was opened on: a group's *Move to date…* chooses the day for it. */
+  let menuKey: string | null = null;
+  /** ⌘A and Escape (#2938): the view's own selection, once nothing else wants Escape. */
+  function onRootKeydown(e: KeyboardEvent): void {
+    move.onKeydown(e);
+    if (e.defaultPrevented || !selection.selectable) return;
+    if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'a') {
+      if ((e.target as HTMLElement | null)?.closest('input, textarea')) return;
+      e.preventDefault();
+      selection.selectAll();
+    } else if (e.key === 'Escape' && !move.moving && listDay === null && selection.paths.length > 0) {
+      e.preventDefault(); // not "give focus back" — that's for an Escape with nothing to clear
+      selection.clear();
+    }
   }
   function onMenuKey(e: KeyboardEvent): void {
     if (!noteMenu || !isMenuKey(e)) return;
@@ -483,11 +512,12 @@
     openMenuAt(e.currentTarget as HTMLElement);
   }
   // *Move to date…*, chosen in that menu: choose the day here.
-  $effect(() => connection.on('moveToDate', ({ path }) => move.start(path)));
+  // For a selection (#2938, `paths`): the day is chosen for the event the menu was opened on.
+  $effect(() => connection.on('moveToDate', ({ path, paths }) => move.start(menuKey && paths?.includes(menuKey) ? menuKey : path, paths)));
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="cal" class:cal-export={exportMode} onkeydown={move.onKeydown} onfocusout={move.onFocusout}>
+<div class="cal" class:cal-export={exportMode} onkeydown={onRootKeydown} onfocusout={move.onFocusout}>
   <div class="cal-toolbar">
     <h2 class="cal-title" id="{uid}-title">{title}</h2>
     {#if !exportMode}
@@ -516,6 +546,7 @@
   {#if move.moving}
     <CalendarMoveBar
       title={move.moving.title}
+      count={move.moving.paths?.length ?? 1}
       id={moveBarId}
       onTyped={move.confirm}
       onInvalid={(t) => announce(`${t.trim() === '' ? 'Nothing typed' : `“${t.trim()}” isn’t a day`}: type a date like 2026-10-12.`)}
@@ -587,7 +618,7 @@
         refusal: move.refusalOf,
         coverage: (key) => { const ev = model.byKey.get(key); return ev ? coveredDays(ev) : null; },
         onDragStart: () => { hover.close(); if (listDay !== null) closeList(false); },
-        onDrop: move.move,
+        onDrop: (key, days) => move.move(key, days, groupFor(key)),
         onRefused: (_key, text) => announce(text),
       }}
     >
@@ -645,6 +676,8 @@
                   class:cal-approx={s.uncertainFromCol !== null}
                   class:cal-fixed={!interactive || move.refusalOf(s.key) !== null}
                   data-moving={move.moving?.key === s.key || undefined}
+                  class:cal-selected={selection.has(s.key)}
+                  aria-pressed={selection.selectable ? selection.has(s.key) : undefined}
                   tabindex="-1"
                   style:top="{DAY_PX + s.slot * SLOT_PX}px"
                   style:--span={span}
@@ -656,7 +689,7 @@
                   data-end-col={s.endCol}
                   data-slot={s.slot}
                   aria-describedby={[eventDescId(s.key), cardKey === s.key ? cardId : null].filter(Boolean).join(' ')}
-                  onclick={(e) => { e.stopPropagation(); onOpenNote(s.key); }}
+                  onclick={(e) => { e.stopPropagation(); onOpenNote(s.key, e); }}
                   oncontextmenu={(e) => onNoteMenu(e, s.key)}
                   onpointerenter={(e) => hoverIn(ev, e.currentTarget)}
                   onpointerleave={() => hover.pointerLeave(s.key)}
@@ -715,7 +748,7 @@
           ><span class="cal-undated-chevron" aria-hidden="true">{undatedOpen ? '▾' : '▸'}</span> Undated <span class="cal-undated-count">{model.undated.length}</span></button>
         </h3>
       {/if}
-      <ul id="{uid}-undated-list" class="cal-undated-list" hidden={!undatedOpen && !exportMode}>
+      <ul id="{uid}-undated-list" class="cal-undated-list" bind:this={undatedList} hidden={!undatedOpen && !exportMode}>
         {#each model.undated as u (u.key)}
           <li>
             {#if exportMode}
@@ -728,12 +761,14 @@
               <button
                 type="button"
                 class="cal-undated-row"
+                class:cal-selected={selection.has(u.key)}
+                aria-pressed={selection.selectable ? selection.has(u.key) : undefined}
                 data-note-path={u.key}
                 data-undated-reason={u.reason}
                 aria-haspopup={noteMenu ? 'menu' : undefined}
-                onclick={() => onOpenNote(u.key)}
+                onclick={(e) => onOpenNote(u.key, e)}
                 oncontextmenu={(e) => onNoteMenu(e, u.key)}
-                onkeydown={onMenuKey}
+                onkeydown={(e) => { if (!selection.key(e, u.key, model.undated.map((x) => x.key), ['ArrowUp', 'ArrowDown'], focusUndated)) onMenuKey(e); }}
               >
                 <span class="cal-undated-title">{u.title}</span>
                 <span class="cal-undated-reason">{u.reasonText}</span>
@@ -754,7 +789,7 @@
       {hover}
       {cardId}
       {cardKey}
-      onOpen={(key) => { closeList(false); onOpenNote(key); }}
+      onOpen={(key, e) => { if (!selectsWith(e)) closeList(false); onOpenNote(key, e); }}
       onClose={closeList}
       onMenu={noteMenu ? onNoteMenu : null}
     />
@@ -947,6 +982,9 @@
     cursor: pointer;
   }
   .cal-undated-row:hover { background: color-mix(in oklch, var(--text) 5%, transparent); }
+  /* Selected (#2938): an accent ring on an event, a tint on an Undated row. */
+  .cal-ev.cal-selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .cal-undated-row.cal-selected { background: color-mix(in oklch, var(--accent) 16%, transparent); }
   .cal-undated-title { font-size: 13px; font-weight: 500; }
   .cal-undated-reason { font-size: 11.5px; color: var(--text-muted); }
 

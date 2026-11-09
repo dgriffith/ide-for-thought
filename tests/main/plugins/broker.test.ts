@@ -412,6 +412,20 @@ describe('the ui kit (#2827)', () => {
     expect(s.intents).toHaveLength(2);
   });
 
+  it('passes a calendar\'s group move on with its paths: deduplicated, scoped, the note itself among them (#2938)', async () => {
+    const s = open({ scope: ['a.md', 'notes/n.md'] });
+    await s.call('view.reschedule', { path: 'a.md', days: 2, paths: ['a.md', 'notes/n.md', 'a.md'] });
+    await s.call('view.reschedule', { path: 'a.md', days: 2, paths: ['a.md'] }); // a group of one is one note
+    expect(s.intents).toEqual([
+      { kind: 'reschedule', path: 'a.md', days: 2, paths: ['a.md', 'notes/n.md'] },
+      { kind: 'reschedule', path: 'a.md', days: 2 },
+    ]);
+    expect((await s.call('view.reschedule', { path: 'a.md', days: 2, paths: ['notes/n.md'] })).error?.code).toBe('bad-request'); // without `path`
+    expect((await s.call('view.reschedule', { path: 'a.md', days: 2, paths: 'a.md' })).error?.code).toBe('bad-request');
+    expect((await s.call('view.reschedule', { path: 'a.md', days: 2, paths: ['a.md', 'b.md'] })).error?.code).toBe('scope');
+    expect(s.intents).toHaveLength(2);
+  });
+
   it('passes a calendar\'s new event on as an intent, its stretch checked, with notes:write (#2954)', async () => {
     const s = open();
     await s.call('view.createEvent', { start: '2026-10-07T09:00', end: '2026-10-07T10:30' });

@@ -22,7 +22,7 @@ import { dayName } from '../../../../shared/calendar/calendar-model';
 import { timelineProperties } from '../../../../shared/timeline/timeline-events';
 import type { PropertyDef, TypeInstanceRow } from '../../../../shared/objects/type-def';
 import type { getKanbanMoveStore } from '../../stores/kanban-moves.svelte';
-import { refusalFor } from '../../../../shared/calendar/reschedule-refusal';
+import { groupRefusal, refusalFor } from '../../../../shared/calendar/reschedule-refusal';
 
 /** Move `inst` by `days` whole days on the view's *Date by* (and, for Event, its `end`). */
 export function rescheduleInView(
@@ -42,6 +42,43 @@ export function rescheduleInView(
     { to: dayName(addDays(from, days), view.locale), back: dayName(from, view.locale) },
     view.cause ? { cause: view.cause } : {},
   );
+}
+
+/**
+ * Move several notes together by `days` (#2938): a selection, `anchor` the one
+ * the user chose the day for (named in the announcement). All or none, with
+ * one undo — the store refuses the whole group when any can't move.
+ */
+export function rescheduleManyInView(
+  moves: ReturnType<typeof getKanbanMoveStore>,
+  insts: readonly TypeInstanceRow[],
+  anchor: TypeInstanceRow,
+  view: { properties: readonly PropertyDef[]; dateBy: string | null; cause?: string | undefined; locale?: string | undefined },
+  days: number,
+): void {
+  if (!Number.isInteger(days) || days === 0) return;
+  const dates = timelineProperties(view.dateBy, view.properties);
+  const from = startDayOf((anchor.values[dates.dateProperty] ?? '').trim());
+  if (from === null) return;
+  void moves.rescheduleEvents(
+    insts.map((i) => ({ path: i.path, title: i.title })),
+    anchor.path,
+    { start: dates.dateProperty, end: dates.endProperty },
+    days,
+    { to: dayName(addDays(from, days), view.locale), back: dayName(from, view.locale) },
+    groupRefusal,
+    view.cause ? { cause: view.cause } : {},
+  );
+}
+
+/** Why `insts` can't all be moved to another day together, or null when they can (#2938) — the row menu's reason; one note's own sentence for one. */
+export function moveManyToDateRefusal(
+  insts: readonly TypeInstanceRow[],
+  view: { properties: readonly PropertyDef[]; dateBy: string | null },
+): string | null {
+  if (insts.length === 1) return moveToDateRefusal(insts[0]!, view);
+  const dates = timelineProperties(view.dateBy, view.properties);
+  return groupRefusal(insts.map((inst) => ({ title: inst.title, refusal: refusalFor({ inst, title: inst.title }, dates) })));
 }
 
 /** Why `inst` can't be moved to another day on the view's *Date by*, or null when it can (#2929). */

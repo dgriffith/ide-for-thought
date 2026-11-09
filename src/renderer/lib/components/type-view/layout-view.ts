@@ -124,7 +124,7 @@ export interface LayoutView {
   /** Put a card just before or after another (#2922): the view's card order; absent in an embed or export. */
   onReorderCard: ((path: string, target: string, side: DropSide) => void) | undefined;
   /** Calendar (#2829): move a note's dates by whole days, with undo; absent in an embed or export. */
-  onReschedule: ((path: string, days: number) => void) | undefined;
+  onReschedule: ((path: string, days: number, paths?: string[]) => void) | undefined;
   /** Calendar's week and day (#2953): move a timed note, or its end, by whole minutes, with undo; absent where onReschedule is. */
   onRetime: ((path: string, minutes: number, kind: 'move' | 'resize') => void) | undefined;
   /** Calendar's week and day (#2954): create a note of the view's type over a stretch; absent where onReschedule is. */
@@ -132,7 +132,7 @@ export interface LayoutView {
   /** Calendar (#2929): a plugin layout hands over how to start choosing a
    *  day for a note (its `moveToDate` event), so the row menu can offer
    *  *Move to date…*; null when it goes. */
-  provideMoveToDate: (start: ((path: string) => void) | null) => void;
+  provideMoveToDate: (start: ((path: string, paths?: readonly string[]) => void) | null) => void;
   /** The viewer's week, from their settings on this machine: its first day (ISO, 1 = Monday) and whether week numbers show. */
   week: { start: Weekday; numbers: boolean };
   /** Timeline and Calendar: their spec, already judged against the type. */

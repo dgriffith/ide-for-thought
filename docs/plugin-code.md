@@ -535,6 +535,14 @@ put both patterns together:
   day" mode does the rest. The host also shows the item disabled for an event
   that can't move, with the reason from `shared/calendar/reschedule-refusal.ts`,
   the same rule the plugin refuses a drag by.
+- **Several at once** (#2938, API 1.16.0): the calendar selects through the
+  view (`view.click` with its modifiers, ⌘A, Escape), and a selection moves
+  together. `view.reschedule` takes `paths`, the whole group with `path`
+  among them, and the host moves all of them as one undo step, or none:
+  `groupRefusal` names each event that can't move. For a selection, the menu's
+  *Move to date…* sends `moveToDate` with `paths`, and the plugin chooses the
+  day for the event the menu was opened on. A drag of a selected event moves
+  the selection the same way.
 - **A sandboxed frame can't submit a form** (no `allow-forms`, by design): the
   *Move to date…* bar acts on Enter and on its button's click instead.
 - **An export inliner must not copy what is the frame's**: a computed height

@@ -100,8 +100,8 @@ let seq = 0;
 const errorText = (err: unknown) => (err instanceof Error ? err.message : String(err));
 const YAML_ERROR = 'its frontmatter has a YAML error';
 
-function cardsPhrase(notes: readonly { title: string }[]): string {
-  return notes.length === 1 ? notes[0]!.title : `${notes.length} cards`;
+function cardsPhrase(notes: readonly { title: string }[], noun = 'cards'): string {
+  return notes.length === 1 ? notes[0]!.title : `${notes.length} ${noun}`;
 }
 
 function landed(paths: string[]): void {
@@ -199,6 +199,69 @@ async function rescheduleEvent(
   opts: { cause?: string } = {},
 ): Promise<RescheduleOutcome> {
   return changeDates(event, fields, (start, end) => rescheduleByDays(start, end, days), () => `Moved ${event.title} to ${labels.to}.`, labels.back, opts);
+}
+
+/**
+ * Reschedule several events together by the same `days` (#2938): a selection
+ * moved by *Move to date…* or by dragging one of it. Every note is read and
+ * planned first; if any can't move, nothing is written and the refusal names
+ * each one (`groupText`). Otherwise each is written, and the whole group is
+ * ONE undo step. `labels` name where `anchor` (the event the user chose the
+ * day for) lands, for the announcement.
+ */
+async function rescheduleEvents(
+  events: readonly MoveCard[],
+  anchor: string,
+  fields: RescheduleFields,
+  days: number,
+  labels: { to: string; back: string },
+  groupText: (refusals: readonly { title: string; refusal: string | null }[]) => string | null,
+  opts: { cause?: string } = {},
+): Promise<RescheduleOutcome> {
+  const planned: { event: MoveCard; before: string; fields: FieldValue[] }[] = [];
+  const refusals: { title: string; refusal: string | null }[] = [];
+  const failures: { title: string; error: string }[] = [];
+  for (const event of events) {
+    let before: string;
+    try {
+      before = await api.notebase.readFile(event.path);
+    } catch (err) {
+      logger('objects').warn('calendar reschedule failed for', event.path, err);
+      failures.push({ title: event.title, error: errorText(err) });
+      continue;
+    }
+    const start = groupValueOf(before, fields.start);
+    if (start === undefined) { failures.push({ title: event.title, error: YAML_ERROR }); continue; }
+    const end = fields.end === null ? null : groupValueOf(before, fields.end) ?? null;
+    const r = rescheduleByDays(start ?? '', end, days);
+    if (!r.ok) { refusals.push({ title: event.title, refusal: rescheduleRefusalText(r.reason, { title: event.title, start: start ?? '', end }) }); continue; }
+    refusals.push({ title: event.title, refusal: null });
+    const values: FieldValue[] = [];
+    if (r.start !== (start ?? '').trim()) values.push({ key: fields.start, value: r.start });
+    if (fields.end !== null && r.end !== null) values.push({ key: fields.end, value: r.end });
+    planned.push({ event, before, fields: values });
+  }
+  const refusal = groupText(refusals);
+  if (refusal !== null) {
+    announce(refusal);
+    reportFailures('move', failures);
+    return { ok: false, refusal };
+  }
+  const moved: MovedNote[] = [];
+  for (const p of planned) {
+    try {
+      const note = await writeFields(p.event, p.before, { fields: p.fields, backLabel: p.event.path === anchor ? labels.back : 'where it was' }, opts.cause);
+      if (note) moved.push(note);
+    } catch (err) {
+      if (!(err instanceof Error && err.message === YAML_ERROR)) logger('objects').warn('calendar reschedule failed for', p.event.path, err);
+      failures.push({ title: p.event.title, error: errorText(err) });
+    }
+  }
+  const anchorTitle = events.find((e) => e.path === anchor)?.title ?? '';
+  const spoken = moved.length === 1 ? `Moved ${moved[0]!.title} to ${labels.to}.` : `Moved ${moved.length} events, ${anchorTitle} to ${labels.to}.`;
+  const paths = await finishMove('calendar', moved, spoken);
+  reportFailures('move', failures);
+  return paths.length > 0 ? { ok: true, paths } : { ok: false, refusal: null };
 }
 
 /**
@@ -309,10 +372,10 @@ async function undoLastMove(surface: MoveSurface = 'board', opts: { cause?: stri
   if (restored.length > 0) {
     landed(paths);
     const back = restored.length === 1 ? ` back to ${restored[0]!.backLabel}` : '';
-    announce(`Undid the move: ${cardsPhrase(restored)}${back}.`);
+    announce(`Undid the move: ${cardsPhrase(restored, surface === 'board' ? 'cards' : 'events')}${back}.`);
     await syncOpenTabsToDisk(paths);
   } else if (failures.length === 0) {
-    announce(`Nothing undone: ${cardsPhrase(skipped)} changed since the move.`);
+    announce(`Nothing undone: ${cardsPhrase(skipped, surface === 'board' ? 'cards' : 'events')} changed since the move.`);
   }
   reportFailures('undo the move of', failures);
   return paths;
@@ -330,6 +393,7 @@ export function getKanbanMoveStore() {
     get canUndoReschedule(): boolean { return undoStack.some((r) => r.surface === 'calendar'); },
     moveCards,
     rescheduleEvent,
+    rescheduleEvents,
     retimeEvent,
     undoLastMove,
   };

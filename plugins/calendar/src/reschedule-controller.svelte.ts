@@ -18,12 +18,17 @@
  * - **A refused event** (a start or end that is only a month or year) never
  *   enters the mode: the refusal is spoken instead.
  * - **⌘Z** (`onKeydown`) undoes the calendar's last move, never a board's.
+ * - **A group** (#2938): a selection moved by *Move to date…* (the event's
+ *   `paths`) or by dragging one of it moves every one by the same days, in
+ *   one `view.reschedule` with `paths` — one undo. If any of them would be
+ *   refused, none moves, and the refusal names each one (`groupRefusal`).
  */
 import type { MinervaPlugin } from '/@minerva/plugin-api.js';
 import { DAY_MS } from '../../../src/shared/time';
 import { cardMoveKey } from './drag-keys';
 import { dayName, type CalendarModel } from '../../../src/shared/calendar/calendar-model';
 import { eventStartDay, refusalFor } from './reschedule';
+import { groupRefusal } from '../../../src/shared/calendar/reschedule-refusal';
 import type { TimelineProperties } from '../../../src/shared/timeline/timeline-events';
 
 export interface RescheduleHost {
@@ -42,29 +47,48 @@ export interface RescheduleHost {
 export function createReschedule(host: RescheduleHost) {
   const quietly = (p: Promise<unknown>) => { p.catch(() => {}); };
   const announce = (text: string) => quietly(host.minerva.ui.announce({ text }));
-  let moving = $state<{ key: string; title: string; from: number } | null>(null);
+  /** `paths`: the whole group moving with `key` (#2938), when it's more than one. */
+  let moving = $state<{ key: string; title: string; from: number; paths: string[] | null } | null>(null);
 
   function refusalOf(key: string): string | null {
     const ev = host.model().byKey.get(key);
     return ev ? refusalFor(ev, host.dates()) : null;
   }
 
-  function move(key: string, days: number): void {
+  /** A group of more than one, `key` among them (in the calendar's grid); null for one event. */
+  function groupOf(key: string, paths: readonly string[] | undefined): string[] | null {
+    const group = [...new Set(paths ?? [])].filter((p) => host.model().byKey.has(p));
+    return group.length > 1 && group.includes(key) ? group : null;
+  }
+  /** Why the group can't move together (each refused one named), or null. */
+  function groupRefusalOf(group: readonly string[]): string | null {
+    return groupRefusal(group.map((key) => ({ title: host.model().byKey.get(key)?.title ?? key, refusal: refusalOf(key) })));
+  }
+
+  function move(key: string, days: number, paths?: readonly string[]): void {
     const ev = host.model().byKey.get(key);
     const from = ev ? eventStartDay(ev, host.dates()) : null;
     if (!ev || from === null || !host.interactive() || days === 0) return;
+    const group = groupOf(key, paths);
+    if (group) {
+      const refusal = groupRefusalOf(group);
+      if (refusal !== null) { announce(refusal); return; }
+      quietly(host.minerva.view.reschedule({ path: key, days, paths: group }));
+      return;
+    }
     quietly(host.minerva.view.reschedule({ path: key, days }));
   }
 
-  function start(key: string): void {
+  function start(key: string, paths?: readonly string[]): void {
     if (!host.interactive()) return;
     const ev = host.model().byKey.get(key);
-    const refusal = refusalOf(key);
+    const group = groupOf(key, paths);
+    const refusal = group ? groupRefusalOf(group) : refusalOf(key);
     if (refusal !== null) { announce(refusal); return; }
     const from = ev ? eventStartDay(ev, host.dates()) : null;
     if (!ev || from === null) return;
     host.closeList();
-    moving = { key, title: ev.title, from };
+    moving = { key, title: ev.title, from, paths: group };
     host.focusDay(from);
   }
 
@@ -72,7 +96,7 @@ export function createReschedule(host: RescheduleHost) {
     const m = moving;
     if (!m) return;
     moving = null;
-    announce(`Move of ${m.title} cancelled.`);
+    announce(m.paths ? `Move of ${m.paths.length} events cancelled.` : `Move of ${m.title} cancelled.`);
     if (refocus) host.focusDay(m.from);
   }
 
@@ -82,7 +106,7 @@ export function createReschedule(host: RescheduleHost) {
     moving = null;
     host.focusDay(day);
     if (day === m.from) announce(`${m.title} is already on ${dayName(day, host.locale())}.`);
-    else move(m.key, Math.round((day - m.from) / DAY_MS));
+    else move(m.key, Math.round((day - m.from) / DAY_MS), m.paths ?? undefined);
   }
 
   /** On the calendar's root: ⌘Z undoes the calendar's last move (a text field keeps its own undo). */

@@ -8,7 +8,7 @@
  * Its own module so `calendar-reschedule.ts` stays importable without the
  * dialog and notebase stores the creation path needs.
  */
-import { rescheduleInView, retimeInView } from './calendar-reschedule';
+import { rescheduleInView, rescheduleManyInView, retimeInView } from './calendar-reschedule';
 import { createCalendarEvent } from '../../app/calendar-create';
 import { timelineProperties } from '../../../../shared/timeline/timeline-events';
 import type { PropertyDef, TypeInfo, TypeInstanceRow } from '../../../../shared/objects/type-def';
@@ -30,10 +30,15 @@ export interface CalendarHostView {
 export function calendarHost(moves: ReturnType<typeof getKanbanMoveStore>, view: () => CalendarHostView) {
   const find = (path: string) => view().instances.find((i) => i.path === path);
   return {
-    reschedule: (path: string, days: number): void => {
+    reschedule: (path: string, days: number, paths?: string[]): void => {
       const v = view();
       const inst = find(path);
-      if (inst) rescheduleInView(moves, inst, { properties: v.properties, dateBy: v.dateBy, cause: v.moveCause }, days);
+      if (!inst) return;
+      const opts = { properties: v.properties, dateBy: v.dateBy, cause: v.moveCause };
+      // A group (#2938): the notes the view still shows, moved together with one undo.
+      const group = (paths ?? []).map(find).filter((i): i is TypeInstanceRow => i !== undefined);
+      if (group.length > 1) rescheduleManyInView(moves, group, inst, opts, days);
+      else rescheduleInView(moves, inst, opts, days);
     },
     retime: (path: string, minutes: number, kind: 'move' | 'resize'): void => {
       const v = view();

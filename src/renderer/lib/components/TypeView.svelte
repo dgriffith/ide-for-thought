@@ -45,7 +45,7 @@
   import TypeViewRowMenu from './TypeViewRowMenu.svelte';
   import { getKanbanMoveStore } from '../stores/kanban-moves.svelte';
   import { getCalendarSettings } from '../stores/settings-calendar.svelte';
-  import { moveToDateRefusal } from './type-view/calendar-reschedule';
+  import { moveManyToDateRefusal } from './type-view/calendar-reschedule';
   import { calendarHost } from './type-view/calendar-host';
   import { typeSource, type ViewSource } from './type-view/view-source';
   import { createViewLoader } from './type-view/view-loader.svelte';
@@ -363,15 +363,15 @@
     instances, properties: allColumns, dateBy: calendarSpec.dateBy, type, catalog: catalog ?? objectTypesStore.types,
     moveCause, createCause: layoutPluginName ? `Created by ${layoutPluginName}` : undefined,
   }));
-  // *Move to date…* (#2929): one event, where the calendar moves notes; the
-  // plugin chooses the day. A refused event's item stays, disabled, and says why.
-  let startMoveToDate = $state<((path: string) => void) | null>(null);
+  // *Move to date…* (#2929, #2938): an event or a selection, where the calendar moves notes; the plugin
+  // chooses the day. A refused item stays, disabled, and says why — naming each event that can't move.
+  let startMoveToDate = $state<((path: string, paths?: readonly string[]) => void) | null>(null);
   function moveToDateItem(paths: string[]) {
     const start = startMoveToDate;
-    const inst = paths.length === 1 && !sel.menu?.target ? instances.find((i) => i.path === paths[0]) : undefined;
-    if (!onCalendar || !movesHere || !start || !inst) return {};
-    const refusal = moveToDateRefusal(inst, { properties: allColumns, dateBy: calendarSpec.dateBy });
-    return { moveToDate: { refusal, onPick: () => (refusal ? announce(refusal) : (sel.closeMenu(), start(inst.path))) } };
+    const insts = sel.menu?.target ? [] : paths.map((p) => instances.find((i) => i.path === p)).filter((i) => i !== undefined);
+    if (!onCalendar || !movesHere || !start || insts.length === 0) return {};
+    const refusal = moveManyToDateRefusal(insts, { properties: allColumns, dateBy: calendarSpec.dateBy });
+    return { moveToDate: { refusal, onPick: () => (refusal ? announce(refusal) : (sel.closeMenu(), start(insts[0]!.path, insts.map((i) => i.path)))) } };
   }
   function onMoveColumn(key: string, target: string, side: 'before' | 'after'): void {
     if (groupProp) onStateChange({ columnOrder: moveColumn(instances, groupProp, columnOrder, key, target, side) });

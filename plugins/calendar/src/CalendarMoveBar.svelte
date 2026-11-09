@@ -18,15 +18,17 @@
   import { parseTypedDay } from './reschedule';
 
   interface Props {
-    /** The event being moved. */
+    /** The event being moved — the one a group's day is chosen for. */
     title: string;
+    /** How many move together (#2938): a selection's size, 1 for one event. */
+    count?: number;
     /** Instructions' id: the grid's `aria-describedby` while choosing. */
     id: string;
     onTyped: (day: number) => void;
     onInvalid: (text: string) => void;
     onCancel: () => void;
   }
-  let { title, id, onTyped, onInvalid, onCancel }: Props = $props();
+  let { title, count = 1, id, onTyped, onInvalid, onCancel }: Props = $props();
 
   let typed = $state('');
   let invalid = $state(false);
@@ -48,7 +50,7 @@
 
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <form class="cal-movebar" data-calendar-move-bar aria-label="Move {title} to a date" onsubmit={submit} onkeydown={onKeydown}>
-  <span class="cal-movebar-text" {id}>Moving <strong>{title}</strong>: choose a day with the arrow keys and press Enter, or type a date. Escape cancels.</span>
+  <span class="cal-movebar-text" {id}>{#if count > 1}Moving {count} events: choose a day for <strong>{title}</strong>, and the others keep their distance from it. Use{:else}Moving <strong>{title}</strong>: choose a day with{/if} the arrow keys and press Enter, or type a date. Escape cancels.</span>
   <input
     class="cal-movebar-input"
     type="text"

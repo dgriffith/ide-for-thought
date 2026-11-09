@@ -125,8 +125,8 @@
   $effect(() => {
     const c = connection;
     if (!c || !view.onReschedule) return;
-    view.provideMoveToDate((path) => {
-      void c.startMoveToDate(path).catch((e: unknown) => logger('plugins').warn(`plugin ${pluginId}: move to date not sent:`, e));
+    view.provideMoveToDate((path, paths) => {
+      void c.startMoveToDate(path, paths).catch((e: unknown) => logger('plugins').warn(`plugin ${pluginId}: move to date not sent:`, e));
     });
     return () => view.provideMoveToDate(null);
   });
@@ -173,7 +173,7 @@
       onUndoMove={() => view.onUndoMove?.()}
       onMoveColumn={(key, target, side) => view.onMoveColumn?.(key, target, side)}
       onReorderCard={(path, target, side) => view.onReorderCard?.(path, target, side)}
-      onReschedule={(path, days) => view.onReschedule?.(path, days)}
+      onReschedule={(path, days, paths) => view.onReschedule?.(path, days, paths)}
       onRetime={(path, minutes, kind) => view.onRetime?.(path, minutes, kind)}
       onCreateEvent={(start, end) => view.onCreateEvent?.(start, end)}
       onExportHtml={(id, html) => { void onExportHtml(id, html); }}

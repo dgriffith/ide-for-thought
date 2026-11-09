@@ -308,6 +308,17 @@ describe('Move to date (#2929)', () => {
     await vi.waitFor(() => expect(events).toEqual([{ event: 'moveToDate', data: { path: 'a.md' } }]));
     w.closeWindow();
   });
+
+  it('passes a selection on as `paths` when every note is in scope, and refuses one that is not (#2938)', async () => {
+    const w = fakeWindow(1);
+    const { sessionId } = openPluginSession(w.win, 'calendar', ['a.md', 'b.md']);
+    const events: unknown[] = [];
+    w.posted[0]!.ports[0]!.on('message', (e: { data: string }) => { const m = JSON.parse(e.data); if (m.event) events.push(m); });
+    await expect(sendPluginSessionEvent(w.win, sessionId, { kind: 'moveToDate', path: 'a.md', paths: ['a.md', 'other.md'] })).rejects.toThrow('isn’t in this view');
+    await sendPluginSessionEvent(w.win, sessionId, { kind: 'moveToDate', path: 'a.md', paths: ['a.md', 'b.md', 'b.md'] });
+    await vi.waitFor(() => expect(events).toEqual([{ event: 'moveToDate', data: { path: 'a.md', paths: ['a.md', 'b.md'] } }]));
+    w.closeWindow();
+  });
 });
 
 describe('a view event names linked notes too (#2828, C1)', () => {

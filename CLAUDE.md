@@ -1885,7 +1885,10 @@ origin.
   1.7.0; history cause *Moved by Calendar*), ⌘Z goes to the surface the
   registry entry's `moves` names, and the view carries the viewer's `week`.
   An event's menu is Minerva's (`ui.showNoteMenu`, #2929); its *Move to
-  date…* sends the `moveToDate` event back (API 1.13.0).
+  date…* sends the `moveToDate` event back (API 1.13.0). A selection moves
+  together (#2938, API 1.16.0): `view.reschedule` and `moveToDate` carry `paths`,
+  and the host moves all of them as one undo step or none (`groupRefusal` names
+  the ones that can't).
   A plugin frame can't submit a `<form>` (no `allow-forms`) — act on Enter
   and click — and an export inliner must not copy a computed height or an
   `auto` margin, which are the frame's. **A global view (#2640)** is a sidebar panel

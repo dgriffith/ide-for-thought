@@ -28,7 +28,7 @@ import type { PluginCapability } from './capabilities';
  * The API's semver version (#2826), its own and not the app's: the host sends
  * it with the port, and a plugin's `code.api` range must accept it.
  */
-export const PLUGIN_API_VERSION = '1.15.0';
+export const PLUGIN_API_VERSION = '1.16.0';
 
 export const PLUGIN_METHODS = {
   'notes.list': { capability: 'notes:read', describes: 'The notes this view or call was given.' },
@@ -57,7 +57,7 @@ export const PLUGIN_METHODS = {
   'view.undoMove': { capability: 'notes:write-properties', describes: "Undo the view's last move (Cmd/Ctrl+Z on a board)." },
   'view.moveColumn': { capability: 'ui', describes: "Move one of the view's groups before or after another; the order stays with the view." },
   'view.reorderCard': { capability: 'ui', describes: "Put a note just before or after another in the view's order; the order stays with the view, and no note is written." },
-  'view.reschedule': { capability: 'notes:write-properties', describes: "Move a dated note by whole days: Minerva shifts its start and end, with undo (a calendar's drag)." },
+  'view.reschedule': { capability: 'notes:write-properties', describes: "Move a dated note, or several together, by whole days: Minerva shifts each one's start and end, with one undo (a calendar's drag)." },
   'view.retime': { capability: 'notes:write-properties', describes: "Move a timed note by whole minutes, a day's worth or more included: Minerva shifts its start and end on the viewer's clock, with undo (a calendar's week or day)." },
   'view.resize': { capability: 'notes:write-properties', describes: "Move a timed note's end by whole minutes, writing an end where there was none: Minerva changes the end only, with undo." },
   'view.createEvent': { capability: 'notes:write', describes: "Ask for a new note of the view's type dated to a stretch of the calendar: Minerva asks the user for its title (and which subtype), and creates it." },
@@ -106,8 +106,13 @@ export interface PluginMethodParams {
   'view.moveColumn': { key: string; target: string; side: 'before' | 'after' };
   /** `target`: the note `path` lands beside (#2922) — in any group, so a card dropped into another column at a spot is `view.moveCard` and this. */
   'view.reorderCard': { path: string; target: string; side: 'before' | 'after' };
-  /** `days`: a whole number, not 0, at most PLUGIN_RESCHEDULE_MAX_DAYS either way. */
-  'view.reschedule': { path: string; days: number };
+  /**
+   * `days`: a whole number, not 0, at most PLUGIN_RESCHEDULE_MAX_DAYS either way.
+   * `paths` (1.16.0, #2938): the whole group to move by the same days, `path`
+   * among them. Minerva moves all of them with one undo, or none, saying why,
+   * when any can't move.
+   */
+  'view.reschedule': { path: string; days: number; paths?: string[] };
   /** `minutes`: a whole number, not 0, at most PLUGIN_RETIME_MAX_MINUTES either way — a drop on another day adds 1440 a day. */
   'view.retime': { path: string; minutes: number };
   /** `minutes`: the end's move, as `view.retime`'s. */
@@ -203,7 +208,9 @@ export interface PluginMethodResults {
  * - `moveToDate` (#2929): the user chose *Move to date…* in Minerva's note
  *   menu for one of the view's notes — let them choose the day (a calendar's
  *   own picker), then ask with `view.reschedule`. Only sent where the view
- *   can move notes, and only for a note in its scope.
+ *   can move notes, and only for a note in its scope. `paths` (1.16.0,
+ *   #2938): the menu was for a selection — choose the day for `path`, and move
+ *   them all by the same days.
  */
 export interface PluginEvents {
   theme: { mode: string; vars: Record<string, string> };
@@ -213,7 +220,7 @@ export interface PluginEvents {
   preview: { path: string; description: string | null };
   query: PluginQueryResults;
   block: PluginBlockState;
-  moveToDate: { path: string };
+  moveToDate: { path: string; paths?: string[] };
 }
 
 /**

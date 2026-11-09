@@ -14,6 +14,7 @@
   import type { TimelineEvent } from '../../../src/shared/timeline/timeline-events';
   import type { NoteHover } from './hover.svelte';
   import { isMenuKey, openMenuAt } from './drag-keys';
+  import { useSelection } from './selection.svelte';
 
   interface Props {
     /** "Wednesday, 7 October 2026". */
@@ -26,11 +27,13 @@
     hover: NoteHover;
     cardId: string;
     cardKey: string | null;
-    onOpen: (key: string) => void;
+    /** The click that asked, for its modifiers (#2938). */
+    onOpen: (key: string, e?: MouseEvent) => void;
     /** Minerva's note menu for an event; null where the view has none. */
     onMenu: ((e: MouseEvent, key: string) => void) | null;
   }
   let { label, events, timeOf, detailOf, hover, cardId, cardKey, onOpen, onMenu }: Props = $props();
+  const selection = useSelection();
   const uid = $props.id();
 
   let focusedKey = $state<string | null>(null);
@@ -80,7 +83,9 @@
             data-note-path={ev.key}
             aria-describedby={[`${uid}-desc-${i}`, cardKey === ev.key ? cardId : null].filter(Boolean).join(' ')}
             aria-haspopup={onMenu ? 'menu' : undefined}
-            onclick={() => onOpen(ev.key)}
+            class:cal-agenda-selected={selection.has(ev.key)}
+            aria-pressed={selection.selectable ? selection.has(ev.key) : undefined}
+            onclick={(e) => onOpen(ev.key, e)}
             oncontextmenu={onMenu ? (e) => onMenu(e, ev.key) : undefined}
             onfocus={(e) => { focusedKey = ev.key; hover.focus({ key: ev.key, target: ev.key, anchor: e.currentTarget, fallbackTitle: ev.title }); }}
             onblur={() => hover.blur(ev.key)}
@@ -132,6 +137,7 @@
   }
   .cal-agenda-item.approx { border-left-style: dashed; }
   .cal-agenda-item:hover { background: color-mix(in oklch, var(--text) 8%, transparent); }
+  .cal-agenda-item.cal-agenda-selected { background: color-mix(in oklch, var(--accent) 16%, transparent); box-shadow: inset 3px 0 0 var(--accent); }
   .cal-agenda-item:focus-visible { outline: 2px solid var(--accent); outline-offset: -1px; }
   .cal-agenda-time { grid-row: span 2; font-size: 11px; font-variant-numeric: tabular-nums; white-space: nowrap; padding-top: 1px; }
   .cal-agenda-name { font-size: 12.5px; font-weight: 500; overflow-wrap: anywhere; }
