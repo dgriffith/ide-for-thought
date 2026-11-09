@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Minerva — Docs — View Modes</title>
-<meta name="description" content="The three ways to look at a note in Minerva — Source, Preview, and Side by side — and how to switch between them." />
+<meta name="description" content="The ways to look at a note in Minerva — Source, Preview, Side by side, and Mindmap — how to switch between them, and editing a note's outline as a mindmap." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -85,9 +85,9 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="viewing-options.html">Viewing options</a><span class="sep">/</span>View modes</p>
 
     <h1>View modes</h1>
-    <p class="lede">You can look at a note three ways: as the plain text you type, as the finished, formatted page, or with both side by side. Each pane sets its own mode, so you can be editing one note while reading another in the same window. Switching modes never changes your note — it's just a different way to look at the same content.</p>
+    <p class="lede">You can look at a note as the plain text you type, as the finished, formatted page, as a mindmap of its outline, or with the text beside either one. Each pane sets its own mode, so you can be editing one note while reading another in the same window. Switching modes never changes your note — it's just a different way to look at the same content.</p>
 
-    <h2 id="modes">The three modes</h2>
+    <h2 id="modes">The modes</h2>
     <p>The mode belongs to the pane, not the note. Reopen a note later and it appears in whatever mode that pane was last set to.</p>
 
     <div class="deflist">
@@ -101,7 +101,11 @@
       </div>
       <div class="row">
         <div class="k">Side by side</div>
-        <div class="v">Your text on the left and the formatted page on the right, in the same pane, so you can write and see the result at once.</div>
+        <div class="v">Your text on the left and the formatted page on the right, in the same pane, so you can write and see the result at once. Chosen from the Mindmap, it puts your text beside the map instead.</div>
+      </div>
+      <div class="row">
+        <div class="k">Mindmap</div>
+        <div class="v">The note's outline as a map: its title in the middle, its headings and list items as branches. You can reshape the note from here. See <a href="#mindmap">Editing a note as a mindmap</a> below.</div>
       </div>
     </div>
 
@@ -118,13 +122,33 @@
     <div class="deflist">
       <div class="row">
         <div class="k">Toolbar buttons</div>
-        <div class="v">Three buttons above the note — <b>Source</b>, <b>Side by side</b>, <b>Preview</b> — jump straight to that mode from wherever you are, so you can go from editing to the finished page in one click.</div>
+        <div class="v">Three buttons above the note — <b>Source</b>, <b>Side by side</b>, <b>Preview</b>, <b>Mindmap</b> — jump straight to that mode from wherever you are, so you can go from editing to the finished page in one click.</div>
       </div>
       <div class="row">
         <div class="k">Cycle shortcut — <kbd>⌘</kbd><kbd>⇧</kbd><kbd>P</kbd></div>
-        <div class="v">Steps the active pane through the three modes in order: <b>Source → Preview → Side by side → Source</b>. The same command is in the View menu as <b>Cycle Preview Mode</b>.</div>
+        <div class="v">Steps the active pane through the modes in order: <b>Source → Preview → Side by side → Mindmap → Source</b>. The same command is in the View menu as <b>Cycle Preview Mode</b>.</div>
+      </div>
+      <div class="row">
+        <div class="k">Mindmap — <kbd>⌘</kbd><kbd>⇧</kbd><kbd>M</kbd></div>
+        <div class="v">Shows the note as a mindmap, and again goes back to the editor. In the View menu as <b>Mindmap</b>.</div>
       </div>
     </div>
+
+    <h2 id="mindmap">Editing a note as a mindmap</h2>
+    <p>The map is the note's outline: the note's title is the centre, its headings branch from it by level, and the list items under each heading branch from that heading by indentation. Frontmatter, code, tables and the rest of your writing aren't on the map, and nothing you do on the map touches them.</p>
+    <p>Every change you make on the map is a change to the note's text, made the same way as if you'd typed it: <kbd>⌘</kbd><kbd>Z</kbd> undoes it, on the map or in the editor, and the note shows as unsaved until you save it.</p>
+    <div class="deflist">
+      <div class="row"><div class="k"><kbd>Tab</kbd></div><div class="v">Add a child to the selected branch and name it. Under a heading with list items, it's a list item; otherwise a heading one level down.</div></div>
+      <div class="row"><div class="k"><kbd>Enter</kbd></div><div class="v">Add a branch after the selected one, at its level, and name it. A new branch you leave unnamed goes again.</div></div>
+      <div class="row"><div class="k"><kbd>F2</kbd> or double-click</div><div class="v">Rename the branch.</div></div>
+      <div class="row"><div class="k"><kbd>Delete</kbd></div><div class="v">Remove the branch. With branches under it, Minerva asks first, and they go too.</div></div>
+      <div class="row"><div class="k"><kbd>⌘</kbd><kbd>[</kbd> / <kbd>⌘</kbd><kbd>]</kbd></div><div class="v">Promote the branch out a level, to just after the branch it was in, or demote it under the branch before it. Everything under it moves with it.</div></div>
+      <div class="row"><div class="k">Drag</div><div class="v">Drop a branch on the middle of another to move it in, or on its top or bottom edge to move it before or after.</div></div>
+      <div class="row"><div class="k">Arrows, <kbd>Space</kbd></div><div class="v"><kbd>↑</kbd> and <kbd>↓</kbd> move between branches at the same level, <kbd>←</kbd> to the parent and <kbd>→</kbd> to the first child; <kbd>Space</kbd> folds or unfolds a branch, which then shows how many it hides. <kbd>⇧</kbd><kbd>Tab</kbd> leaves the map.</div></div>
+    </div>
+    <p>Headings and list items stay what they are: a list item can't be promoted into a heading, a heading can't move into a list, and nothing goes deeper than a sixth-level heading. When an edit can't be made, Minerva says why.</p>
+    <p>Choose <b>Left to right</b> or <b>Radial</b> for the map's shape. Scroll to zoom, drag the background to move around, and <b>Fit</b> to see it all. Which branches are folded, and the map's shape, are kept for each note on this computer, not in the note.</p>
+    <p>With <b>Side by side</b>, the text and the map follow each other: select a branch and the editor's cursor moves to its line; move the cursor and the map selects the branch it's in.</p>
 
     <div class="pager">
       <a class="prev" href="viewing-options-operations.html">

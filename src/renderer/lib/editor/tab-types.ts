@@ -161,7 +161,11 @@ export type Tab = NoteTab | QueryTab | SourceTab | PdfTab | GraphTab | TypeViewT
  * preview side by side (#818). Lives per editor group (#811) — moved off the
  * App.svelte global so each split pane can carry its own mode.
  */
-export type ViewMode = 'source' | 'preview' | 'editor-preview';
+/** A group's view of its note: the editor, the preview, the mindmap (#2965), or the editor beside one of them. */
+export type ViewMode = 'source' | 'preview' | 'editor-preview' | 'mindmap' | 'editor-mindmap';
+
+const VIEW_MODES: readonly ViewMode[] = ['source', 'preview', 'editor-preview', 'mindmap', 'editor-mindmap'];
+export const isViewMode = (v: unknown): v is ViewMode => VIEW_MODES.includes(v as ViewMode);
 
 /**
  * One editor group — an independent pane owning its own tab strip, active tab,

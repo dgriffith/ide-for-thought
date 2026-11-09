@@ -11,6 +11,8 @@
 export const CONFIRM_KEYS = {
   /** Removing a plugin deletes its folder in ~/.minerva/plugins/ (#2634). */
   pluginRemove: 'plugin-remove',
+  /** Deleting a node with others beneath it from a note's mindmap (#2965): they go too. */
+  mindmapDeleteSubtree: 'mindmap-delete-subtree',
   delete: 'confirm-delete',
   /** Restoring a note to a history revision — non-destructive (the restore is
    *  itself a new revision), so the confirm is dismissable. (#1158) */
@@ -137,6 +139,11 @@ export const CONFIRM_REGISTRY: ConfirmRegistryEntry[] = [
     title: 'Remove a plugin',
     description:
       'Prompt before removing a plugin from Settings → Plugins, which deletes its folder in ~/.minerva/plugins/ (the folder it was installed from is kept).',
+  },
+  {
+    key: CONFIRM_KEYS.mindmapDeleteSubtree,
+    title: 'Delete a branch with branches under it, in a mindmap',
+    description: 'Prompt before deleting a heading or list item from a note\'s mindmap when it has others beneath it, which are deleted from the note too. ⌘Z brings them back.',
   },
   {
     key: CONFIRM_KEYS.delete,

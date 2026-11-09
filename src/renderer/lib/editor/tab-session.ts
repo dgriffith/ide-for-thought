@@ -21,7 +21,7 @@ import type {
 } from '../../../shared/types';
 import { type LayoutNode, leaf, collectGroupIds, isLayoutNode } from './layout-tree';
 import {
-  type EditorGroup, type Tab, type ViewMode,
+  type EditorGroup, type Tab, type ViewMode, isViewMode,
   isNote, isQuery, isPdf, isGraph, isTypeView, isPluginView, isUnsupported,
 } from './tab-types';
 import { extensionOf } from '../../../shared/file-capability';
@@ -180,7 +180,7 @@ export async function reconstructTab(saved: SavedTab, nextQueryId: () => string)
 }
 
 export function asViewMode(v: unknown): ViewMode {
-  return v === 'preview' || v === 'editor-preview' || v === 'source' ? v : 'source';
+  return isViewMode(v) ? v : 'source';
 }
 
 /** Cross-pane identity of a persisted tab, for the forbid-duplicate dedup on

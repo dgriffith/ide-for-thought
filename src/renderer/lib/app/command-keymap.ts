@@ -98,6 +98,7 @@ export interface CommandKeymapCtx {
 
   // View-mode cycle + the palette's backing caches.
   cycleViewMode: () => void;
+  toggleMindmap: () => void;
   refreshSourcesCache: () => void;
   refreshSavedQueriesCache: () => void;
 
@@ -197,6 +198,7 @@ export function createCommandKeymap(ctx: CommandKeymapCtx): {
     'view.toggleSidebar': ctx.toggleSidebar,
     'view.toggleRightSidebar': ctx.toggleRightSidebar,
     'view.togglePreview': ctx.cycleViewMode,
+    'view.toggleMindmap': ctx.toggleMindmap,
     'view.openGraph': () => editor.openGraph(),
     'view.toggleConversations': () => conversationsStore.toggle(),
     'view.theme.dark': theme('dark'),

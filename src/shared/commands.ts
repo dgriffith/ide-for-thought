@@ -118,6 +118,8 @@ export const COMMANDS = [
   { id: 'view.toggleSidebar', fromPluginViews: true, title: 'Toggle Left Sidebar', category: 'View', key: 'CmdOrCtrl+Alt+B', keyOffMac: 'CmdOrCtrl+Shift+E', palette: { when: 'always' }, menu: {} },
   { id: 'view.toggleRightSidebar', fromPluginViews: true, title: 'Toggle Right Sidebar', category: 'View', key: 'CmdOrCtrl+Shift+B', palette: { when: 'always' }, menu: {} },
   { id: 'view.togglePreview', title: 'Toggle Preview Mode', category: 'View', key: 'CmdOrCtrl+Shift+P', palette: { when: 'note' }, menu: { label: 'Cycle Preview Mode', gate: NOTE } },
+  // The note as a mindmap (#2965); again goes back to the editor.
+  { id: 'view.toggleMindmap', title: 'Show as Mindmap', category: 'View', key: 'CmdOrCtrl+Shift+M', palette: { when: 'note' }, menu: { label: 'Mindmap', gate: NOTE } },
   { id: 'view.toggleConversations', fromPluginViews: true, title: 'Toggle Conversations', category: 'View', key: 'CmdOrCtrl+Shift+K', palette: { when: 'always' }, menu: {} },
   { id: 'view.openGraph', title: 'Open Graph', category: 'View', palette: { when: 'project' }, menu: { label: 'Graph of the Thoughtbase' } },
   // One directly selectable entry per theme (#1139); the menu's Theme submenu

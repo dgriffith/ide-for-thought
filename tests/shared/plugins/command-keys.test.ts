@@ -39,12 +39,12 @@ describe('resolvePluginKeys (#2879)', () => {
   const cmd = (pluginId: string, commandId: string, key?: string, keyOffMac?: string) => ({ pluginId, pluginName: pluginId.toUpperCase(), commandId, title: commandId, ...(key ? { key } : {}), ...(keyOffMac ? { keyOffMac } : {}) });
 
   it('off macOS a key that would catch AltGr is refused, and keyOffMac stands in where given (#2986)', () => {
-    const cmds = [cmd('a', 'alt', 'CmdOrCtrl+Alt+J'), cmd('a', 'both', 'CmdOrCtrl+Alt+K', 'CmdOrCtrl+Shift+N'), cmd('a', 'arrow', 'CmdOrCtrl+Alt+F5'), cmd('a', 'plain', 'CmdOrCtrl+Shift+M')];
+    const cmds = [cmd('a', 'alt', 'CmdOrCtrl+Alt+J'), cmd('a', 'both', 'CmdOrCtrl+Alt+K', 'CmdOrCtrl+Shift+N'), cmd('a', 'arrow', 'CmdOrCtrl+Alt+F5'), cmd('a', 'plain', 'CmdOrCtrl+Shift+6')];
     const mac = resolvePluginKeys(cmds, true);
-    expect(Object.fromEntries(mac.keys)).toEqual({ 'a/alt': 'CmdOrCtrl+Alt+J', 'a/both': 'CmdOrCtrl+Alt+K', 'a/arrow': 'CmdOrCtrl+Alt+F5', 'a/plain': 'CmdOrCtrl+Shift+M' });
+    expect(Object.fromEntries(mac.keys)).toEqual({ 'a/alt': 'CmdOrCtrl+Alt+J', 'a/both': 'CmdOrCtrl+Alt+K', 'a/arrow': 'CmdOrCtrl+Alt+F5', 'a/plain': 'CmdOrCtrl+Shift+6' });
     expect(mac.refused).toEqual([]);
     const other = resolvePluginKeys(cmds, false);
-    expect(Object.fromEntries(other.keys)).toEqual({ 'a/both': 'CmdOrCtrl+Shift+N', 'a/arrow': 'CmdOrCtrl+Alt+F5', 'a/plain': 'CmdOrCtrl+Shift+M' });
+    expect(Object.fromEntries(other.keys)).toEqual({ 'a/both': 'CmdOrCtrl+Shift+N', 'a/arrow': 'CmdOrCtrl+Alt+F5', 'a/plain': 'CmdOrCtrl+Shift+6' });
     expect(other.refused).toEqual([{ pluginId: 'a', commandId: 'alt', title: 'alt', key: 'CmdOrCtrl+Alt+J' }]);
   });
   it('the first plugin to claim a key keeps it; a later one is a conflict naming who has it', () => {

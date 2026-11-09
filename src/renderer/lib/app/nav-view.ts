@@ -16,6 +16,7 @@ import { findAnchorOffset, lineColToOffset } from './text-helpers';
 import { getPreferredSourceView, setPreferredSourceView } from '../source-view-preference';
 import { logger } from '../../../shared/logger';
 import { tick } from 'svelte';
+import type { ViewMode } from '../editor/tab-types';
 
 interface EditorRef {
   getOffset: () => number;
@@ -27,7 +28,7 @@ export interface NavViewCtx {
   getEditorComponent: () => EditorRef | undefined;
   setPendingSearchQuery: (s: string | null) => void;
   setPendingPreviewAnchor: (s: string | null) => void;
-  getViewMode: () => 'source' | 'preview' | 'editor-preview';
+  getViewMode: () => ViewMode;
   getAliasMap: () => Record<string, string>;
 }
 
@@ -70,7 +71,8 @@ export function createNavView(ctx: NavViewCtx) {
     // Route anchors: preview scrolls by element id; editor jumps by doc offset.
     if (anchor) {
       ctx.setPendingPreviewAnchor(anchor);
-      if (ctx.getViewMode() === 'source' || ctx.getViewMode() === 'editor-preview') {
+      // Wherever the editor is mounted — beside the map, or under it (#2965) — its cursor goes to the anchor.
+      if (ctx.getViewMode() !== 'preview') {
         const content = editor.content;
         const offset = findAnchorOffset(content, anchor);
         if (offset !== null) {

@@ -39,6 +39,7 @@ edit.sortLines | Sort Lines | Edit | - | enabled
 view.toggleSidebar | Toggle Left Sidebar | View | ⌘ ⌥ B | enabled
 view.toggleRightSidebar | Toggle Right Sidebar | View | ⌘ ⇧ B | enabled
 view.togglePreview | Toggle Preview Mode | View | ⌘ ⇧ P | enabled
+view.toggleMindmap | Show as Mindmap | View | ⌘ ⇧ M | enabled
 view.toggleConversations | Toggle Conversations | View | ⌘ ⇧ K | enabled
 view.openGraph | Open Graph | View | - | enabled
 view.theme.dark | Theme: Dark (current) | View | - | enabled
@@ -103,6 +104,7 @@ edit.sortLines | Sort Lines | Edit | - | disabled
 view.toggleSidebar | Toggle Left Sidebar | View | ⌘ ⌥ B | enabled
 view.toggleRightSidebar | Toggle Right Sidebar | View | ⌘ ⇧ B | enabled
 view.togglePreview | Toggle Preview Mode | View | ⌘ ⇧ P | disabled
+view.toggleMindmap | Show as Mindmap | View | ⌘ ⇧ M | disabled
 view.toggleConversations | Toggle Conversations | View | ⌘ ⇧ K | enabled
 view.openGraph | Open Graph | View | - | disabled
 view.theme.dark | Theme: Dark (current) | View | - | enabled

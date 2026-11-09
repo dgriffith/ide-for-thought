@@ -36,7 +36,7 @@ describe('buildCommandRegistry', () => {
       'edit.dictate', 'file.newAudioRecording', 'edit.transcribeRecording', 'edit.convertQueryToView', 'file.newMeetingRecording', 'edit.summarizeRecording',
       'edit.find', 'edit.findReplace', 'edit.findInNotes', 'edit.replaceInNotes',
       'edit.gotoLine', 'edit.sortLines', 'view.toggleSidebar', 'view.toggleRightSidebar',
-      'view.togglePreview', 'view.toggleConversations', 'view.openGraph',
+      'view.togglePreview', 'view.toggleMindmap', 'view.toggleConversations', 'view.openGraph',
       'view.theme.dark', 'view.theme.light', 'view.theme.contrast', 'view.theme.system',
       'view.fontIncrease', 'view.fontDecrease', 'view.fontReset', 'learning.askQuestion', 'nav.quickOpen',
       'nav.back', 'nav.forward', 'refactor.rename', 'refactor.move', 'refactor.copy',
