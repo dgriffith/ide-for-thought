@@ -19,6 +19,7 @@ import type { PropertyDef } from './type-def';
 import type { TypeLike } from './inheritance';
 import { canShowKanban } from './kanban';
 import { hasDateProperty } from './date-by';
+import { inheritsFrom } from './inheritance';
 
 /** What a layout may look at to decide whether a type can show it. */
 export interface LayoutContext {
@@ -70,6 +71,11 @@ export interface ViewLayoutDef {
 }
 
 const always = (): boolean => true;
+/** A `link-to-type` property naming the type itself, or one it inherits from: a hierarchy (#2966). */
+const hasSelfLink = (ctx: LayoutContext): boolean => {
+  const byId = new Map(ctx.catalog.map((t) => [t.id, t] as const));
+  return ctx.properties.some((p) => p.type === 'link-to-type' && !!p.targetType && (p.targetType === ctx.typeId || inheritsFrom(ctx.typeId, p.targetType, byId)));
+};
 const datedRule = (ctx: LayoutContext): boolean => hasDateProperty(ctx.typeId, ctx.catalog);
 
 export const VIEW_LAYOUTS = [
@@ -85,6 +91,9 @@ export const VIEW_LAYOUTS = [
   { id: 'timeline', label: 'Timeline', noteName: 'timeline', appliesTo: datedRule, dated: true, grouped: false, specFields: ['from', 'to', 'dateBy'], plugin: 'timeline', needs: 'a date column' },
   // The same rule as Timeline (#2702).
   { id: 'calendar', label: 'Calendar', noteName: 'calendar', appliesTo: datedRule, dated: true, grouped: false, specFields: ['month', 'mode', 'date', 'dateBy'], plugin: 'calendar', moves: 'calendar', needs: 'a date column' },
+  // A property linking the type to its own notes (#2966): a hierarchy, drawn as a mindmap. App-drawn:
+  // the component is the note view mode's too, and its edits (create, reparent, rename) are host writes.
+  { id: 'mindmap', label: 'Mindmap', noteName: 'mindmap', appliesTo: (ctx) => hasSelfLink(ctx), dated: false, grouped: false, specFields: [], needs: 'a property linking to the type itself' },
   // A link to another note (#2960): the view's notes as a graph, its link properties as the edges.
   // A query view's link column is a `link-to-type` too. Drawn by the built-in Graph plugin.
   { id: 'graph', label: 'Graph', noteName: 'graph', appliesTo: (ctx) => ctx.properties.some((p) => p.type === 'link-to-type'), dated: false, grouped: false, specFields: ['edges', 'outside'], plugin: 'graph', linkedNotes: true, needs: 'a column of links to notes' },

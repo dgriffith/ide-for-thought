@@ -34,8 +34,15 @@ describe('layoutsFor', () => {
     expect(layoutDef('graph')).toMatchObject({ plugin: 'graph', specFields: ['edges', 'outside'], linkedNotes: true });
   });
 
+  it('mindmap: a link to the type itself, or a type it inherits from — a hierarchy (#2966)', () => {
+    expect(layoutsFor(ctx([{ name: 'parent', type: 'link-to-type', targetType: 't' }]))).toContain('mindmap');
+    expect(layoutsFor(ctx([{ name: 'owner', type: 'link-to-type', targetType: 'person' }]))).not.toContain('mindmap');
+    const catalog = [{ id: 'base', properties: [] }, { id: 't', parent: 'base', properties: [] }];
+    expect(layoutsFor(ctx([{ name: 'parent', type: 'link-to-type', targetType: 'base' }], catalog))).toContain('mindmap');
+  });
+
   it('everything at once, in registry order', () => {
-    expect(layoutsFor(ctx([prop('w', 'geo'), prop('s', 'enum'), prop('d', 'datetime'), prop('l', 'link-to-type')])))
+    expect(layoutsFor(ctx([prop('w', 'geo'), prop('s', 'enum'), prop('d', 'datetime'), { name: 'l', type: 'link-to-type', targetType: 't' }])))
       .toEqual(VIEW_LAYOUTS.map((l) => l.id));
   });
 });
@@ -54,6 +61,6 @@ describe('lookups', () => {
   });
 
   it('the id list reads as the embed parser\'s message always did', () => {
-    expect(layoutIdList()).toBe('"list", "table", "gallery", "map", "kanban", "timeline", "calendar", "graph"');
+    expect(layoutIdList()).toBe('"list", "table", "gallery", "map", "kanban", "timeline", "calendar", "mindmap", "graph"');
   });
 });

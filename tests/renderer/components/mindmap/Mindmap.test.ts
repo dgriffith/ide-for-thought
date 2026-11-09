@@ -94,7 +94,7 @@ describe('Mindmap (#2964)', () => {
     await fireEvent.click(item('b'));
     await fireEvent.dblClick(item('c'));
     await fireEvent.keyDown(item('a1'), { key: 'Enter' });
-    expect(onSelect).toHaveBeenCalledWith('b');
+    expect(onSelect).toHaveBeenCalledWith('b', expect.any(MouseEvent)); // the click, for a view's modifiers (#2966)
     expect(onActivate.mock.calls).toEqual([['c'], ['a1']]);
   });
 
