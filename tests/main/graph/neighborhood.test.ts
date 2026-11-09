@@ -11,7 +11,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { walkNeighborhood, noteHop } from '../../../src/main/graph/neighborhood';
 import { neighborhood } from '../../../src/main/graph/index';
-import { indexNote } from '../../../src/main/graph/index';
+import { indexNote, indexAllNotes, noteUriFor } from '../../../src/main/graph/index';
+import fs from 'node:fs';
+import path from 'node:path';
 import { type ProjectContext } from '../../../src/main/project-context-types';
 import type { NeighborhoodNode, NeighborhoodHop } from '../../../src/shared/types';
 import { useGraphProject } from '../../helpers/temp-project';
@@ -193,5 +195,71 @@ describe('neighborhood caching (perf #1113)', () => {
     const after = neighborhood(ctx, 'hub.md', { depth: 1 });
     expect(after).not.toBe(before);
     expect(after.nodes.map((n) => n.id)).toContain('inbound.md');
+  });
+});
+
+describe('every kind of connection (#2957)', () => {
+  const project = useGraphProject('nbhd-kinds-');
+  let ctx: ProjectContext;
+  beforeEach(() => {
+    ctx = project.ctx;
+  });
+  // Written to disk and indexed together, so the type catalog (Event's `location`, Claim's `supports`) applies.
+  const write = (rel: string, content: string) => {
+    fs.mkdirSync(path.dirname(path.join(project.root, rel)), { recursive: true });
+    fs.writeFileSync(path.join(project.root, rel), content);
+  };
+  const edgesBetween = (res: { edges: { source: string; target: string; linkType: string }[] }, s: string, t: string) =>
+    res.edges.filter((e) => e.source === s && e.target === t).map((e) => e.linkType);
+  const edgeOf = (res: { edges: { source: string; target: string; linkType: string; linkLabel: string }[] }, s: string, t: string) =>
+    res.edges.find((e) => e.source === s && e.target === t);
+
+  it('follows a link-to-type property, both ways, labelled as the catalog labels it — and not twice', async () => {
+    write('places/Lucerna.md', '---\ntype: place\n---\n# Lucerna\n');
+    write('events/Gig.md', '---\ntype: event\nlocation: "[[Lucerna]]"\n---\n# Gig\n');
+    await indexAllNotes(ctx);
+    const out = neighborhood(ctx, 'events/Gig.md', { depth: 1 });
+    // The frontmatter link is also indexed as a plain wiki-link; the property kind wins.
+    expect(edgesBetween(out, 'events/Gig.md', 'places/Lucerna.md')).toEqual(['property:location']);
+    expect(edgeOf(out, 'events/Gig.md', 'places/Lucerna.md')).toMatchObject({ linkLabel: 'Location' });
+    const back = neighborhood(ctx, 'places/Lucerna.md', { depth: 1 });
+    expect(edgesBetween(back, 'events/Gig.md', 'places/Lucerna.md')).toEqual(['property:location']);
+  });
+
+  it("follows supports in both forms — a typed Claim's frontmatter and a Turtle block — as the one Supports kind", async () => {
+    write('claims/Big.md', '---\ntype: claim\n---\n# Big claim\n');
+    write('claims/Typed.md', '---\ntype: claim\nsupports: "[[Big]]"\n---\n# Typed support\n');
+    await indexAllNotes(ctx);
+    const bigIri = noteUriFor(ctx, 'claims/Big.md');
+    write('claims/Turtle.md', ['# Turtle support', '', '```turtle', `<#c1> a thought:Claim ; thought:label "A hand-written reason" ; thought:supports <${bigIri}> .`, '```', ''].join('\n'));
+    await indexAllNotes(ctx);
+    const res = neighborhood(ctx, 'claims/Big.md', { depth: 1 });
+    expect(edgesBetween(res, 'claims/Typed.md', 'claims/Big.md')).toEqual(['supports']);
+    expect(edgeOf(res, 'claims/Typed.md', 'claims/Big.md')).toMatchObject({ linkLabel: 'Supports' });
+    expect(edgesBetween(res, 'claims/Turtle.md', 'claims/Big.md')).toEqual(['supports']);
+  });
+
+  it('draws tags only when asked, as leaf nodes with "has tag" edges', async () => {
+    write('a.md', '# A\n\n#garden\n\nsee [[b]]');
+    write('b.md', '# B\n\n#garden');
+    await indexAllNotes(ctx);
+    const plain = neighborhood(ctx, 'a.md', { depth: 2 });
+    expect(plain.nodes.some((n) => n.kind === 'tag')).toBe(false);
+    const tagged = neighborhood(ctx, 'a.md', { depth: 2, tags: true });
+    expect(tagged.nodes.filter((n) => n.kind === 'tag').map((n) => [n.id, n.label])).toEqual([['tag:garden', '#garden']]);
+    expect(edgeOf(tagged, 'a.md', 'tag:garden')).toMatchObject({ linkType: 'tag', linkLabel: 'Has tag' });
+    expect(edgeOf(tagged, 'b.md', 'tag:garden')).toBeTruthy(); // reached through b; the tag itself isn't walked through
+  });
+
+  it('a property edit clears the memo: the new edge is there on the next build', async () => {
+    write('places/Kampa.md', '---\ntype: place\n---\n# Kampa\n');
+    write('events/Walk.md', '---\ntype: event\n---\n# Walk\n');
+    await indexAllNotes(ctx);
+    const before = neighborhood(ctx, 'events/Walk.md', { depth: 1 });
+    expect(before.nodes.map((n) => n.id)).not.toContain('places/Kampa.md');
+    await indexNote(ctx, 'events/Walk.md', '---\ntype: event\nlocation: "[[Kampa]]"\n---\n# Walk\n');
+    const after = neighborhood(ctx, 'events/Walk.md', { depth: 1 });
+    expect(after).not.toBe(before);
+    expect(edgesBetween(after, 'events/Walk.md', 'places/Kampa.md')).toEqual(['property:location']);
   });
 });

@@ -136,6 +136,6 @@ export function registerLinks(): void {
     graph.neighborhood(projectContext(rootPath), relativePath, opts ?? {})));
 
   // Single hop out of a node — expand-on-demand (#846).
-  handle(Channels.LINKS_EXPAND_NODE, withRootPathOr({ nodes: [], edges: [], expandTo: [] }, (rootPath, relativePath: string) =>
-    graph.expandNode(projectContext(rootPath), relativePath)));
+  handle(Channels.LINKS_EXPAND_NODE, withRootPathOr({ nodes: [], edges: [], expandTo: [] }, (rootPath, relativePath: string, opts?: { tags?: boolean }) =>
+    graph.expandNode(projectContext(rootPath), relativePath, { tags: opts?.tags === true })));
 }
