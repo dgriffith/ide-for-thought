@@ -177,12 +177,17 @@ describe('several pins (#2939)', () => {
     expect(document.activeElement).toBe(chicago);
   });
 
-  it('an embed selects nothing: a modifier click opens the note, and there is no box', async () => {
+  it('an embed selects too (#2940): ⌘-click toggles without opening, and the menu acts on the selection', async () => {
+    const noteActions = actions();
     const onOpenNote = vi.fn();
-    render(TypeView, props({ noteActions: actions(), chromeless: true, onOpenNote }));
+    render(TypeView, props({ noteActions, chromeless: true, onOpenNote }));
     await waitFor(() => expect(h.pins).toHaveLength(4));
     await fireEvent.click(pin('Chicago'), { metaKey: true });
-    expect(onOpenNote).toHaveBeenCalledWith('CHI.md');
-    expect(h.pins.some((p) => p.hasAttribute('aria-pressed'))).toBe(false);
+    await fireEvent.click(pin('Miami'), { metaKey: true });
+    await waitFor(() => expect(pressed()).toEqual(['Chicago', 'Miami']));
+    expect(onOpenNote).not.toHaveBeenCalled();
+    await fireEvent.contextMenu(pin('Miami'));
+    await fireEvent.click(await screen.findByRole('menuitem', { name: 'Add Tag… (2 notes)' }));
+    expect(noteActions.addTag).toHaveBeenCalledWith(['CHI.md', 'MIA.md']);
   });
 });

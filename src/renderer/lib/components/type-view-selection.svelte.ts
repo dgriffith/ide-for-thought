@@ -84,7 +84,7 @@ export function createTypeViewSelection(opts: TypeViewSelectionOptions) {
    * or with `toggle` (⌘ held) flips each in or out. Announced as a count.
    */
   function selectPaths(paths: readonly string[], toggle: boolean): void {
-    if (!opts.enabled() || menuOnly() || paths.length === 0) return;
+    if (!opts.enabled() || paths.length === 0) return;
     for (const p of paths) if (toggle || !selection.has(p)) selection.toggle(p);
     say();
   }
