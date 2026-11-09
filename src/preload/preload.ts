@@ -220,6 +220,7 @@ const api = {
   },
   export: {
     csv: (csv: string) => invoke(Channels.EXPORT_CSV, csv),
+    image: (image: { name: string; format: 'png' | 'svg'; data: string }) => invoke(Channels.EXPORT_IMAGE, image),
   },
   files: {
     // Resolve a DataTransfer File to its absolute disk path. Electron ≥ 32:

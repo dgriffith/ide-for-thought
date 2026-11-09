@@ -750,6 +750,8 @@ export const Channels = {
   APP_STOP_SYSTEM_AUDIO: 'app:stopSystemAudio',
   APP_SYSTEM_AUDIO: 'app:systemAudio',
   EXPORT_CSV: 'export:csv',
+  /** Save a drawn image (a graph, #2961) where the user picks: the saved path, or null when cancelled. */
+  EXPORT_IMAGE: 'export:image',
   SHELL_REVEAL_FILE: 'shell:revealFile',
   SHELL_OPEN_IN_DEFAULT: 'shell:openInDefault',
   SHELL_OPEN_IN_TERMINAL: 'shell:openInTerminal',

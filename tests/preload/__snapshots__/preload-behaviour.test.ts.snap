@@ -100,6 +100,7 @@ exports[`preload behaviour: surface-wide invariants (#2367) > the full method â†
   "embeddings.searchText": "invoke embeddings:searchText",
   "embeddings.unlinkedMentions": "invoke embeddings:unlinkedMentions",
   "export.csv": "invoke export:csv",
+  "export.image": "invoke export:image",
   "files.dropImport": "invoke files:dropImport",
   "formatter.formatContent": "invoke formatter:formatContent",
   "formatter.formatFile": "invoke formatter:formatFile",

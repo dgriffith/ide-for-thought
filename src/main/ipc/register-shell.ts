@@ -69,6 +69,22 @@ export function registerShell(): void {
       await fs.writeFile(result.filePath, csv, 'utf-8');
     }
   });
+  // A drawn image (#2961): an SVG as text, a PNG as base64 bytes.
+  handle(Channels.EXPORT_IMAGE, async (e, image: { name: string; format: 'png' | 'svg'; data: string }) => {
+    if (image.format !== 'png' && image.format !== 'svg') throw new Error(`Unknown image format: ${String(image.format)}`);
+    const win = winFromEvent(e);
+    const base = image.name.replace(/[\\/:*?"<>|]+/g, '-').trim() || 'graph';
+    const result = await dialog.showSaveDialog(win, {
+      title: `Export as ${image.format.toUpperCase()}`,
+      defaultPath: `${base}.${image.format}`,
+      filters: [{ name: image.format.toUpperCase(), extensions: [image.format] }],
+    });
+    if (result.canceled || !result.filePath) return null;
+    const fs = await import('node:fs/promises');
+    if (image.format === 'svg') await fs.writeFile(result.filePath, image.data, 'utf-8');
+    else await fs.writeFile(result.filePath, Buffer.from(image.data, 'base64'));
+    return result.filePath;
+  });
 
   // Shell. All three resolve renderer-supplied relative paths through
   // `assertSafePath` before handing them to `shell.*` / `spawn`, so a

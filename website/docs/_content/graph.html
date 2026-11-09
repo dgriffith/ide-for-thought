@@ -1,0 +1,60 @@
+---
+title: Minerva — Docs — Graph
+description: See your notes as a graph: the whole thoughtbase or one note's neighbourhood, the kinds of connection, filters, finding a note, tracing how two notes connect, arranging the picture, and exporting it as an image.
+---
+
+    <h1>Graph</h1>
+    <p class="lede">Minerva can draw your notes as a graph: each note a box, each connection between two notes a line. It's a way to see what connects to what, find the notes nothing points at, and ask how two ideas are linked.</p>
+
+    <h2 id="opening">Opening the graph</h2>
+    <p><b>View → Graph of the Thoughtbase</b>, or <b>Open Graph</b> in the command palette, opens every note in your thoughtbase as one graph in a tab. To start from one note, right-click it in the Notes tree and choose <b>Show in Graph</b>: the graph opens centred on that note, showing what's one step away.</p>
+    <p>The tab keeps everything about the graph while it's open and across restarts: its filters, the note it's centred on, the notes you've pinned, and where you'd zoomed to.</p>
+    <p>A large thoughtbase draws at once and settles over a few seconds without holding up the rest of the app. Names appear as you zoom in.</p>
+
+    <h2 id="kinds">What connects notes</h2>
+    <p>The graph draws more than the links you write. Each kind of connection has its own colour, and the legend above the graph lists the kinds it drew:</p>
+    <div class="deflist">
+      <div class="row">
+        <div class="k">References</div>
+        <div class="v">A <a href="notes-links.html">wiki-link</a> in a note's text.</div>
+      </div>
+      <div class="row">
+        <div class="k">A field's name</div>
+        <div class="v">A <a href="notes-typed-notes.html">typed note</a>'s field that points at another note, such as an Event's <i>location</i>, labelled by the field.</div>
+      </div>
+      <div class="row">
+        <div class="k">Supports, rebuts, …</div>
+        <div class="v">The argument relations between claims. A claim's <i>supports</i> field, a <code>[[supports::…]]</code> link and a <code>thought:supports</code> line in a Turtle block all show as the same <b>Supports</b> connection.</div>
+      </div>
+      <div class="row">
+        <div class="k">Tags</div>
+        <div class="v">With <b>Tags</b> on, each tag is a small node joined to the notes that carry it. It's off at first, because a common tag ties together notes that have little else in common.</div>
+      </div>
+    </div>
+    <p>Click a kind in the legend to hide those connections, and again to show them.</p>
+
+    <h2 id="filters">Narrowing it down</h2>
+    <p>Pick a <b>Folder</b> (its subfolders come too), a <b>Type</b> or a <b>Tag</b> to draw only those notes. Tick <b>Hide orphans</b> to leave out notes with no connections. The count beside them says how many notes and connections are drawn, out of how many there are.</p>
+    <p>Select a note and choose <b>Focus on</b> to see only what's within a step of it, with <b>−</b> and <b>+</b> to change how far. <b>Whole graph</b> goes back.</p>
+
+    <h2 id="find">Finding your way</h2>
+    <p><b>Find a note</b> marks every note whose name matches what you type and centres on the first; press <b>Enter</b> for the next match and <b>⇧Enter</b> for the one before.</p>
+    <p>Select a note and everything further than a step from it fades. <b>Bright within</b>'s <b>−</b> and <b>+</b> change how far, without changing what the graph holds.</p>
+    <h3 id="trace">How are two notes connected?</h3>
+    <p>Select one note, choose <b>Trace from</b>, then select the other. The shortest connection between them lights up, and its steps are listed above the graph, each with the kind of connection it takes: <i>Prague —references→ Plan —references→ Budget</i>. Only the connections drawn count, so hiding a kind in the legend traces around it. If nothing connects them, it says so. <b>Esc</b> or <b>Clear</b> ends the trace.</p>
+
+    <h2 id="arranging">Arranging the picture</h2>
+    <p>Drag a note to put it where you want it: it stays there, the rest arrange themselves around it, and the tab keeps the arrangement. <b>Release all</b> lets the pinned notes go back to the layout.</p>
+
+    <h2 id="notes">Working with notes in the graph</h2>
+    <p>Double-click a note to open it. Right-click a note for the note menu: edit its properties, add a tag, or remove one. <b>⌘</b>-click or <b>⇧</b>-click picks several notes, and right-clicking one of them acts on them all.</p>
+    <p><b>List</b> shows the same notes as text, each with its connections, for reading or moving through by keyboard.</p>
+
+    <h2 id="note-graph">One note's graph</h2>
+    <p>The <a href="right-sidebar-outgoing-links.html">Outgoing links</a> panel in the right sidebar can show the note you're editing and what it connects to as a small graph, with the same kinds of connection and the same legend. Expand a note in it to see that note's connections too.</p>
+
+    <h2 id="export">Exporting the graph</h2>
+    <p><b>Export</b> saves the graph as an image: a <b>PNG</b> or an <b>SVG</b>, of <b>this view</b> (what's on screen, as you've zoomed it) or of <b>the whole graph</b>. The image is the graph as drawn, with what you've marked: a found note, a trace, the fading around a selected note. It has a key of the kinds of connection shown. SVG keeps every line sharp at any size; PNG is the one to paste into a slide or a message.</p>
+
+    <h2 id="views">A graph of a view</h2>
+    <p>Any <a href="left-sidebar-objects.html#views">type view</a> with a field that links to another note, such as a task's <i>blocks</i>, can be drawn as a graph of just those notes, with a colour for each field. See <a href="left-sidebar-objects.html#graph-layout">The graph</a> on the Objects page. A graph view embedded in a note exports as a still picture of the graph in web pages, PDFs and published sites.</p>

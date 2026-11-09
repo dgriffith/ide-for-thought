@@ -298,6 +298,8 @@ export interface TemplatesApi {
 
 export interface ExportApi {
   csv(csv: string): Promise<void>;
+  /** Save an image (a graph, #2961) where the user picks: `data` is SVG text or base64 PNG. The saved path, or null when cancelled. */
+  image(image: { name: string; format: 'png' | 'svg'; data: string }): Promise<string | null>;
 }
 
 /**
