@@ -130,12 +130,4 @@ export function registerLinks(): void {
 
   handle(Channels.LINKS_EXTERNAL_INBOUND, withRootPathOr([], (rootPath, paths: string[]) =>
     graph.findExternalInboundLinks(projectContext(rootPath), paths)));
-
-  // Depth-N link neighborhood for the graph view (#846).
-  handle(Channels.LINKS_NEIGHBORHOOD, withRootPathOr({ nodes: [], edges: [], truncated: false }, (rootPath, relativePath: string, opts?: graph.NeighborhoodOptions) =>
-    graph.neighborhood(projectContext(rootPath), relativePath, opts ?? {})));
-
-  // Single hop out of a node — expand-on-demand (#846).
-  handle(Channels.LINKS_EXPAND_NODE, withRootPathOr({ nodes: [], edges: [], expandTo: [] }, (rootPath, relativePath: string, opts?: { tags?: boolean }) =>
-    graph.expandNode(projectContext(rootPath), relativePath, { tags: opts?.tags === true })));
 }
