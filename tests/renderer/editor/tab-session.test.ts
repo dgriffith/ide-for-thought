@@ -40,7 +40,10 @@ const queryTab: QueryTab = {
 describe('the whole-thoughtbase graph tab (#2958)', () => {
   const graph: Tab = {
     type: 'graph', relativePath: '', depth: 1, whole: true,
-    graph: { hiddenKinds: ['tag'], folder: 'trip', type: null, tag: null, hideOrphans: true, focus: 'Plan.md', depth: 2, showTags: false, camera: { zoom: 0.8, pan: { x: 5, y: 6 } } },
+    graph: {
+      hiddenKinds: ['tag'], folder: 'trip', type: null, tag: null, hideOrphans: true, focus: 'Plan.md', depth: 2, showTags: false,
+      camera: { zoom: 0.8, pan: { x: 5, y: 6 } }, pins: { 'Plan.md': { x: 40, y: -12 } }, dimHops: 2,
+    },
   };
 
   it('keeps its filters, focus and camera across a restart', async () => {

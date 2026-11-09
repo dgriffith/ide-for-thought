@@ -55,8 +55,11 @@ describe('restoredGraphState (#2958)', () => {
     const { restoredGraphState, NEW_GRAPH_STATE } = await import('../../../src/renderer/lib/graph/whole-graph-filter');
     expect(restoredGraphState({
       hiddenKinds: ['tag', 3], folder: 'trip', type: null, tag: 'x', hideOrphans: true, focus: 'a.md', depth: 9, showTags: true,
-      camera: { zoom: 0.5, pan: { x: 10, y: -4 } },
-    })).toEqual({ hiddenKinds: ['tag'], folder: 'trip', type: null, tag: 'x', hideOrphans: true, focus: 'a.md', depth: 6, showTags: true, camera: { zoom: 0.5, pan: { x: 10, y: -4 } } });
+      camera: { zoom: 0.5, pan: { x: 10, y: -4 } }, pins: { 'a.md': { x: 1, y: 2 }, 'b.md': { x: 'no' } }, dimHops: 2,
+    })).toEqual({
+      hiddenKinds: ['tag'], folder: 'trip', type: null, tag: 'x', hideOrphans: true, focus: 'a.md', depth: 6, showTags: true,
+      camera: { zoom: 0.5, pan: { x: 10, y: -4 } }, pins: { 'a.md': { x: 1, y: 2 } }, dimHops: 2,
+    });
     expect(restoredGraphState('garbage')).toEqual(NEW_GRAPH_STATE);
     expect(restoredGraphState({ depth: 0, camera: { zoom: 'big' } })).toMatchObject({ depth: null, camera: null });
   });

@@ -31,6 +31,15 @@ describe('layoutGraph (#2958)', () => {
     expect(n).toBe(1);
   });
 
+  it('a pinned node stays where it was dragged; the rest move around it (#2959)', () => {
+    const nodes = [{ id: 'a', group: 'x', fixed: { x: 500, y: -300 } }, { id: 'b', group: 'x' }, { id: 'c', group: 'x' }];
+    let xy = new Float64Array();
+    layoutGraph(nodes, [{ source: 'a', target: 'b' }, { source: 'b', target: 'c' }], { ticks: 200, every: 200, onPositions: (p) => { xy = p.slice(); } });
+    expect([xy[0], xy[1]]).toEqual([500, -300]);
+    // b, linked to the pinned a, ends nearer it than c, two steps away.
+    expect(Math.hypot(xy[2]! - 500, xy[3]! + 300)).toBeLessThan(Math.hypot(xy[4]! - 500, xy[5]! + 300));
+  });
+
   it('fewer ticks for a bigger graph', () => {
     expect(ticksFor(100)).toBeGreaterThan(ticksFor(5000));
   });

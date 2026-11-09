@@ -1428,6 +1428,7 @@
                   revision={graphRevision}
                   onOpenNote={(p) => handleFileSelect(p)}
                   onOpenSource={(id) => editor.openSource(id)}
+                  noteActions={viewNoteActions}
                 />
               {:else if active?.type === 'graph'}
                 {#key active.relativePath}

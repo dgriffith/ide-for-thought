@@ -79,3 +79,96 @@ test('the graph of the thoughtbase: open, filter, focus on a note, list, kept wi
     for (const d of [userDataDir, projectDir]) fs.rmSync(d, { recursive: true, force: true });
   }
 });
+
+/**
+ * Finding your way (#2959). A found note is centred, so the canvas's own centre
+ * is that note — which is how the spec clicks, right-clicks and drags it.
+ */
+test('the graph: find a note, trace a connection, the note menu, pin and release (#2959)', async () => {
+  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-tb-graph-userdata-'));
+  const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-tb-graph-project-'));
+  const write = (rel: string, content: string) => {
+    fs.mkdirSync(path.dirname(path.join(projectDir, rel)), { recursive: true });
+    fs.writeFileSync(path.join(projectDir, rel), content);
+  };
+  write('trip/Prague.md', '# Prague\n\nSee [[Kampa]] and [[Plan]].\n');
+  write('trip/Kampa.md', '# Kampa\n');
+  write('Plan.md', '# Plan\n\nThe [[Budget]].\n');
+  write('Budget.md', '# Budget\n');
+  write('Lonely.md', '# Lonely\n');
+  fs.writeFileSync(path.join(userDataDir, 'session.json'), JSON.stringify([{ x: 80, y: 80, width: 1300, height: 900, rootPath: projectDir }]));
+  const app = await launchMinerva({ userDataDir, env: { MINERVA_E2E: '1' } });
+  try {
+    const win = await app.firstWindow({ timeout: 20_000 });
+    await expect(win.getByRole('button', { name: 'Open Thoughtbase' })).toHaveCount(0, { timeout: 25_000 });
+    await expect(win.locator('[data-relative-path="trip"]').first()).toBeVisible({ timeout: 10_000 });
+    const graph = win.locator('.tb-graph');
+    await app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0]!.webContents.send('menu:command', 'view.openGraph'); });
+    await expect(graph.locator('.count')).toHaveText(/^5 of 5 nodes/, { timeout: 15_000 });
+    await win.waitForTimeout(1500); // the layout settles and fits once
+    const canvas = graph.locator('.canvas');
+    const find = graph.getByRole('searchbox', { name: 'Find a note' });
+    const centreOf = async () => { const b = (await canvas.boundingBox())!; return { x: b.x + b.width / 2, y: b.y + b.height / 2 }; };
+    const findAndCentre = async (q: string) => { await find.fill(q); return centreOf(); };
+
+    await test.step('find marks the matches and steps through them', async () => {
+      await find.fill('a');
+      await expect(graph.locator('.found')).toHaveText(/^1 of \d$/);
+      await find.press('Enter');
+      await expect(graph.locator('.found')).toHaveText(/^2 of \d$/);
+      await find.fill('zzz');
+      await expect(graph.locator('.found')).toHaveText('None');
+    });
+
+    await test.step('select Prague, trace to Budget: two steps over the links', async () => {
+      const at = await findAndCentre('Prague');
+      await win.mouse.click(at.x, at.y);
+      await graph.getByRole('button', { name: 'Trace from “Prague”' }).click();
+      const b = await findAndCentre('Budget');
+      await win.mouse.click(b.x, b.y);
+      await expect(graph.locator('.path-steps')).toContainText('Prague');
+      await expect(graph.locator('.path-steps')).toContainText('Budget');
+      await expect(graph.locator('.path-steps')).toContainText('2 steps');
+      await graph.getByRole('button', { name: 'Clear' }).click();
+    });
+
+    await test.step('no connection to an orphan', async () => {
+      const at = await findAndCentre('Plan');
+      await win.mouse.click(at.x, at.y);
+      await graph.getByRole('button', { name: 'Trace from “Plan”' }).click();
+      const l = await findAndCentre('Lonely');
+      await win.mouse.click(l.x, l.y);
+      await expect(graph.locator('.path-steps')).toContainText('Nothing connects');
+      await win.keyboard.press('Escape');
+    });
+
+    await test.step('right-click a note: the note menu', async () => {
+      const at = await findAndCentre('Kampa');
+      await win.mouse.click(at.x, at.y, { button: 'right' });
+      await expect(win.getByRole('menuitem', { name: /^Add Tag…/ })).toBeVisible();
+      await win.keyboard.press('Escape');
+      await expect(win.getByRole('menuitem', { name: /^Add Tag…/ })).toHaveCount(0);
+    });
+
+    await test.step('drag a note to pin it; Release all undoes it', async () => {
+      const at = await findAndCentre('Kampa');
+      await win.mouse.move(at.x, at.y);
+      await win.mouse.down();
+      await win.mouse.move(at.x + 60, at.y + 40, { steps: 6 });
+      await win.mouse.up();
+      const release = graph.getByRole('button', { name: 'Release all (1)' });
+      await expect(release).toBeVisible();
+      await release.click();
+      await expect(release).toHaveCount(0);
+    });
+
+    await test.step('a double-click opens the note; two quick clicks on different notes do not', async () => {
+      const at = await findAndCentre('Kampa');
+      await win.mouse.dblclick(at.x, at.y);
+      await expect(win.locator('.tab.active')).toContainText('Kampa', { timeout: 10_000 });
+    });
+  } finally {
+    await closeMinerva(app);
+    for (const d of [userDataDir, projectDir]) fs.rmSync(d, { recursive: true, force: true });
+  }
+});

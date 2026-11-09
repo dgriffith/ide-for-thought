@@ -29,12 +29,16 @@ export interface WholeGraphFilters {
 export interface ThoughtbaseGraphState extends WholeGraphFilters {
   showTags: boolean;
   camera: { zoom: number; pan: { x: number; y: number } } | null;
+  /** Notes dragged into place (#2959): the layout leaves them there. */
+  pins: Record<string, { x: number; y: number }>;
+  /** How many steps around a selected note stay bright (#2959). */
+  dimHops: number;
 }
 
 export const NO_FILTERS: WholeGraphFilters = { hiddenKinds: [], folder: null, type: null, tag: null, hideOrphans: false, focus: null, depth: null };
 
 /** A new graph tab: everything, tags off, the camera fitted. */
-export const NEW_GRAPH_STATE: ThoughtbaseGraphState = { ...NO_FILTERS, showTags: false, camera: null };
+export const NEW_GRAPH_STATE: ThoughtbaseGraphState = { ...NO_FILTERS, showTags: false, camera: null, pins: {}, dimHops: 1 };
 
 /** A graph tab's state as read back from a saved session: anything it can't use falls back. */
 export function restoredGraphState(raw: unknown): ThoughtbaseGraphState {
@@ -46,6 +50,14 @@ export function restoredGraphState(raw: unknown): ThoughtbaseGraphState {
   const camera = cam && num(cam.zoom) !== null && pan && num(pan.x) !== null && num(pan.y) !== null
     ? { zoom: num(cam.zoom)!, pan: { x: num(pan.x)!, y: num(pan.y)! } } : null;
   const depth = num(r.depth);
+  const dimHops = num(r.dimHops);
+  const pins: Record<string, { x: number; y: number }> = {};
+  if (r.pins !== null && typeof r.pins === 'object') {
+    for (const [id, p] of Object.entries(r.pins as Record<string, unknown>)) {
+      const q = p !== null && typeof p === 'object' ? (p as Record<string, unknown>) : {};
+      if (num(q.x) !== null && num(q.y) !== null) pins[id] = { x: num(q.x)!, y: num(q.y)! };
+    }
+  }
   return {
     hiddenKinds: Array.isArray(r.hiddenKinds) ? r.hiddenKinds.filter((k): k is string => typeof k === 'string') : [],
     folder: str(r.folder), type: str(r.type), tag: str(r.tag),
@@ -54,6 +66,8 @@ export function restoredGraphState(raw: unknown): ThoughtbaseGraphState {
     depth: depth !== null && depth >= 1 ? Math.min(6, Math.round(depth)) : null,
     showTags: r.showTags === true,
     camera,
+    pins,
+    dimHops: dimHops !== null && dimHops >= 1 ? Math.min(6, Math.round(dimHops)) : 1,
   };
 }
 
