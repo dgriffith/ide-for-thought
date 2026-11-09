@@ -45,7 +45,7 @@ describe('ConversationsPanel branches (#2970)', () => {
   it('lists each branch under its parent, indented, saying how it last ran', () => {
     const { container } = render(ConversationsPanel, {});
     const items = [...container.querySelectorAll('.conv-item')];
-    expect(items.map((i) => i.querySelector('.conv-item-title')!.textContent!.trim())).toEqual(['Launch plan', 'Risks', 'Costs', 'Other']);
+    expect(items.map((i) => i.querySelector('.conv-item-title')!.textContent.trim())).toEqual(['Launch plan', 'Risks', 'Costs', 'Other']);
     expect(items.map((i) => i.classList.contains('branch'))).toEqual([false, true, true, false]);
     expect(items.map((i) => i.querySelector('.conv-item-status')?.textContent ?? null)).toEqual([null, 'Branch · Done', 'Branch · Running', null]);
   });
