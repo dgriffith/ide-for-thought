@@ -56,14 +56,19 @@ test('a type as a mindmap: make a child, move one, undo it, rename one (#2966); 
       await expect.poll(() => (fs.existsSync(path.join(projectDir, 'Write code.md')) ? read('Write code.md') : ''), { timeout: 10_000 })
         .toMatch(/^---\ntype: task\nparent: "\[\[Build\]\]"\n---/);
       await expect(node('Write code')).toHaveAttribute('aria-level', '4', { timeout: 10_000 });
+      // The map moves focus to the new note a few frames after it appears; let it land before
+      // the next step takes focus elsewhere, or it lands on top of that (CI, #3068's run).
+      await expect(node('Write code')).toBeFocused();
     });
 
     await test.step('⌘] moves Market under Build (one field), ⌘Z puts it back', async () => {
       await node('Market').focus();
+      await expect(node('Market')).toBeFocused();
       await win.keyboard.press('Meta+]');
       await expect.poll(() => read('Market.md'), { timeout: 10_000 }).toBe(market.replace('[[Launch]]', '[[Build]]'));
       await expect(node('Market')).toHaveAttribute('aria-level', '4');
       await node('Market').focus();
+      await expect(node('Market')).toBeFocused();
       await win.keyboard.press('Meta+z');
       await expect.poll(() => read('Market.md'), { timeout: 10_000 }).toBe(market);
       await expect(node('Market')).toHaveAttribute('aria-level', '3');
