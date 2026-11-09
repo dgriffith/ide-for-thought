@@ -11,6 +11,8 @@ import type { Component } from 'svelte';
 import type { ViewLayout } from '../../../../shared/objects/view-layouts';
 import type { TypeInstanceRow } from '../../../../shared/objects/type-def';
 import type { LayoutView } from './layout-view';
+import { buildTimelineModel, timelineOrder, timelineProperties } from '../../../../shared/timeline/timeline-events';
+import { buildCalendarModel, calendarOrder } from '../../../../shared/calendar/calendar-model';
 import TypeViewList from './TypeViewList.svelte';
 import TypeViewTable from './TypeViewTable.svelte';
 import TypeViewGallery from './TypeViewGallery.svelte';
@@ -39,8 +41,9 @@ export const LAYOUT_RENDERERS: Record<ViewLayout, LayoutRenderer> = {
   gallery: { component: TypeViewGallery },
   map: { component: MapLayout, fixedExportHeight: true },
   kanban: { component: KanbanLayout, order: (v) => v.board.flatMap((c) => c.instances), rowMenuMove: true },
-  timeline: { component: TimelineLayout },
-  calendar: { component: CalendarLayout },
+  // Time order (#2942): the plugins draw from these same models.
+  timeline: { component: TimelineLayout, order: (v) => timelineOrder(buildTimelineModel(v.instances, timelineProperties(v.dateBy, v.properties))) },
+  calendar: { component: CalendarLayout, order: (v) => calendarOrder(buildCalendarModel(v.instances, timelineProperties(v.dateBy, v.properties))) },
 };
 
 /** The notes in the order `layout` draws them. */

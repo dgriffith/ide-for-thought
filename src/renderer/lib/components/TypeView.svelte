@@ -407,6 +407,7 @@
     get rowMenu() { return selectable || menuOnly; },
     isSelected: (p) => !noNote.has(p) && sel.has(p),
     onRowClick: (e, p) => { if (!noNote.has(p)) sel.click(e, p); },
+    onRowKey: (e, p, steps) => { if (!noNote.has(p)) sel.rowKey(e, p, steps); },
     onRowContextMenu: (e, p) => { if (noNote.has(p)) e.preventDefault(); else sel.contextMenu(e, p); },
     refPath: (prop, value) => (noteActions && prop.type === 'link-to-type' && value ? notePathForIri(value, knownNotePaths) : null),
     onRefContextMenu: (e, p, label) => { refLabel = label; sel.contextMenuFor(e, p); },
@@ -417,8 +418,7 @@
         sel.openMenuForTarget(paths[0], x, y);
       } else sel.openMenuFor(paths, x, y);
     },
-    selectAll: () => sel.selectAll(),
-    clearSelection: () => sel.clear(),
+    selectAll: () => sel.selectAll(), clearSelection: () => sel.clear(),
     onOpenNote: (p) => { if (!noNote.has(p)) onOpenNote(p); },
     onStateChange: (p) => onStateChange(p),
     get readOnly() { return chromeless; },

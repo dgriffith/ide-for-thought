@@ -5,8 +5,14 @@
  * it, ⌘A selects every row, Escape clears; right-click opens a one-item menu
  * ("Edit Properties…") for the selection. Pure UI state — the bulk write is the
  * host's (`onEdit`), routed through the bulk-property ops.
+ *
+ * From the keyboard (#2942, the WAI-ARIA multi-select conventions): Space
+ * toggles the focused row, an arrow moves to the next row in the layout's
+ * order, and ⇧ with it extends the selection from the anchor. Each change is
+ * announced ("3 selected").
  */
 import { createPathSelection } from '../stores/sidebar-selection.svelte';
+import { announce } from '../stores/announcer.svelte';
 
 export interface TypeViewSelectionOptions {
   /** Paths in the order the current layout shows them. */
@@ -100,6 +106,41 @@ export function createTypeViewSelection(opts: TypeViewSelectionOptions) {
     if (paths.length > 0) opts.onEdit(paths);
   }
 
+  const say = () => { const n = selectedPaths.length; announce(n === 0 ? 'Nothing selected' : `${n} selected`); };
+
+  /**
+   * A key on a focused row or card (#2942). `steps` maps an arrow to how far
+   * it moves in the layout's order (a gallery's ↑ is a row of cards). Space
+   * toggles the row; an arrow focuses the row it lands on, and with ⇧ extends
+   * the selection from the anchor to it (from this row, when nothing is
+   * selected). True when the key was taken.
+   */
+  function rowKey(e: KeyboardEvent, path: string, steps: Readonly<Record<string, number>>): boolean {
+    if (e.metaKey || e.ctrlKey || e.altKey) return false;
+    const on = opts.enabled() && !menuOnly();
+    if (e.key === ' ' && !e.shiftKey) {
+      if (!on) return false;
+      e.preventDefault(); // not the button's click, which would open the note
+      selection.toggle(path);
+      say();
+      return true;
+    }
+    const step = steps[e.key];
+    const order = opts.order();
+    const i = order.indexOf(path);
+    if (step === undefined || i === -1) return false;
+    e.preventDefault();
+    const next = order[Math.max(0, Math.min(order.length - 1, i + step))]!;
+    if (e.shiftKey && on) {
+      if (selection.count === 0) selection.setSingle(path);
+      selection.selectRange(next, order);
+      say();
+    }
+    const scope = (e.currentTarget as HTMLElement | null)?.closest('.type-view');
+    [...(scope?.querySelectorAll<HTMLElement>('[data-note-path]') ?? [])].find((el) => el.dataset['notePath'] === next)?.focus();
+    return true;
+  }
+
   function keydown(e: KeyboardEvent): void {
     if (menuOnly()) {
       if (e.key === 'Escape' && menu) closeMenu();
@@ -122,6 +163,7 @@ export function createTypeViewSelection(opts: TypeViewSelectionOptions) {
     get selectedPaths() { return selectedPaths; },
     has: (path: string) => selection.has(path),
     click,
+    rowKey,
     contextMenu,
     contextMenuFor,
     openMenuFor,

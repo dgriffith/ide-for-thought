@@ -61,20 +61,32 @@ export function pageItems(grid: readonly TimelineEvent[], weeks: readonly GridWe
   return grid.filter((ev) => rangeMeets(ev, start, end)).map((ev) => ({ key: ev.key, title: ev.title, range: ev }));
 }
 
+/** The cell's order: a bar that began earlier first, then the longer one (as `layoutMonth` packs it), then by time. */
+function inDayOrder(a: TimelineEvent, b: TimelineEvent): number {
+  const fa = dayStart(a.start);
+  const fb = dayStart(b.start);
+  if (fa !== fb) return fa - fb;
+  const la = coveredDays(a).last;
+  const lb = coveredDays(b).last;
+  if (la !== lb) return lb - la;
+  return a.start - b.start || a.title.localeCompare(b.title) || a.key.localeCompare(b.key);
+}
+
 /** Every grid event covering the civil day `day`, in the cell's order. */
 export function dayEvents(grid: readonly TimelineEvent[], day: number): TimelineEvent[] {
   const d = dayStart(day);
-  return grid
-    .filter((ev) => { const { first, last } = coveredDays(ev); return first <= d && last >= d; })
-    .sort((a, b) => {
-      const fa = dayStart(a.start);
-      const fb = dayStart(b.start);
-      if (fa !== fb) return fa - fb; // a bar that began earlier stacks first
-      const la = coveredDays(a).last;
-      const lb = coveredDays(b).last;
-      if (la !== lb) return lb - la; // then the longer one, as `layoutMonth` packs it
-      return a.start - b.start || a.title.localeCompare(b.title) || a.key.localeCompare(b.key);
-    });
+  return grid.filter((ev) => { const { first, last } = coveredDays(ev); return first <= d && last >= d; }).sort(inDayOrder);
+}
+
+/**
+ * The notes in the order a calendar draws them (#2942) — what ⇧-click
+ * selects across and Export CSV writes: the grid by start, in the cell's
+ * order within a day; then the month band, the year band (each by start);
+ * then Undated, in the tray's order.
+ */
+export function calendarOrder(model: CalendarModel): TypeInstanceRow[] {
+  const byStart = (a: TimelineEvent, b: TimelineEvent) => a.start - b.start || a.title.localeCompare(b.title) || a.key.localeCompare(b.key);
+  return [...[...model.grid].sort(inDayOrder), ...[...model.month].sort(byStart), ...[...model.year].sort(byStart), ...model.undated].map((e) => e.inst);
 }
 
 // ── Bands ────────────────────────────────────────────────────────────────

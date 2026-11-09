@@ -12,6 +12,7 @@
     if (!view.rowMenu || e.target !== e.currentTarget) return;
     if (isMenuKey(e)) { e.preventDefault(); openMenuAt(e.currentTarget as HTMLElement); }
     else if (e.key === 'Enter') { e.preventDefault(); view.onOpenNote(path); }
+    else view.onRowKey(e, path, { ArrowUp: -1, ArrowDown: 1 }); // Space, and ↑/↓ with or without ⇧ (#2942)
   }
   /** A focused note name in a cell (#2775): Enter, Space or the menu key open ITS menu. */
   function refKey(e: KeyboardEvent): void {
@@ -47,7 +48,7 @@
       {#each view.sorted as inst (inst.key ?? inst.path)}
         {@const rt = view.rowType(inst)}
         <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -- a row takes focus for its menu and Enter (#2776) -->
-        <tr class:selected={view.isSelected(inst.path)} data-selected={view.isSelected(inst.path) || undefined} onclick={(e) => view.onRowClick(e, inst.path)} oncontextmenu={(e) => view.onRowContextMenu(e, inst.path)} title={inst.noNote ? undefined : inst.path} data-note-path={inst.noNote ? undefined : inst.path} tabindex={view.rowMenu ? 0 : undefined} onkeydown={(e) => rowKey(e, inst.path)}>
+        <tr class:selected={view.isSelected(inst.path)} data-selected={view.isSelected(inst.path) || undefined} aria-selected={view.selectable ? view.isSelected(inst.path) : undefined} onclick={(e) => view.onRowClick(e, inst.path)} oncontextmenu={(e) => view.onRowContextMenu(e, inst.path)} title={inst.noNote ? undefined : inst.path} data-note-path={inst.noNote ? undefined : inst.path} tabindex={view.rowMenu ? 0 : undefined} onkeydown={(e) => rowKey(e, inst.path)}>
           <td class="tv-cell-title">
             <span class="tv-cell-title-inner">
               {#if rt}<TypeIcon type={rt} size={13} />{/if}

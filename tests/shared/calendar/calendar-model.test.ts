@@ -4,7 +4,7 @@
  * "written as" for an offset value shown on another day (decision 7).
  */
 import { describe, it, expect } from 'vitest';
-import { buildCalendarModel, dayEvents, monthTitle, pageBands, rangeBands, timeOf, writtenAs, yearName } from '../../../src/shared/calendar/calendar-model';
+import { buildCalendarModel, calendarOrder, dayEvents, monthTitle, pageBands, rangeBands, timeOf, writtenAs, yearName } from '../../../src/shared/calendar/calendar-model';
 import { civilMs } from '../../../src/shared/objects/date-precision';
 import type { TypeInstanceRow } from '../../../src/shared/objects/type-def';
 
@@ -103,5 +103,23 @@ describe('times', () => {
     expect(writtenAs(ev(civilMs(2026, 9, 5, 21, 30)), '2026-10-05T23:30-05:00')).toBeNull();
     expect(writtenAs(ev(civilMs(2026, 9, 6)), '2026-10-05T23:30')).toBeNull(); // floating: never moved
     expect(writtenAs(ev(civilMs(2026, 9, 6)), '2026-10-05')).toBeNull();
+  });
+});
+
+describe('calendarOrder (#2942)', () => {
+  it('the grid by start, a day\'s events in the cell\'s order; then the month band, the year band, then Undated', () => {
+    const model = buildCalendarModel([
+      row('someday.md', null),
+      row('year.md', '1999'),
+      row('late.md', '2026-10-06T15:00'),
+      row('month.md', '2026-10'),
+      row('early.md', '2026-10-06T09:00'),
+      row('trip.md', '2026-10-05', '2026-10-08'), // began earlier: before the 6th's events
+      row('first.md', '2026-10-01'),
+      row('bad.md', 'soon'),
+    ], PROPS);
+    expect(calendarOrder(model).map((i) => i.path)).toEqual([
+      'first.md', 'trip.md', 'early.md', 'late.md', 'month.md', 'year.md', 'someday.md', 'bad.md',
+    ]);
   });
 });

@@ -125,6 +125,40 @@ describe('the keyboard (#2602)', () => {
     expect(api.of('view.clearSelection')).toHaveLength(1);
   });
 
+  // Building a selection from the keyboard (#2942): Minerva owns the
+  // selection, so Space and ⇧+arrow are `view.click`'s own modifiers.
+  it('Space toggles the card (a ⌘-click), not opening it, and says what the selection came to', async () => {
+    const { card, api, update } = mount();
+    card('a.md').focus();
+    const space = new KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true });
+    card('a.md').dispatchEvent(space);
+    expect(space.defaultPrevented).toBe(true); // not the button's click, which opens the note
+    expect(api.of('view.click')).toEqual([{ path: 'a.md', meta: true }]);
+    await update(viewOf(FILED, { selected: ['a.md'] }));
+    await vi.waitFor(() => expect(api.of('ui.announce').at(-1)).toEqual({ text: '1 selected' }));
+  });
+
+  it('⇧+arrow extends to the card it reaches — from this card when nothing is selected — and focuses it', async () => {
+    const { card, api, update } = mount();
+    card('a.md').focus();
+    await fireEvent.keyDown(card('a.md'), { key: 'ArrowDown', shiftKey: true });
+    expect(api.of('view.click')).toEqual([{ path: 'a.md', meta: true }, { path: 'c.md', shift: true }]);
+    await vi.waitFor(() => expect(document.activeElement).toBe(card('c.md')));
+    await update(viewOf(FILED, { selected: ['a.md', 'c.md'] }));
+    await fireEvent.keyDown(card('c.md'), { key: 'ArrowRight', shiftKey: true }); // into the next column
+    expect(api.of('view.click').slice(2)).toEqual([{ path: 'd.md', shift: true }]);
+    await update(viewOf(FILED, { selected: ['a.md', 'c.md', 'd.md'] }));
+    await vi.waitFor(() => expect(api.of('ui.announce').at(-1)).toEqual({ text: '3 selected' }));
+  });
+
+  it('Space and ⇧+arrow select nothing where the view does not select (an embed)', async () => {
+    const { card, api } = mount(viewOf(FILED, { selectable: false }));
+    card('a.md').focus();
+    await fireEvent.keyDown(card('a.md'), { key: ' ' });
+    await fireEvent.keyDown(card('a.md'), { key: 'ArrowDown', shiftKey: true });
+    expect(api.of('view.click')).toEqual([]);
+  });
+
   it('⌘A does nothing where the view does not select (an embed)', async () => {
     const { card, api } = mount(viewOf(FILED, { selectable: false }));
     await fireEvent.keyDown(card('a.md'), { key: 'a', metaKey: true });
