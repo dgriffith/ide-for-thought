@@ -48,6 +48,8 @@ export const LIVE_BLOCKS = [
   { kind: 'output', syntax: { fence: ['output'] }, export: 'window' },
   { kind: 'query', syntax: { directive: /^:::query-(\w+)\s*$/ }, export: 'window' },
   { kind: 'argument', syntax: { directive: /^:::argument\s*$/ }, export: 'window' },
+  // A hierarchy of notes as a mindmap (#2966), drawn by the preview's Mindmap.
+  { kind: 'mindmap', syntax: { directive: /^:::mindmap\s*$/ }, export: 'window' },
   { kind: 'card', syntax: { cardLink: true }, export: 'window' },
   // A chart, drawn to SVG in main (#831).
   { kind: 'vega', syntax: { fence: ['vega', 'vega-lite'] }, export: 'main' },

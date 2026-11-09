@@ -39,6 +39,7 @@ export { relocationLinkIndexes, wikiLinkTargets } from './note-index';
 export type { RelocationLinkIndexes } from './note-index';
 export { getNoteTypedProperties, getTypeInstances, getNoteTypeMap } from './note-properties';
 export { wholeGraph, WHOLE_GRAPH_CEILING } from './whole-graph';
+export { mindmapWalk, MINDMAP_NODE_CAP, MINDMAP_MAX_DEPTH } from './mindmap-walk';
 
 // ── Public write / indexing API (#671) ───────────────────────────────────────
 // The write/indexing layer lives in ./indexers. Re-export its public surface so

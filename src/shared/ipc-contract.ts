@@ -53,6 +53,7 @@ import type {
   SourceDetail,
   CsvTableCollision,
 } from './types';
+import type { MindmapWalkOptions, MindmapWalkResult } from './mindmap/note-hierarchy';
 import type { InspectionSettings, Inspection } from './inspections';
 import type { ClipperState } from './clipper-pairing';
 import type { McpServerDescriptor, McpServerStatus } from './mcp-servers';
@@ -287,6 +288,7 @@ export interface ChannelMap {
    *  (#2363) — see `shared/graph-query.ts`. No project open throws. */
   'graph:query': (sparql: string) => GraphQueryResult;
   'graph:whole': (opts?: { tags?: boolean }) => WholeGraphResult;
+  'graph:mindmap': (focus: string, opts: MindmapWalkOptions) => MindmapWalkResult;
   /** Rebase to a new base IRI + rebuild indexes (#1443 Part B); refuses when the
    *  review queue is non-empty. */
   'graph:setBaseUri': (uri: string) => { ok: true } | { ok: false; error: string };

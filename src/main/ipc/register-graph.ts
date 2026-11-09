@@ -21,6 +21,7 @@ import { checkRebase } from '../graph/rebase-guard';
 import { proposeExcerptEvidence, type AttachEvidenceResult } from '../llm/attach-evidence';
 import { withRootPath, withRootPathOr, withRootPathWin } from './helpers';
 import type { WholeGraphResult } from '../../shared/types';
+import type { MindmapWalkOptions } from '../../shared/mindmap/note-hierarchy';
 import { getInspectionSettings, saveInspectionSettings } from '../config/inspection-settings';
 import { exportKnowledgeGraph } from '../maintenance-commands';
 import { isA, labelOf } from '../graph/argument-patterns';
@@ -36,6 +37,14 @@ export function registerGraph(): void {
   handle(Channels.GRAPH_WHOLE, withRootPathOr<[opts?: { tags?: boolean }], WholeGraphResult | Promise<WholeGraphResult>>(
     { nodes: [], edges: [], total: 0, truncated: false },
     (rootPath, opts) => graph.wholeGraph(projectContext(rootPath), { tags: opts?.tags === true })));
+
+  // A hierarchy of notes for a `:::mindmap` block (#2966). No project: nothing to walk, so it throws.
+  handle(Channels.GRAPH_MINDMAP, withRootPath((rootPath, focus: string, opts: MindmapWalkOptions) =>
+    graph.mindmapWalk(projectContext(rootPath), focus, {
+      relation: typeof opts?.relation === 'string' ? opts.relation : 'headings',
+      ...(opts?.direction === 'out' ? { direction: 'out' as const } : {}),
+      ...(typeof opts?.depth === 'number' ? { depth: opts.depth } : {}),
+    })));
 
   // Rebase the graph to a new base IRI (#1443 Part B). No in-place triple
   // rewriting: persist the new base, point the live state at it, then rebuild

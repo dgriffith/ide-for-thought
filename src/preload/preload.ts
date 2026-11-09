@@ -10,6 +10,7 @@ importLegacyOriginStorage(
   () => window.localStorage,
 );
 import type { SearchInNotesOptions, ReplaceInNotesOptions, MenuEditorState, BookmarkNode, LayoutSession } from '../shared/types';
+import type { MindmapWalkOptions } from '../shared/mindmap/note-hierarchy';
 import type { ThemeMode } from '../shared/theme';
 import type { CommandId } from '../shared/commands';
 import type { PluginSettingsPatch } from '../shared/plugins/format';
@@ -148,6 +149,7 @@ const api = {
   graph: {
     query: (sparql: string) => invoke(Channels.GRAPH_QUERY, sparql),
     whole: (opts?: { tags?: boolean }) => invoke(Channels.GRAPH_WHOLE, opts),
+    mindmap: (focus: string, opts: MindmapWalkOptions) => invoke(Channels.GRAPH_MINDMAP, focus, opts),
     setBaseUri: (uri: string) => invoke(Channels.GRAPH_SET_BASE_URI, uri),
     groundCheck: (claimText: string) => invoke(Channels.GRAPH_GROUND_CHECK, claimText),
     inspections: () => invoke(Channels.INSPECTIONS_LIST),

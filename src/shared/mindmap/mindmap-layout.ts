@@ -145,7 +145,8 @@ export function layoutMindmap(root: MindmapTree, opts: MindmapLayoutOptions): Mi
   const nodes: MindmapLayoutNode[] = [];
   const links: MindmapLayoutLink[] = [];
   let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
-  placed.each((n) => {
+  // Depth first, each node then its children: the order a screen reader reads the drawn tree in.
+  placed.eachBefore((n) => {
     const p = pos.get(n.data)!;
     const s = sz(n);
     const isFolded = folded.has(n.data.id) && n.data.children.length > 0;

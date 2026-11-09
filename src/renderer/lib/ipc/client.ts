@@ -141,6 +141,8 @@ export interface GraphApi {
   query(sparql: string): Promise<GraphQueryResult>;
   /** The whole thoughtbase as a graph (#2958): every note and edge, `tags` drawn when asked. */
   whole(opts?: { tags?: boolean }): Promise<import('../../../shared/types').WholeGraphResult>;
+  /** A hierarchy of notes out from `focus` along a relation, for a `:::mindmap` block (#2966). */
+  mindmap(focus: string, opts: import('../../../shared/mindmap/note-hierarchy').MindmapWalkOptions): Promise<import('../../../shared/mindmap/note-hierarchy').MindmapWalkResult>;
   /** Rebase to a new base IRI + rebuild indexes (#1443 Part B). */
   setBaseUri(uri: string): Promise<{ ok: true } | { ok: false; error: string }>;
   groundCheck(claimText: string): Promise<{ node: string; label: string; type: string }[]>;

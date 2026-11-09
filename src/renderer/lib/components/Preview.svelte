@@ -14,6 +14,7 @@
     import {codePluginsStore} from '../stores/code-plugins.svelte';
     import type { TypeViewNoteActions } from './type-view/note-actions';
     import {hydrateArgumentMapBlocks, type ArgumentMapDeps} from '../markdown/argument-map-renderer';
+    import {hydrateMindmapBlocks} from '../markdown/mindmap-block-renderer';
     import {hydrateCardCallouts} from '../markdown/card-callout';
     import {disposeCaches as disposeHydratedBlockCaches, parkHydratedBlocks} from '../markdown/hydrated-block-cache';
     import {slugify} from '../../../shared/slug';
@@ -620,6 +621,8 @@
             // Argument-map embed hydration (#907) — mounts a live ArgumentMap
             // into each `.argument-map-block` placeholder.
             if (previewEl) hydrateArgumentMapBlocks(previewEl, argumentMapDeps());
+            // `:::mindmap` blocks (#2966): a hierarchy of notes, drawn by the Mindmap.
+            if (previewEl) hydrateMindmapBlocks(previewEl, argumentMapDeps());
             // Plugins' live blocks (#2641) — the plugin's frame in each `.plugin-block`.
             if (previewEl) hydratePluginBlocks(previewEl);
             // Flashcard polish: tuck each [!card]'s answer (the part after `---`)
