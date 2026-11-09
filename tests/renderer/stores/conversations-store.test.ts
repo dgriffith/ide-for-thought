@@ -73,6 +73,7 @@ const h = vi.hoisted(() => {
         makeConv(bundle, trigger, options)),
       load: vi.fn(async (_id: string) => null as Conversation | null),
       archive: vi.fn().mockResolvedValue(undefined),
+      branch: vi.fn(),
       // turn
       send: vi.fn().mockResolvedValue(undefined),
       retry: vi.fn().mockResolvedValue(undefined),
@@ -1124,5 +1125,59 @@ describe('several conversations running at once (#2969)', () => {
     turn.resolve();
     await sending;
     expect(h.announce).toHaveBeenLastCalledWith('“Tuning history” finished replying');
+  });
+});
+
+describe('branches (#2970)', () => {
+  const branchConv = (parentId: string, id: string, last: 'user' | 'assistant' = 'user'): Conversation => ({
+    id, contextBundle: {}, status: 'active', startedAt: 't', title: 'Risks', titleSource: 'user',
+    branch: { parentId, atMessage: 0, context: 'summary' },
+    messages: [{ role: last, content: 'Summary… **This branch:** list the risks', timestamp: 't' }],
+  });
+
+  it('a branch opens as a tab right under its parent and runs its first turn', async () => {
+    const parent = await freshTab();
+    const other = await freshTab();
+    conv().branch.mockResolvedValueOnce(branchConv(parent.id, 'conv-branch-1'));
+    const tab = await store.branchConversation(parent.id, { title: 'Risks', instructions: 'list the risks' });
+    expect(conv().branch).toHaveBeenCalledWith(parent.id, { title: 'Risks', instructions: 'list the risks' });
+    const ids = store.tabs.map((t) => t.id);
+    expect(ids.indexOf('conv-branch-1')).toBe(ids.indexOf(parent.id) + 1);
+    expect(ids.indexOf(other.id)).toBeGreaterThan(ids.indexOf('conv-branch-1'));
+    expect(store.activeTabId).toBe(tab!.id);
+    await vi.waitFor(() => expect(conv().retry).toHaveBeenCalledWith('conv-branch-1', undefined, undefined, undefined));
+  });
+
+  it('a branch with nothing to answer yet waits for the user', async () => {
+    const parent = await freshTab();
+    conv().branch.mockResolvedValueOnce(branchConv(parent.id, 'conv-branch-2', 'assistant'));
+    await store.branchConversation(parent.id, { title: 'Risks' });
+    expect(conv().retry).not.toHaveBeenCalled();
+  });
+
+  it('closing a parent closes its open branches with it, and nothing else', async () => {
+    const parent = await freshTab();
+    const other = await freshTab();
+    conv().branch.mockResolvedValueOnce(branchConv(parent.id, 'conv-b1', 'assistant'));
+    await store.branchConversation(parent.id, { title: 'B1' });
+    conv().branch.mockResolvedValueOnce(branchConv('conv-b1', 'conv-b1x', 'assistant'));
+    await store.branchConversation('conv-b1', { title: 'B1x' });
+    await store.closeTab(parent.id);
+    expect(conv().archive).toHaveBeenCalledTimes(1);
+    expect(conv().archive).toHaveBeenCalledWith(parent.id);
+    expect(store.tabs.map((t) => t.id)).not.toContain('conv-b1');
+    expect(store.tabs.map((t) => t.id)).not.toContain('conv-b1x');
+    expect(store.tabs.map((t) => t.id)).toContain(other.id);
+    expect(store.activeTabId).not.toBe('conv-b1x');
+  });
+
+  it('after a branch\'s turn, the list picks up how it ended', async () => {
+    const parent = await freshTab();
+    const b = branchConv(parent.id, 'conv-b3');
+    conv().branch.mockResolvedValueOnce(b);
+    conv().retry.mockRejectedValueOnce(new Error('overloaded'));
+    conv().load.mockResolvedValue({ ...b, branch: { ...b.branch!, outcome: 'failed' } });
+    const tab = await store.branchConversation(parent.id, { title: 'Risks', instructions: 'go' });
+    await vi.waitFor(() => expect(tab!.conversation.branch?.outcome).toBe('failed'));
   });
 });

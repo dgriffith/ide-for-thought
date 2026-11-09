@@ -19,6 +19,8 @@
   import Composer from './conversations/Composer.svelte';
   import MessageList from './conversations/MessageList.svelte';
   import { tabTitle } from '../conversations/conversation-display';
+  import { branchStatus, nestBranches, openDescendants } from '../conversations/branch-tree';
+  import { announce } from '../stores/announcer.svelte';
 
   interface Props {
     /** Path of the currently active note in the editor, or null. Pushed
@@ -154,14 +156,38 @@
   async function handleCloseTab(id: string, e: Event) {
     e.stopPropagation();
     // Closing archives the conversation and there's no reopen UI, so guard it
-    // with a dismissable confirm (#1033).
+    // with a dismissable confirm (#1033). Its branches close with it (#2970).
+    const branches = openDescendants(store.tabs, (t) => t.conversation, id).length;
     const ok = await showConfirm(
-      "Close this conversation? You won't be able to reopen it.",
+      branches === 0
+        ? "Close this conversation? You won't be able to reopen it."
+        : `Close this conversation and its ${branches === 1 ? 'branch' : `${branches} branches`}? You won't be able to reopen them.`,
       CONFIRM_KEYS.closeConversation,
       'Close',
     );
     if (!ok) return;
     await store.closeTab(id);
+  }
+
+  // Branch (#2970): a child conversation that starts from a summary of this
+  // one and the instructions given here, and starts answering them at once.
+  let branching = $state(false);
+  async function handleBranch(tab: (typeof store.tabs)[number]): Promise<void> {
+    const instructions = await showPrompt('What should the branch look into?', '');
+    if (instructions === null) return;
+    const text = instructions.trim();
+    const words = text.split(/\s+/).slice(0, 8).join(' ');
+    branching = true;
+    try {
+      await store.branchConversation(tab.id, {
+        title: text ? (words.length < text.length ? `${words}…` : words) : `Branch of ${tabTitle(tab)}`,
+        ...(text ? { instructions: text } : {}),
+      });
+    } catch (err) {
+      announce(`Couldn't branch: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      branching = false;
+    }
   }
 
   // Resize: track pointer between mousedown on the handle and mouseup
@@ -209,8 +235,9 @@
           </button>
         </div>
         <div class="list-items">
-          {#each store.tabs as tab (tab.id)}
-            <div class="conv-item" class:active={tab.id === store.activeTabId}>
+          {#each nestBranches(store.tabs, (t) => t.conversation) as { item: tab, depth } (tab.id)}
+            {@const status = branchStatus(tab.conversation, tab.streaming)}
+            <div class="conv-item" class:active={tab.id === store.activeTabId} class:branch={depth > 0} style:--depth={depth}>
               <button
                 type="button"
                 class="conv-item-btn"
@@ -221,6 +248,7 @@
                 <span class="conv-item-title">
                   {#if tab.streaming}<span class="conv-item-running" title="Replying" aria-label="Replying"></span>{/if}{tabTitle(tab)}
                 </span>
+                {#if status}<span class="conv-item-status">Branch · {status}</span>{/if}
                 {#if tab.conversation.contextBundle.notePath}
                   <span class="conv-item-note">
                     <Icon name="notes" size={10} color="var(--text-faint)" />
@@ -282,6 +310,15 @@
               {/each}
             </select>
           {/if}
+          <button
+            type="button"
+            class="rail-action"
+            disabled={branching || tab.streaming}
+            onclick={() => void handleBranch(tab)}
+            title="Fork a branch: a new conversation that starts from a summary of this one"
+          >
+            {branching ? 'Branching…' : 'Branch…'}
+          </button>
           {#if onCreateNoteFromConversation}
             <button
               type="button"
@@ -445,6 +482,14 @@
   }
   .conv-item.active .conv-item-title {
     font-weight: 500;
+  }
+  .conv-item.branch {
+    padding-left: calc(var(--depth) * 14px);
+  }
+  .conv-item-status {
+    display: block;
+    font-size: 10px;
+    color: var(--text-faint);
   }
   .conv-item-note {
     display: inline-flex;

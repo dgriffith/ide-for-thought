@@ -5,8 +5,10 @@ import { ensureComputeConsent } from '../app/compute-ops';
 import { announce } from './announcer.svelte';
 import { extensionDraftsStore } from './extension-drafts.svelte';
 import { logger } from '../../../shared/logger';
+import { openDescendants } from '../conversations/branch-tree';
 import type { RequestWaitStatus } from '../../../shared/tools/concurrent-requests';
 import type {
+  BranchCreateOptions,
   Conversation,
   ConversationCreateOptions,
   ConversationSkill,
@@ -529,23 +531,51 @@ async function openConversationTab(opts: {
 async function closeTab(id: string): Promise<void> {
   const idx = tabs.findIndex((t) => t.id === id);
   if (idx === -1) return;
-  // A card the user can no longer see is a Deny, not a hang.
-  const pendingConfirm = tabs[idx]!.pendingMcpConfirm;
-  if (pendingConfirm) void answerMcpConfirm(id, false, false);
-  extensionDraftsStore.dismissFor(id);
+  // Main archives a conversation's branches with it (#2970), so their tabs go too.
+  const closing = [tabs[idx]!, ...openDescendants(tabs, (t) => t.conversation, id)];
+  for (const t of closing) {
+    // A card the user can no longer see is a Deny, not a hang.
+    if (t.pendingMcpConfirm) void answerMcpConfirm(t.id, false, false);
+    extensionDraftsStore.dismissFor(t.id);
+  }
   try {
     await api.conversations.archive(id);
   } catch {
     // If archive fails (e.g., already archived), still drop from the
     // local list so the user sees the tab go away.
   }
-  const next = tabs.filter((t) => t.id !== id);
+  const gone = new Set(closing.map((t) => t.id));
+  const next = tabs.filter((t) => !gone.has(t.id));
   tabs = next;
-  if (activeTabId === id) {
+  if (activeTabId !== null && gone.has(activeTabId)) {
     // Pick a neighbor: the next-right tab if any, else the next-left.
-    activeTabId = next[idx]?.id ?? next[idx - 1]?.id ?? null;
+    activeTabId = next[idx]?.id ?? next[idx - 1]?.id ?? next.at(-1)?.id ?? null;
   }
   scheduleSave();
+}
+
+/**
+ * Fork a branch from a conversation (#2970): a new tab under its parent. When
+ * the branch opens on instructions, its first turn runs straight away.
+ */
+async function branchConversation(tabId: string, opts: BranchCreateOptions): Promise<TabRuntime | null> {
+  const parent = findTab(tabId);
+  if (!parent) return null;
+  ensureSubscriptions();
+  const conv = await api.conversations.branch(parent.id, opts);
+  const tab = blankTabRuntime(conv, [...parent.extraTools]);
+  const after = Math.max(tabs.indexOf(parent), ...openDescendants(tabs, (t) => t.conversation, parent.id).map((t) => tabs.indexOf(t)));
+  tabs = [...tabs.slice(0, after + 1), tab, ...tabs.slice(after + 1)];
+  activeTabId = tab.id;
+  scheduleSave();
+  if (conv.messages.at(-1)?.role === 'user') void retryLastTurn(tab.id);
+  return findTab(tab.id) ?? tab;
+}
+
+/** A branch's turn records how it ended in main; bring that into the list, whatever the outcome. */
+function refreshBranchOutcome(tab: TabRuntime): void {
+  if (!tab.conversation.branch) return;
+  void api.conversations.load(tab.id).then((c) => { if (c?.branch) tab.conversation.branch = c.branch; }, () => {});
 }
 
 async function send(content: string, currentNotePath?: string): Promise<void> {
@@ -586,6 +616,7 @@ async function send(content: string, currentNotePath?: string): Promise<void> {
     tab.streamedChunks = '';
     tab.pendingMcpConfirm = null;
     extensionDraftsStore.clearFor(tab.id);
+    refreshBranchOutcome(tab);
   }
 }
 
@@ -619,6 +650,7 @@ async function retryLastTurn(tabId: string, currentNotePath?: string): Promise<v
     tab.streamedChunks = '';
     tab.pendingMcpConfirm = null;
     extensionDraftsStore.clearFor(tab.id);
+    refreshBranchOutcome(tab);
   }
 }
 
@@ -1271,6 +1303,7 @@ export function getConversationsStore() {
     openFreeform,
     openConversationTab,
     closeTab,
+    branchConversation,
     send,
     retryLastTurn,
     dismissFailure,
