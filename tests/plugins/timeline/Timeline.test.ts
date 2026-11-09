@@ -68,6 +68,9 @@ type Over = {
   exportMode?: boolean;
   /** The view has a note menu (#2928): the panel, or an embed with note actions. */
   rowMenu?: boolean;
+  /** The view selects (#2937): a type's own tab. */
+  selectable?: boolean;
+  selected?: string[];
 };
 
 /** The view as Minerva sends it (`PluginLayout`): the spec's own fields, the filters, the instances. */
@@ -83,7 +86,7 @@ function viewOf(o: Over): PluginViewState {
     spec: { from: o.from ?? null, to: o.to ?? null, dateBy: o.dateBy ?? null },
     filters: o.filters ?? [],
     readOnly: o.readOnly ?? false, exportMode: o.exportMode ?? false,
-    selected: [], selectable: false, rowMenu: o.rowMenu ?? false,
+    selected: o.selected ?? [], selectable: o.selectable ?? false, rowMenu: o.rowMenu ?? false,
     groupProperty: null, groups: [], movable: false, canUndoMove: false, lastMove: null,
   };
 }
@@ -651,5 +654,101 @@ describe("Minerva's note menu (#2928)", () => {
     await fireEvent.contextMenu(exported.container.querySelector<HTMLElement>('[data-note-path="moon.md"]')!);
     expect(menus(api)).toEqual([]);
     expect(menus(exported.api)).toEqual([]);
+  });
+});
+
+describe('selecting several events (#2937)', () => {
+  const clicks = (api: ReturnType<typeof fakeMinerva>) => api.of('view.click');
+  const TAB = { selectable: true, rowMenu: true } as const;
+
+  it('a click carries its modifiers where the view selects; elsewhere it just opens', async () => {
+    const tab = setup(TAB);
+    await fireEvent.click(tab.event('moon.md'), { metaKey: true });
+    await fireEvent.click(tab.event('apollo.md'), { shiftKey: true });
+    await fireEvent.click(tab.container.querySelector<HTMLElement>('.tl-undated-row[data-note-path="someday.md"]')!, { ctrlKey: true });
+    expect(clicks(tab.api)).toEqual([
+      { path: 'moon.md', meta: true, ctrl: false, shift: false },
+      { path: 'apollo.md', meta: false, ctrl: false, shift: true },
+      { path: 'someday.md', meta: false, ctrl: true, shift: false },
+    ]);
+    cleanup();
+    const embed = setup({ rowMenu: true });
+    await fireEvent.click(embed.event('moon.md'), { metaKey: true });
+    expect(clicks(embed.api)).toEqual([{ path: 'moon.md' }]);
+  });
+
+  it('draws the selection: the plot is a multi-select listbox, a selected event an option that says so, keeping its ring', () => {
+    const { event, plot, container } = setup({ ...TAB, selected: ['moon.md', 'someday.md'] });
+    expect(plot().getAttribute('role')).toBe('listbox');
+    expect(plot().getAttribute('aria-multiselectable')).toBe('true');
+    expect(event('moon.md').getAttribute('role')).toBe('option');
+    expect(event('moon.md').getAttribute('aria-selected')).toBe('true');
+    expect(event('moon.md').classList.contains('selected')).toBe(true);
+    expect(event('apollo.md').getAttribute('aria-selected')).toBe('false');
+    const someday = container.querySelector<HTMLElement>('.tl-undated-row[data-note-path="someday.md"]')!;
+    expect(someday.getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('an embed keeps links in a group, with nothing selected', () => {
+    const { event, plot } = setup({ rowMenu: true });
+    expect(plot().getAttribute('role')).toBe('group');
+    expect(event('moon.md').getAttribute('role')).toBe('link');
+    expect(event('moon.md').hasAttribute('aria-selected')).toBe(false);
+  });
+
+  it("a right-click on a selected event is the selection's menu; on any other, that note's", async () => {
+    const { event, api } = setup({ ...TAB, selected: ['moon.md', 'apollo.md'] });
+    await fireEvent.contextMenu(event('moon.md'), { clientX: 5, clientY: 6 });
+    await fireEvent.contextMenu(event('woodstock.md'), { clientX: 7, clientY: 8 });
+    expect(api.of('ui.showNoteMenu').map((m) => (m as { paths: string[] }).paths)).toEqual([['moon.md', 'apollo.md'], ['woodstock.md']]);
+  });
+
+  it('⌘A selects all, and Escape clears a selection — through the view', async () => {
+    const { event, api, rerender } = setup(TAB);
+    event('moon.md').focus();
+    await fireEvent.keyDown(event('moon.md'), { key: 'a', metaKey: true });
+    expect(api.of('view.selectAll')).toHaveLength(1);
+    const loose = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+    event('moon.md').dispatchEvent(loose);
+    expect(api.of('view.clearSelection')).toHaveLength(0); // nothing to clear
+    await rerender({ selected: ['moon.md'] });
+    await fireEvent.keyDown(event('moon.md'), { key: 'Escape' });
+    expect(api.of('view.clearSelection')).toHaveLength(1);
+  });
+
+  it('Space toggles the focused event; ⇧+→ extends in time order from it, and focuses the next', async () => {
+    const { event, api, rerender } = setup(TAB);
+    event('apollo.md').focus();
+    const space = new KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true });
+    event('apollo.md').dispatchEvent(space);
+    expect(space.defaultPrevented).toBe(true);
+    expect(clicks(api)).toEqual([{ path: 'apollo.md', meta: true }]);
+    await rerender({ selected: [] }); // toggled back out, say
+    await fireEvent.keyDown(event('apollo.md'), { key: 'ArrowRight', shiftKey: true });
+    expect(clicks(api).slice(1)).toEqual([{ path: 'apollo.md', meta: true }, { path: 'moon.md', shift: true }]);
+    await waitFor(() => expect(document.activeElement).toBe(event('moon.md')));
+    await rerender({ selected: ['apollo.md', 'moon.md'] });
+    await waitFor(() => expect(api.of('ui.announce').at(-1)).toEqual({ text: '2 selected' }));
+  });
+
+  it('where it selects, Alt+←/→ pans and ⇧+←/→ does not', async () => {
+    const { event, domain } = setup({ ...TAB, from: '1960', to: '1979' });
+    event('decade.md').focus();
+    const before = domain();
+    await fireEvent.keyDown(event('decade.md'), { key: 'ArrowRight', altKey: true });
+    expect(domain().start).toBeGreaterThan(before.start);
+    const panned = domain();
+    await fireEvent.keyDown(event('decade.md'), { key: 'ArrowRight', shiftKey: true });
+    expect(domain()).toEqual(panned);
+  });
+
+  it('Undated rows: Space toggles, ⇧+↓ extends to the next row', async () => {
+    const { container, api } = setup(TAB);
+    const row = (p: string) => container.querySelector<HTMLElement>(`.tl-undated-row[data-note-path="${p}"]`)!;
+    row('someday.md').focus();
+    await fireEvent.keyDown(row('someday.md'), { key: ' ' });
+    await fireEvent.keyDown(row('someday.md'), { key: 'ArrowDown', shiftKey: true });
+    expect(clicks(api)).toEqual([{ path: 'someday.md', meta: true }, { path: 'someday.md', meta: true }, { path: 'bad.md', shift: true }]);
+    expect(document.activeElement).toBe(row('bad.md'));
   });
 });

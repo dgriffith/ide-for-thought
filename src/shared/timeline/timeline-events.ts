@@ -27,6 +27,7 @@ import { DATE_PROPERTY, endPropertyFor, resolveDateBy } from '../objects/date-by
 import { formatDateValue } from '../objects/date-values';
 import { isPartial } from './timeline-format';
 import { DRAWABLE_END, DRAWABLE_START, type Domain } from './timeline-scale';
+import { compareLaneItems } from '../objects/interval-lanes';
 
 /** A stretch of an event's drawing: `approx` ones are hatched. */
 export interface Segment {
@@ -179,7 +180,8 @@ export function buildTimelineModel<I extends TimelineInstance = TypeInstanceRow>
  * path), then Undated, in the tray's order.
  */
 export function timelineOrder<I extends TimelineInstance>(model: TimelineModel<I>): I[] {
-  const dated = [...model.dated].sort((a, b) => a.start - b.start || a.end - b.end || a.title.localeCompare(b.title) || a.key.localeCompare(b.key));
+  // The plugin's own step order (`timeOrder`), so a ⇧-range and the arrows agree (#2937).
+  const dated = [...model.dated].sort(compareLaneItems);
   return [...dated, ...model.undated].map((e) => e.inst);
 }
 
