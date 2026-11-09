@@ -5,7 +5,10 @@ import { ensureComputeConsent } from '../app/compute-ops';
 import { announce } from './announcer.svelte';
 import { extensionDraftsStore } from './extension-drafts.svelte';
 import { logger } from '../../../shared/logger';
+import { openDescendants } from '../conversations/branch-tree';
+import type { RequestWaitStatus } from '../../../shared/tools/concurrent-requests';
 import type {
+  BranchCreateOptions,
   Conversation,
   ConversationCreateOptions,
   ConversationSkill,
@@ -201,7 +204,11 @@ export interface TabRuntime {
    *  ends: main has already resolved it as cancelled by then. */
   pendingMcpConfirm: McpConfirmRequest | null;
   composer: string;
+  /** Mid-turn. Per conversation (#2969): several tabs in one window can each be running. */
   streaming: boolean;
+  /** What the turn's next model request is waiting on — a free slot, or a rate
+   *  limit to clear — or null while it runs (#2969). */
+  waiting: RequestWaitStatus;
   /** When the in-flight turn started (epoch ms), for the elapsed time on the
    *  turn-status line; null when idle. On the tab, not in the component, so
    *  switching tabs and back doesn't restart the clock. */
@@ -291,10 +298,17 @@ function draftHandler<T extends { conversationId: string; draftId: string }>(
 
 function ensureSubscriptions(): void {
   if (!streamSubscribed) {
-    api.conversations.onStream((chunk) => {
-      const t = activeTab();
+    // Routed by conversation, not to whichever tab is in front (#2969): a
+    // background tab keeps streaming into its own transcript.
+    api.conversations.onStream(({ conversationId, text }) => {
+      const t = findTab(conversationId);
       if (!t || !t.streaming) return;
-      t.streamedChunks += chunk;
+      t.streamedChunks += text;
+    });
+    api.conversations.onWait(({ conversationId, status }) => {
+      const t = findTab(conversationId);
+      if (!t || !t.streaming) return;
+      t.waiting = status;
     });
     streamSubscribed = true;
   }
@@ -517,23 +531,51 @@ async function openConversationTab(opts: {
 async function closeTab(id: string): Promise<void> {
   const idx = tabs.findIndex((t) => t.id === id);
   if (idx === -1) return;
-  // A card the user can no longer see is a Deny, not a hang.
-  const pendingConfirm = tabs[idx]!.pendingMcpConfirm;
-  if (pendingConfirm) void answerMcpConfirm(id, false, false);
-  extensionDraftsStore.dismissFor(id);
+  // Main archives a conversation's branches with it (#2970), so their tabs go too.
+  const closing = [tabs[idx]!, ...openDescendants(tabs, (t) => t.conversation, id)];
+  for (const t of closing) {
+    // A card the user can no longer see is a Deny, not a hang.
+    if (t.pendingMcpConfirm) void answerMcpConfirm(t.id, false, false);
+    extensionDraftsStore.dismissFor(t.id);
+  }
   try {
     await api.conversations.archive(id);
   } catch {
     // If archive fails (e.g., already archived), still drop from the
     // local list so the user sees the tab go away.
   }
-  const next = tabs.filter((t) => t.id !== id);
+  const gone = new Set(closing.map((t) => t.id));
+  const next = tabs.filter((t) => !gone.has(t.id));
   tabs = next;
-  if (activeTabId === id) {
+  if (activeTabId !== null && gone.has(activeTabId)) {
     // Pick a neighbor: the next-right tab if any, else the next-left.
-    activeTabId = next[idx]?.id ?? next[idx - 1]?.id ?? null;
+    activeTabId = next[idx]?.id ?? next[idx - 1]?.id ?? next.at(-1)?.id ?? null;
   }
   scheduleSave();
+}
+
+/**
+ * Fork a branch from a conversation (#2970): a new tab under its parent. When
+ * the branch opens on instructions, its first turn runs straight away.
+ */
+async function branchConversation(tabId: string, opts: BranchCreateOptions): Promise<TabRuntime | null> {
+  const parent = findTab(tabId);
+  if (!parent) return null;
+  ensureSubscriptions();
+  const conv = await api.conversations.branch(parent.id, opts);
+  const tab = blankTabRuntime(conv, [...parent.extraTools]);
+  const after = Math.max(tabs.indexOf(parent), ...openDescendants(tabs, (t) => t.conversation, parent.id).map((t) => tabs.indexOf(t)));
+  tabs = [...tabs.slice(0, after + 1), tab, ...tabs.slice(after + 1)];
+  activeTabId = tab.id;
+  scheduleSave();
+  if (conv.messages.at(-1)?.role === 'user') void retryLastTurn(tab.id);
+  return findTab(tab.id) ?? tab;
+}
+
+/** A branch's turn records how it ended in main; bring that into the list, whatever the outcome. */
+function refreshBranchOutcome(tab: TabRuntime): void {
+  if (!tab.conversation.branch) return;
+  void api.conversations.load(tab.id).then((c) => { if (c?.branch) tab.conversation.branch = c.branch; }, () => {});
 }
 
 async function send(content: string, currentNotePath?: string): Promise<void> {
@@ -569,10 +611,12 @@ async function send(content: string, currentNotePath?: string): Promise<void> {
     handleTurnFailure(tab, e, text);
   } finally {
     tab.streaming = false;
+    tab.waiting = null;
     tab.turnStartedAt = null;
     tab.streamedChunks = '';
     tab.pendingMcpConfirm = null;
     extensionDraftsStore.clearFor(tab.id);
+    refreshBranchOutcome(tab);
   }
 }
 
@@ -601,10 +645,12 @@ async function retryLastTurn(tabId: string, currentNotePath?: string): Promise<v
     handleTurnFailure(tab, e, null);
   } finally {
     tab.streaming = false;
+    tab.waiting = null;
     tab.turnStartedAt = null;
     tab.streamedChunks = '';
     tab.pendingMcpConfirm = null;
     extensionDraftsStore.clearFor(tab.id);
+    refreshBranchOutcome(tab);
   }
 }
 
@@ -620,9 +666,19 @@ function announceTurnStart(): void {
   announce('Generating response');
 }
 
+/** A reply in a tab the user isn't looking at (#2969) says which conversation finished, not its text. */
 function announceTurnComplete(tab: TabRuntime): void {
+  if (tab.id !== activeTabId) {
+    announce(`${conversationLabel(tab)} finished replying`);
+    return;
+  }
   const reply = [...tab.conversation.messages].reverse().find((m) => m.role === 'assistant');
   announce(reply?.content.trim() ? `Response complete. ${reply.content}` : 'Response complete');
+}
+
+function conversationLabel(tab: TabRuntime): string {
+  const title = tab.conversation.title?.trim();
+  return title ? `“${title}”` : 'A conversation';
 }
 
 /**
@@ -722,6 +778,7 @@ async function compactConversation(): Promise<void> {
     // If the tab was swapped out, this just touches the now-detached old tab
     // object; the new tab starts with streaming=false.
     tab.streaming = false;
+    tab.waiting = null;
     tab.turnStartedAt = null;
     tab.streamedChunks = '';
   }
@@ -829,6 +886,7 @@ function blankTabRuntime(conv: Conversation, extraTools: ConversationToolKey[]):
     pendingMcpConfirm: null,
     composer: '',
     streaming: false,
+    waiting: null,
     turnStartedAt: null,
     streamedChunks: '',
     failure: null,
@@ -889,8 +947,10 @@ async function clearConversation(): Promise<void> {
  * `streamedChunks` here — which is what this used to do — erased the partial
  * reply a few milliseconds before the code that wanted to keep it ran (#1809).
  */
-async function cancel(): Promise<void> {
-  await api.conversations.cancel();
+async function cancel(tabId?: string): Promise<void> {
+  const tab = tabId ? findTab(tabId) : activeTab();
+  if (!tab) return;
+  await api.conversations.cancel(tab.id);
 }
 
 /**
@@ -1243,6 +1303,7 @@ export function getConversationsStore() {
     openFreeform,
     openConversationTab,
     closeTab,
+    branchConversation,
     send,
     retryLastTurn,
     dismissFailure,

@@ -107,6 +107,8 @@ export async function create(
   contextBundle: ContextBundle,
   triggerNodeUri?: string,
   options?: ConversationCreateOptions,
+  /** Main only, never from the renderer: a branch's link, name, effort and opening turns (#2970). */
+  seed?: Pick<Conversation, 'branch' | 'title' | 'effort' | 'messages'>,
 ): Promise<Conversation> {
   const dir = convDir(rootPath);
   await fs.mkdir(dir, { recursive: true });
@@ -131,6 +133,10 @@ export async function create(
     const scope = getToolDef(options.skill.id)?.mcpScope;
     if (scope) conv.mcpScope = scope;
   }
+  if (seed?.branch) conv.branch = seed.branch;
+  if (seed?.title) { conv.title = seed.title; conv.titleSource = 'user'; }
+  if (seed?.effort) conv.effort = seed.effort;
+  if (seed?.messages) conv.messages = seed.messages;
 
   await persist(rootPath, conv);
   writeConversationToGraph(rootPath, conv);
@@ -287,6 +293,17 @@ export function setEffort(
     if (!conv) throw new Error(`Conversation not found: ${id}`);
     if (effort) conv.effort = effort;
     else delete conv.effort;
+    await persist(rootPath, conv);
+    return conv;
+  });
+}
+
+/** How a branch's last turn ended (#2970). A conversation that isn't a branch is left alone. */
+export function setBranchOutcome(rootPath: string, id: string, outcome: import('../../shared/conversation').BranchOutcome): Promise<Conversation | null> {
+  return withConversationLock(rootPath, id, async () => {
+    const conv = await load(rootPath, id);
+    if (!conv?.branch) return conv;
+    conv.branch = { ...conv.branch, outcome };
     await persist(rootPath, conv);
     return conv;
   });
@@ -451,10 +468,12 @@ function writeConversationToGraph(rootPath: string, conv: Conversation): void {
   const turtle = `
     @prefix thought: <${THOUGHT}> .
     @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+    @prefix prov: <http://www.w3.org/ns/prov#> .
 
     <${uri}> a thought:Conversation ;
       thought:conversationStatus thought:active ;
       thought:startedAt "${conv.startedAt}"^^xsd:dateTime
+      ${conv.branch && /^conv-[\w-]+$/.test(conv.branch.parentId) ? `; prov:wasDerivedFrom <${convUri(conv.branch.parentId)}>` : ''}
       ${conv.triggerNodeUri ? `; thought:trigger <${conv.triggerNodeUri}>` : ''}
       ${contextNoteIri ? `; thought:contextNote <${contextNoteIri}>` : ''} .
   `;

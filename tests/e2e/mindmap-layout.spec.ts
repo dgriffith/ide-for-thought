@@ -52,17 +52,23 @@ test('a type as a mindmap: make a child, move one, undo it, rename one (#2966); 
       const prompt = win.locator('input[aria-labelledby="prompt-dialog-title"]');
       await prompt.fill('Write code');
       await prompt.press('Enter');
-      await expect.poll(() => fs.existsSync(path.join(projectDir, 'Write code.md')), { timeout: 10_000 }).toBe(true);
-      expect(read('Write code.md')).toMatch(/^---\ntype: task\nparent: "\[\[Build\]\]"\n---/);
+      // Its contents, not just its existence: on Windows the file can exist a moment before it's written.
+      await expect.poll(() => (fs.existsSync(path.join(projectDir, 'Write code.md')) ? read('Write code.md') : ''), { timeout: 10_000 })
+        .toMatch(/^---\ntype: task\nparent: "\[\[Build\]\]"\n---/);
       await expect(node('Write code')).toHaveAttribute('aria-level', '4', { timeout: 10_000 });
+      // The map moves focus to the new note a few frames after it appears; let it land before
+      // the next step takes focus elsewhere, or it lands on top of that (CI, #3068's run).
+      await expect(node('Write code')).toBeFocused();
     });
 
     await test.step('⌘] moves Market under Build (one field), ⌘Z puts it back', async () => {
       await node('Market').focus();
+      await expect(node('Market')).toBeFocused();
       await win.keyboard.press('Meta+]');
       await expect.poll(() => read('Market.md'), { timeout: 10_000 }).toBe(market.replace('[[Launch]]', '[[Build]]'));
       await expect(node('Market')).toHaveAttribute('aria-level', '4');
       await node('Market').focus();
+      await expect(node('Market')).toBeFocused();
       await win.keyboard.press('Meta+z');
       await expect.poll(() => read('Market.md'), { timeout: 10_000 }).toBe(market);
       await expect(node('Market')).toHaveAttribute('aria-level', '3');
@@ -70,7 +76,8 @@ test('a type as a mindmap: make a child, move one, undo it, rename one (#2966); 
 
     await test.step('Copy as Mermaid puts the hierarchy on the clipboard as Mermaid text (#2967)', async () => {
       await win.locator('.mm-tools').getByRole('button', { name: 'Copy as Mermaid' }).click();
-      await expect.poll(() => app.evaluate(({ clipboard }) => clipboard.readText())).toBe(
+      // Windows' clipboard reads back with CRLF line endings; Mermaid takes either.
+      await expect.poll(async () => (await app.evaluate(({ clipboard }) => clipboard.readText())).replace(/\r\n/g, '\n')).toBe(
         'mindmap\n  root(("Task"))\n    n1["Launch"]\n      n2["Build"]\n        n3["Write code"]\n      n4["Market"]\n',
       );
     });
