@@ -28,6 +28,9 @@ self.onmessage = (e: MessageEvent<LayoutRequest>) => {
     ticks: ticksFor(nodes.length),
     // Each update repositions every node on the canvas: a big graph is sent half as often (#2958).
     every: nodes.length > 2000 ? 50 : 25,
+    // Notes are labelled boxes about 60 px wide: linked ones settle a box apart, not on top of each other (#2961).
+    distance: 80,
+    repulsion: 150,
     onPositions: (xy, done) => {
       const copy = xy.slice();
       (self as unknown as DedicatedWorkerGlobalScope).postMessage({ seq, xy: copy, done } satisfies LayoutResponse, [copy.buffer]);

@@ -230,6 +230,8 @@ export interface ChannelMap {
 
   // Export
   'export:csv': (csv: string) => void;
+  /** `data` is the SVG's text, or the PNG's bytes as base64. Null: the save dialog was cancelled. */
+  'export:image': (image: { name: string; format: 'png' | 'svg'; data: string }) => string | null;
 
   // Shell
   'shell:revealFile': (relativePath?: string) => void;

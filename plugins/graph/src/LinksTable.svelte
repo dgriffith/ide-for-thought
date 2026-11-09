@@ -2,18 +2,15 @@
   /**
    * The graph as a table (#2960): each of the view's notes with the notes it
    * links to and the notes that link to it, each link with its kind. The
-   * graph's accessible equivalent, and its export until #2961 draws the graph
-   * (`inline`: styles on the elements, for the export's sanitizer).
+   * graph's accessible equivalent.
    */
   import type { GraphViewModel } from '../../../src/shared/objects/graph-view';
 
   interface Props {
     model: GraphViewModel;
-    /** Styles inline, nothing to press: the export. */
-    inline?: boolean;
     onOpen?: (path: string, outside: boolean) => void;
   }
-  let { model, inline = false, onOpen }: Props = $props();
+  let { model, onOpen }: Props = $props();
 
   const label = $derived(new Map(model.nodes.map((n) => [n.id, n] as const)));
   const kindLabel = $derived(new Map(model.kinds.map((k) => [k.property, k.label] as const)));
@@ -23,28 +20,27 @@
     in: model.edges.filter((e) => e.target === n.id),
   })));
 
-  const cell = 'border: 1px solid #ccc; padding: 4px 8px; text-align: left; vertical-align: top;';
 </script>
 
-<table class="gv-table" style={inline ? 'border-collapse: collapse; font-size: 13px;' : undefined}>
+<table class="gv-table">
   <thead>
     <tr>
-      <th scope="col" style={inline ? cell : undefined}>Note</th>
-      <th scope="col" style={inline ? cell : undefined}>Links to</th>
-      <th scope="col" style={inline ? cell : undefined}>Linked from</th>
+      <th scope="col">Note</th>
+      <th scope="col">Links to</th>
+      <th scope="col">Linked from</th>
     </tr>
   </thead>
   <tbody>
     {#each rows as r (r.node.id)}
       <tr>
-        <th scope="row" style={inline ? cell : undefined}>
+        <th scope="row">
           {#if onOpen}
             <button type="button" class="gv-open" onclick={() => onOpen(r.node.id, false)}>{r.node.label}</button>
           {:else}{r.node.label}{/if}
           {#if r.node.typeLabel}<span class="gv-type"> · {r.node.typeLabel}</span>{/if}
         </th>
         {#each [{ list: r.out, end: 'target' }, { list: r.in, end: 'source' }] as col (col.end)}
-          <td style={inline ? cell : undefined}>
+          <td>
             {#if col.list.length === 0}<span class="gv-none">—</span>{/if}
             {#each col.list as e (`${e.source}\u0000${e.target}\u0000${e.property}`)}
               {@const other = col.end === 'target' ? e.target : e.source}

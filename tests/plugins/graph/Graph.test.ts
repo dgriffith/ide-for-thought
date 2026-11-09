@@ -234,18 +234,33 @@ describe('the Table (#2960)', () => {
   });
 });
 
-describe('the export (#2960, until #2961 draws the graph)', () => {
-  it('hands back the notes and their links as a table, styled inline, nothing to press', async () => {
+describe('the export (#2961)', () => {
+  it('hands back the graph as a still SVG: every note, every link, a key of the kinds drawn; nothing to press', async () => {
     const api = fakeMinerva();
     render(App, { minerva: api.minerva });
-    api.emit('view', viewState({ exportMode: true, readOnly: true, selectable: false }));
+    api.emit('view', viewState({ exportMode: true, readOnly: true, selectable: false, spec: { edges: ['blocks'] } }));
     await tick();
+    expect(document.querySelector('[role="application"]')).toBeNull(); // nothing interactive is drawn for an export
     api.emit('export', { requestId: 'r1' });
     await waitFor(() => expect(api.of('view.provideExport')).toHaveLength(1));
     const { requestId, html } = api.of('view.provideExport')[0] as { requestId: string; html: string };
     expect(requestId).toBe('r1');
-    expect(html).toMatch(/^<table[^>]*style="border-collapse: collapse/);
-    expect(html).toContain('Blocks:');
-    expect(html).not.toContain('<button');
+    const svg = new DOMParser().parseFromString(html, 'text/html').querySelector('svg')!;
+    expect(svg.getAttribute('aria-label')).toBe('Graph of Task: 3 notes, 2 links');
+    expect([...svg.querySelectorAll('g > text')].map((t) => t.textContent)).toEqual(['Alpha', 'Bravo', 'Charlie']);
+    expect(svg.querySelectorAll('line[stroke-width="1.5"]')).toHaveLength(2);
+    // The key: only the kinds drawn.
+    expect([...svg.querySelectorAll(':scope > text')].map((t) => t.textContent)).toEqual(['Blocks']);
+    expect(html).not.toMatch(/<button|<style|url\(/);
+  });
+
+  it('says so when there is nothing to draw', async () => {
+    const api = fakeMinerva();
+    render(App, { minerva: api.minerva });
+    api.emit('view', viewState({ exportMode: true, readOnly: true, instances: [] }));
+    await tick();
+    api.emit('export', { requestId: 'r2' });
+    await waitFor(() => expect(api.of('view.provideExport')).toHaveLength(1));
+    expect((api.of('view.provideExport')[0] as { html: string }).html).toBe('<p>This view has no notes to draw.</p>');
   });
 });

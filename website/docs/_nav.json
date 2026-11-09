@@ -139,6 +139,10 @@
           ]
         },
         {
+          "href": "graph.html",
+          "label": "Graph"
+        },
+        {
           "href": "viewing-options.html",
           "label": "Viewing options",
           "children": [

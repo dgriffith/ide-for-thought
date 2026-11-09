@@ -71,7 +71,7 @@ const OWNER_PATHS = [
 const READ_ALLOWLIST = new Set<string>([
   // app / shell / view / export — OS + window reads and stateless side-effects
   'getInfo', 'getShortcuts', 'getSystemLocale', 'supportsSystemAudio', 'openExternal', 'openInDefault', 'openInTerminal',
-  'revealFile', 'revealFolder', 'revealAuditLog', 'csv', 'getZoomFactor',
+  'revealFile', 'revealFolder', 'revealAuditLog', 'csv', 'image', 'getZoomFactor',
   // app.start/stopSystemAudio + onSystemAudio (#2731): the meeting recorder's
   // system-audio capture, the counterpart of getUserMedia for the mic. They
   // start and stop an OS capture and carry its samples; no in-app state is

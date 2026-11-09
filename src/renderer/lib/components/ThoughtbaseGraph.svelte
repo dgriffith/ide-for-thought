@@ -31,6 +31,8 @@
   import type { LayoutRequest, LayoutResponse } from '../graph/force-layout.worker';
   import type { WholeGraphResult } from '../../../shared/types';
   import { matchNodes, shortestPath, withinHops } from '../graph/graph-analysis';
+  import { cyToSvg, resolveColor, svgToPngBase64 } from '../graph/graph-export';
+  import { logger } from '../../../shared/logger';
   import TypeViewRowMenu from './TypeViewRowMenu.svelte';
   import type { TypeViewNoteActions } from './type-view/note-actions';
 
@@ -66,6 +68,7 @@
   /** The note the right button last went down on, for the `contextmenu` that follows; null on the background. */
   let menuNote: string | null = null;
   let accent = '#89b4fa';
+  let exportMenu = $state(false);
 
   $effect(() => {
     void revision;
@@ -288,9 +291,34 @@
     onState({ pins: {} });
     void tick().then(draw); // lay the freed notes out again
   }
+  /**
+   * Save the graph as drawn (#2961): this view (what the camera shows, at the
+   * screen's size) or the whole graph, as a PNG or an SVG, with a key of the
+   * kinds of connection shown. A stateless save, like Export CSV.
+   */
+  async function exportImage(format: 'png' | 'svg', view: boolean): Promise<void> {
+    exportMenu = false;
+    if (!cy) return;
+    const tokens = readGraphTokens();
+    const svg = cyToSvg(cy, {
+      view,
+      legend: legend.filter((k) => !graphState.hiddenKinds.includes(k.id) && shown.edges.some((e) => e.linkType === k.id)).map((k) => ({ label: k.label, color: resolveColor(k.color) })),
+      background: resolveColor(tokens.bg), text: resolveColor(tokens.text),
+      title: `Graph of ${shown.nodes.length} notes and ${shown.edges.length} connections${focusLabel ? ` around ${focusLabel}` : ''}`,
+    });
+    const name = focusLabel ? `Graph around ${focusLabel}` : 'Graph';
+    try {
+      const data = format === 'svg' ? svg : await svgToPngBase64(svg, view ? cy.zoom() * 2 : 2);
+      await api.export.image({ name, format, data });
+    } catch (e) {
+      logger('graph').warn('graph export failed:', e);
+    }
+  }
+
   function onKeydown(e: KeyboardEvent): void {
     if (e.key !== 'Escape') return;
-    if (menu) menu = null;
+    if (exportMenu) exportMenu = false;
+    else if (menu) menu = null;
     else if (traceFrom) traceFrom = null;
     else if (selected || picked.length > 0) { selected = null; picked = []; }
     else return;
@@ -397,6 +425,16 @@
     <span class="spacer"></span>
     <span class="count" aria-live="polite">{shown.nodes.length} of {data.nodes.length} {data.nodes.length === 1 ? 'node' : 'nodes'}, {shown.edges.length} connections</span>
     <button type="button" class="toggle" class:on={showList} aria-pressed={showList} onclick={() => (showList = !showList)}>List</button>
+    <span class="export">
+      <button type="button" aria-haspopup="menu" aria-expanded={exportMenu} disabled={showList || shown.nodes.length === 0} onclick={() => (exportMenu = !exportMenu)}>Export</button>
+      {#if exportMenu}
+        <div class="export-menu" role="menu" aria-label="Export the graph">
+          {#each [['png', true, 'PNG of this view'], ['png', false, 'PNG of the whole graph'], ['svg', true, 'SVG of this view'], ['svg', false, 'SVG of the whole graph']] as const as [format, view, label] (label)}
+            <button type="button" role="menuitem" onclick={() => void exportImage(format, view)}>{label}…</button>
+          {/each}
+        </div>
+      {/if}
+    </span>
   </div>
   {#if legend.length > 0}
     <div class="legend" role="group" aria-label="Connection kinds">
@@ -466,6 +504,10 @@
   .step { min-width: 22px; }
   .spacer { flex: 1; }
   .count { font-variant-numeric: tabular-nums; }
+  .export { position: relative; }
+  .export-menu { position: absolute; right: 0; top: calc(100% + 4px); z-index: 5; display: flex; flex-direction: column; background: var(--bg-sidebar); border: 1px solid var(--border); border-radius: 6px; padding: 4px 0; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); min-width: 190px; }
+  .export-menu button { border: none; background: none; border-radius: 0; text-align: left; padding: 5px 12px; color: var(--text); }
+  .export-menu button:hover, .export-menu button:focus-visible { background: var(--bg-button); outline: none; }
   .find { font: inherit; color: var(--text); background: var(--bg-button); border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px; width: 160px; }
   .found { font-variant-numeric: tabular-nums; }
   .dim-control, .trace { display: inline-flex; align-items: center; gap: 6px; color: var(--text); }

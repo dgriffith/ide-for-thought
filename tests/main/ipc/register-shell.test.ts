@@ -35,7 +35,7 @@ const {
   spawnCalls: [] as { args: unknown[]; errorCallbacks: (() => void)[] }[],
   emojiPanelCalls: { n: 0 },
   // Mutable per-test return value for dialog.showSaveDialog.
-  saveDialog: { result: { canceled: true, filePath: undefined as string | undefined } },
+  saveDialog: { result: { canceled: true, filePath: undefined as string | undefined }, lastOptions: undefined },
   writeFileCalls: [] as { path: string; content: string }[],
 }));
 
@@ -50,7 +50,7 @@ vi.mock('electron', () => ({
     openExternal: (u: string) => { shellCalls.openExternal.push(u); return Promise.resolve(); },
   },
   dialog: {
-    showSaveDialog: () => Promise.resolve(saveDialog.result),
+    showSaveDialog: (_win: unknown, options: unknown) => { saveDialog.lastOptions = options; return Promise.resolve(saveDialog.result); },
     showMessageBox: (...a: unknown[]) => dialogState.show(...a),
   },
 }));
@@ -261,6 +261,30 @@ describe('EXPORT_CSV (#2055)', () => {
     saveDialog.result = { canceled: true, filePath: undefined };
     const h = handlers.get(Channels.EXPORT_CSV)!;
     await h({}, 'a,b\n1,2\n');
+    expect(writeFileCalls).toEqual([]);
+  });
+});
+
+describe('EXPORT_IMAGE (#2961)', () => {
+  it('writes an SVG as text and a PNG as its decoded bytes, offering the name with the format\'s extension', async () => {
+    const h = handlers.get(Channels.EXPORT_IMAGE)!;
+    saveDialog.result = { canceled: false, filePath: '/tmp/g.svg' };
+    expect(await h({}, { name: 'Graph: trip/Prague', format: 'svg', data: '<svg/>' })).toBe('/tmp/g.svg');
+    expect(saveDialog.lastOptions).toMatchObject({ defaultPath: 'Graph- trip-Prague.svg', filters: [{ name: 'SVG', extensions: ['svg'] }] });
+    saveDialog.result = { canceled: false, filePath: '/tmp/g.png' };
+    await h({}, { name: 'Graph', format: 'png', data: Buffer.from([0x89, 0x50, 0x4e, 0x47]).toString('base64') });
+    expect(writeFileCalls[0]).toEqual({ path: '/tmp/g.svg', content: '<svg/>' });
+    expect([...(writeFileCalls[1]!.content as unknown as Buffer)]).toEqual([0x89, 0x50, 0x4e, 0x47]);
+  });
+
+  it('answers null and writes nothing when the save dialog is cancelled', async () => {
+    saveDialog.result = { canceled: true, filePath: undefined };
+    expect(await handlers.get(Channels.EXPORT_IMAGE)!({}, { name: 'g', format: 'png', data: '' })).toBeNull();
+    expect(writeFileCalls).toEqual([]);
+  });
+
+  it('refuses a format it does not know, before asking where', async () => {
+    await expect(handlers.get(Channels.EXPORT_IMAGE)!({}, { name: 'g', format: 'exe', data: '' })).rejects.toThrow(/Unknown image format/);
     expect(writeFileCalls).toEqual([]);
   });
 });
