@@ -84,6 +84,20 @@ test('the graph of the thoughtbase: open, filter, focus on a note, list, kept wi
  * Finding your way (#2959). A found note is centred, so the canvas's own centre
  * is that note — which is how the spec clicks, right-clicks and drags it.
  */
+/** The canvas's centre once it has stopped moving: Find and a selection add to the toolbar, which can wrap and move the canvas (#3066). */
+async function settledCentre(canvas: import('@playwright/test').Locator): Promise<{ x: number; y: number }> {
+  let last = '';
+  for (let i = 0; i < 20; i++) {
+    const b = (await canvas.boundingBox())!;
+    const now = JSON.stringify(b);
+    if (now === last) return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
+    last = now;
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  const b = (await canvas.boundingBox())!;
+  return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
+}
+
 test('the graph: find a note, trace a connection, the note menu, pin and release (#2959)', async () => {
   const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-tb-graph-userdata-'));
   const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-tb-graph-project-'));
@@ -108,7 +122,7 @@ test('the graph: find a note, trace a connection, the note menu, pin and release
     const canvas = graph.locator('.canvas');
     await expect(canvas).toHaveAttribute('data-settled', '', { timeout: 15_000 }); // the layout has finished: nothing moves now
     const find = graph.getByRole('searchbox', { name: 'Find a note' });
-    const centreOf = async () => { const b = (await canvas.boundingBox())!; return { x: b.x + b.width / 2, y: b.y + b.height / 2 }; };
+    const centreOf = () => settledCentre(canvas);
     // Settled first: a layout still running (Release all starts one) moves the note out from under the click.
     const findAndCentre = async (q: string) => {
       await expect(canvas).toHaveAttribute('data-settled', '', { timeout: 15_000 });
@@ -151,16 +165,18 @@ test('the graph: find a note, trace a connection, the note menu, pin and release
       // Narrowing the window narrows the canvas by 400px: a note centred before that would sit 200px
       // off the new centre, and a click there would miss it. (On Linux the toolbar wrapping did the
       // same, by a row, whenever Find or a selection added to it.)
-      const resize = (w: number) => app.evaluate(({ BrowserWindow }, width) => { BrowserWindow.getAllWindows()[0]!.setSize(width, 900); }, w);
+      // Relative to whatever the window is: a CI runner's screen may not hold the 1300px asked for.
+      const [w, h] = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.getSize());
+      const resize = (width: number) => app.evaluate(({ BrowserWindow }, [ww, hh]) => { BrowserWindow.getAllWindows()[0]!.setSize(ww!, hh!); }, [width, h!]);
       const before = (await canvas.boundingBox())!.width;
       await findAndCentre('Kampa');
-      await resize(900);
-      await expect.poll(async () => (await canvas.boundingBox())!.width, { timeout: 5_000 }).toBeLessThan(before - 300);
+      await resize(w! - 300);
+      await expect.poll(async () => (await canvas.boundingBox())!.width, { timeout: 5_000 }).toBeLessThan(before - 200);
       const at = await centreOf();
       await win.mouse.click(at.x, at.y);
       // The click landed on Kampa: it's selected (Focus on shows for whatever is selected, trace or not).
       await expect(graph.getByRole('button', { name: 'Focus on “Kampa”' })).toBeVisible();
-      await resize(1300);
+      await resize(w!);
       await expect.poll(async () => (await canvas.boundingBox())!.width, { timeout: 5_000 }).toBe(before);
     });
 

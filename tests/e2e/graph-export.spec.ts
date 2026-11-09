@@ -48,7 +48,18 @@ test('the graph: from a note, by type, find, trace, export a PNG and an SVG; a g
     const graph = win.locator('.tb-graph');
     const canvas = graph.locator('.canvas');
     const count = graph.locator('.count');
-    const centre = async () => { const b = (await canvas.boundingBox())!; return { x: b.x + b.width / 2, y: b.y + b.height / 2 }; };
+    // Once the canvas has stopped moving: Find and a selection add to the toolbar, which can wrap (#3066).
+    const centre = async () => {
+      let last = '';
+      for (let i = 0; i < 20; i++) {
+        const b = (await canvas.boundingBox())!;
+        if (JSON.stringify(b) === last) return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
+        last = JSON.stringify(b);
+        await win.waitForTimeout(100);
+      }
+      const b = (await canvas.boundingBox())!;
+      return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
+    };
     const find = async (q: string) => {
       await expect(canvas).toHaveAttribute('data-settled', '', { timeout: 15_000 });
       await graph.getByRole('searchbox', { name: 'Find a note' }).fill(q);
