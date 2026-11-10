@@ -190,3 +190,60 @@ outputMode: openConversation
     expect(parseSkill(c, 'user', 'x.md').errors.join(' ')).toMatch(/body:.*unclosed/);
   });
 });
+
+describe('parseSkill — fork and join (#2974)', () => {
+  const skillWith = (extra: string, outputMode = 'openConversation', firstMessage = 'firstMessage: "Look at this."') => `---
+name: Both sides
+description: Argue both sides
+menu: Analysis
+outputMode: ${outputMode}
+${firstMessage}
+${extra}
+---
+You weigh arguments.`;
+
+  it('a list of branches, with a join', () => {
+    const { skill, errors } = parseSkill(skillWith(`fork:
+  - title: For
+    instructions: Argue for it.
+  - title: Against
+    instructions: Argue against it.
+join: Weigh them and name the cruxes.`), 'user', 'x.md');
+    expect(errors).toEqual([]);
+    expect(skill!.fork).toEqual({
+      branches: [{ title: 'For', instructions: 'Argue for it.' }, { title: 'Against', instructions: 'Argue against it.' }],
+      join: 'Weigh them and name the cruxes.',
+    });
+  });
+
+  it('one instruction over a list: {{item}} filled in each title and instruction', () => {
+    const { skill, errors } = parseSkill(skillWith(`fork:
+  each: [cost, risk, time]
+  instructions: Look at it only in terms of {{ item }}.
+  title: "By {{item}}"`), 'user', 'x.md');
+    expect(errors).toEqual([]);
+    expect(skill!.fork!.branches).toEqual([
+      { title: 'By cost', instructions: 'Look at it only in terms of cost.' },
+      { title: 'By risk', instructions: 'Look at it only in terms of risk.' },
+      { title: 'By time', instructions: 'Look at it only in terms of time.' },
+    ]);
+    expect(skill!.fork!.join).toBeUndefined();
+    // The title defaults to the item.
+    expect(parseSkill(skillWith('fork: { each: [a, b], instructions: "x {{item}}" }'), 'user', 'x.md').skill!.fork!.branches.map((b) => b.title)).toEqual(['a', 'b']);
+  });
+
+  it('refuses a malformed fork, a join without one, and a fork that can\'t run', () => {
+    const errorsOf = (src: string) => parseSkill(src, 'user', 'x.md').errors.join(' | ');
+    expect(errorsOf(skillWith('fork: [{ title: A }]'))).toMatch(/fork\[0\] needs a `title` and `instructions`/);
+    expect(errorsOf(skillWith('fork: { each: [a, b] }'))).toMatch(/`fork.instructions` is required/);
+    expect(errorsOf(skillWith('fork: { each: [a, ""], instructions: x }'))).toMatch(/`fork.each` must be a list of names/);
+    expect(errorsOf(skillWith('fork: "two ways"'))).toMatch(/`fork` must be a list/);
+    expect(errorsOf(skillWith('fork: [{ title: A, instructions: x }]'))).toMatch(/needs 2 to 8 branches \(got 1\)/);
+    expect(errorsOf(skillWith(`fork: { each: [a, b, c, d, e, f, g, h, i], instructions: "x {{item}}" }`))).toMatch(/got 9/);
+    expect(errorsOf(skillWith('join: Weigh them.'))).toMatch(/`join` only applies to a skill with `fork`/);
+    const two = 'fork: [{ title: A, instructions: x }, { title: B, instructions: y }]';
+    expect(errorsOf(skillWith(two, 'newNote'))).toMatch(/`fork` needs `outputMode: openConversation`/);
+    expect(errorsOf(skillWith(two, 'openConversation', ''))).toMatch(/`fork` needs a `firstMessage`/);
+    expect(errorsOf(skillWith(`${two}\njoin: "{{#if note}}unclosed"`))).toMatch(/join:.*unclosed/);
+  });
+});

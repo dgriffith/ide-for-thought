@@ -93,6 +93,12 @@ export interface SkillDef {
   requiresNote?: boolean;
   /** Auto-fired first user message (template). Empty = let the user start. */
   firstMessage: string;
+  /**
+   * A skill that forks (#2974): its first message goes out as one branch per
+   * entry (the entry's instructions appended), then the conversation runs a
+   * turn on `join` over their answers. Templates, rendered like the body.
+   */
+  fork?: SkillFork;
   /** Prompt body (template) — system prompt or one-shot prompt. */
   body: string;
   source: SkillSource;
@@ -168,4 +174,11 @@ export function toSkillInfo(s: SkillDef): SkillInfo {
     source: s.source,
     plugin: s.plugin,
   };
+}
+
+/** A skill's `fork:` and `join:` (#2974), the `each:` form already expanded. */
+export interface SkillFork {
+  branches: { title: string; instructions: string }[];
+  /** What the conversation does with the answers; omit to just show them. */
+  join?: string;
 }

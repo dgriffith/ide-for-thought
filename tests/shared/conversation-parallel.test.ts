@@ -27,6 +27,8 @@ describe('parallelMessage', () => {
     expect(parallelMessage('Is it safe?', { title: 'x', perspective: 'a skeptic' })).toBe('Is it safe?\n\n(Answer as a skeptic.)');
     expect(parallelMessage('Is it safe?', { title: 'x', perspective: 'As an engineer' })).toBe('Is it safe?\n\n(Answer As an engineer.)');
     expect(parallelMessage('Is it safe?', { title: 'x', model: 'm' })).toBe('Is it safe?');
+    // A forking skill's branch: its instructions follow the message (#2974).
+    expect(parallelMessage('Look at this.', { title: 'For', instructions: ' Argue for it. ' })).toBe('Look at this.\n\nArgue for it.');
   });
 });
 

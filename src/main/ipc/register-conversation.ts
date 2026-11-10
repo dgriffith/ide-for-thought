@@ -333,8 +333,9 @@ export function registerConversation(): void {
 
   /**
    * "Ask in parallel" (#2974): the user's message, sent as one branch per
-   * model, perspective or attempt, each with the conversation so far, then the
-   * answers joined into the conversation side by side. It runs as the
+   * model, perspective or attempt — or per branch of a forking skill — each
+   * with the conversation so far, then the answers joined into the
+   * conversation side by side, and for a skill, a turn on its `join`. It runs as the
    * conversation's turn, so Stop stops it (and every branch); the user chose
    * the fork, so it doesn't ask about cost, but the branch limit holds.
    */
@@ -345,6 +346,7 @@ export function registerConversation(): void {
     message: string,
     branches: ParallelBranch[],
     currentNotePath?: string,
+    join?: string,
   ): Promise<void> => {
     if (!rootPath) throw new Error('No thoughtbase is open — cannot send conversation message.');
     const text = typeof message === 'string' ? message.trim() : '';
@@ -354,7 +356,12 @@ export function registerConversation(): void {
       if (!b || typeof b.title !== 'string' || !b.title.trim()) throw new Error('Each parallel branch needs a title.');
       return {
         title: b.title.trim().slice(0, 120),
-        instructions: parallelMessage(text, b),
+        // Only the strings the renderer may set: a perspective, or a forking skill's instructions (#2974).
+        instructions: parallelMessage(text, {
+          title: b.title,
+          ...(typeof b.perspective === 'string' ? { perspective: b.perspective } : {}),
+          ...(typeof b.instructions === 'string' ? { instructions: b.instructions } : {}),
+        }),
         ...(typeof b.model === 'string' && b.model ? { model: b.model } : {}),
       };
     });
@@ -398,10 +405,14 @@ export function registerConversation(): void {
       if (runningTurns.get(convId)?.controller === controller) runningTurns.delete(convId);
       win.removeListener('closed', onWindowClosed);
     }
+    // A forking skill's join (#2974): the conversation's own turn, over the
+    // answers it now has. Not after a Stop: the user stopped the whole thing.
+    const joinText = typeof join === 'string' ? join.trim() : '';
+    if (joinText && !controller.signal.aborted) await runTurn(win, rootPath, convId, joinText, undefined, currentNotePath);
   };
 
-  handle(Channels.CONVERSATION_ASK_PARALLEL, (e, convId: string, message: string, branches: ParallelBranch[], currentNotePath?: string) =>
-    askInParallel(winFromEvent(e), rootPathFromEvent(e), convId, message, branches, currentNotePath));
+  handle(Channels.CONVERSATION_ASK_PARALLEL, (e, convId: string, message: string, branches: ParallelBranch[], currentNotePath?: string, join?: string) =>
+    askInParallel(winFromEvent(e), rootPathFromEvent(e), convId, message, branches, currentNotePath, join));
 
   handle(Channels.CONVERSATION_SEND, (e, convId: string, userMessage: string, systemPrompt?: string, currentNotePath?: string, extraTools?: import('../../shared/conversation-tools').ConversationToolKey[]) =>
     runConversationTurn(e, convId, userMessage, systemPrompt, currentNotePath, extraTools));

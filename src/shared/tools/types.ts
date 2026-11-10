@@ -206,6 +206,8 @@ export interface ThinkingToolDef extends ThinkingToolMeta {
   buildSystemPrompt?: (ctx: ToolContext) => string;
   /** User message auto-fired when the conversation opens. Optional — omit to let the user type the first thing. */
   buildFirstMessage?: (ctx: ToolContext) => string;
+  /** A forking skill (#2974): its branches' instructions and its join, rendered. The first message goes out as these branches. */
+  buildFork?: (ctx: ToolContext) => ConversationFork;
   /**
    * Template-scoped tools the agent should have access to in this
    * conversation, on top of the default toolset. Today the only entry
@@ -268,6 +270,14 @@ export interface ConversationToolPayload {
   webEnabled: boolean;
   /** Template-scoped tools to enable on the resulting conversation, mirroring the tool's `requiresTools` declaration (#514). */
   requiresTools?: import('../conversation-tools').ConversationToolKey[];
+  /** A forking skill (#2974): send `firstMessage` as these branches, then run a turn on `join`. */
+  fork?: ConversationFork;
+}
+
+/** A conversation that opens on a fork (#2974): the branches its first message goes out as, and what to do with their answers. */
+export interface ConversationFork {
+  branches: import('../conversation').ParallelBranch[];
+  join?: string;
 }
 
 export interface WebSettings {

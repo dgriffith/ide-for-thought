@@ -8,6 +8,7 @@ import { clearForkCards, dropForkCards, liveBranch, subscribeForkCards } from '.
 import { logger } from '../../../shared/logger';
 import { openDescendants } from '../conversations/branch-tree';
 import type { RequestWaitStatus } from '../../../shared/tools/concurrent-requests';
+import type { ConversationFork } from '../../../shared/tools/types';
 import type {
   BranchCreateOptions,
   Conversation,
@@ -519,6 +520,8 @@ async function openConversationTab(opts: {
    *  conversation so a note revision it eventually produces can be labeled with
    *  the skill's name in the History panel. */
   skill?: ConversationSkill;
+  /** A forking skill (#2974): `initialMessage` goes out as these branches, then a turn on its join. */
+  fork?: ConversationFork;
 }): Promise<TabRuntime> {
   ensureSubscriptions();
   const bundle: ContextBundle = opts.notePath ? { notePath: opts.notePath } : {};
@@ -539,7 +542,11 @@ async function openConversationTab(opts: {
   show();
   scheduleSave();
   if (opts.initialMessage && opts.initialMessage.trim()) {
-    void send(opts.initialMessage, opts.notePath);
+    if (opts.fork && opts.fork.branches.length > 0) {
+      void runInParallel(tab, opts.initialMessage.trim(), opts.fork.branches, opts.notePath, opts.fork.join);
+    } else {
+      void send(opts.initialMessage, opts.notePath);
+    }
   }
   return tab;
 }
@@ -693,6 +700,11 @@ async function askInParallel(branches: ParallelBranch[], currentNotePath?: strin
   const text = tab.composer.trim();
   if (!text || tab.streaming || branches.length === 0) return;
   tab.composer = '';
+  await runInParallel(tab, text, branches, currentNotePath);
+}
+
+/** A parallel ask on a tab: Ask in parallel's, or a forking skill's opening (#2974), then its `join` turn. */
+async function runInParallel(tab: TabRuntime, text: string, branches: ParallelBranch[], currentNotePath?: string, join?: string): Promise<void> {
   tab.conversation.messages = [
     ...tab.conversation.messages,
     { role: 'user', content: text, timestamp: new Date().toISOString() },
@@ -703,7 +715,7 @@ async function askInParallel(branches: ParallelBranch[], currentNotePath?: strin
   tab.failure = null;
   announce(`Asking ${branches.length} ways at once`);
   try {
-    await api.conversations.askParallel(tab.id, text, plainSnapshot(branches), currentNotePath);
+    await api.conversations.askParallel(tab.id, text, plainSnapshot(branches), currentNotePath, join);
     const reloaded = await api.conversations.load(tab.id);
     if (reloaded) tab.conversation = keepKnownTitle(reloaded, tab.conversation);
     announceTurnComplete(tab);

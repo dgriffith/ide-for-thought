@@ -1249,11 +1249,21 @@ describe('branches (#2970)', () => {
     conv().load.mockResolvedValueOnce(joined);
     const branches = [{ title: 'A', model: 'm-a' }, { title: 'B', perspective: 'a skeptic' }];
     await store.askInParallel(branches, 'notes/x.md');
-    expect(conv().askParallel).toHaveBeenCalledWith(tab.id, 'Is it safe?', branches, 'notes/x.md');
+    expect(conv().askParallel).toHaveBeenCalledWith(tab.id, 'Is it safe?', branches, 'notes/x.md', undefined);
     expect(during).toEqual({ streaming: true, messages: 1, composer: '' });
     expect(tab.streaming).toBe(false);
     expect(tab.conversation.messages.at(-1)!.forkAnswers).toHaveLength(1);
     expect(h.announce).toHaveBeenCalledWith('Asking 2 ways at once');
+  });
+
+  it('a forking skill\'s conversation opens on its fork: the first message as its branches, then its join (#2974)', async () => {
+    const fork = { branches: [{ title: 'For', instructions: 'Argue for it.' }, { title: 'Against', instructions: 'Argue against it.' }], join: 'Weigh them.' };
+    const tab = await store.openConversationTab({ notePath: 'notes/claim.md', systemPrompt: 'SYS', initialMessage: 'Look at this note.', fork });
+    await vi.waitFor(() => expect(conv().askParallel).toHaveBeenCalledWith(tab.id, 'Look at this note.', fork.branches, 'notes/claim.md', 'Weigh them.'));
+    expect(conv().send).not.toHaveBeenCalled();
+    // A skill without one sends as before.
+    await store.openConversationTab({ initialMessage: 'Hello' });
+    await vi.waitFor(() => expect(conv().send).toHaveBeenCalledTimes(1));
   });
 
   it('Ask in parallel that fails shows the failure where the reply would be (#2974)', async () => {

@@ -93,6 +93,13 @@ describe('handleOpenConversationFromTool', () => {
     );
   });
 
+  it('a forking skill opens on its fork (#2974)', async () => {
+    const fork = { branches: [{ title: 'For', instructions: 'x' }, { title: 'Against', instructions: 'y' }], join: 'Weigh them.' };
+    h.api.tools.prepareConversation.mockResolvedValue({ systemPrompt: 'SYS', firstMessage: 'FIRST', requiresTools: [], fork });
+    await ops.handleOpenConversationFromTool({ toolId: 't.x', context: { fullNotePath: 'n.md' } });
+    expect(h.conversationsStore.openConversationTab).toHaveBeenCalledWith(expect.objectContaining({ initialMessage: 'FIRST', fork }));
+  });
+
   it('surfaces a confirm dialog (and opens nothing) when prep throws', async () => {
     h.api.tools.prepareConversation.mockRejectedValue(new Error('right-click a claim first'));
     await ops.handleOpenConversationFromTool({ toolId: 't.y', context: {} });

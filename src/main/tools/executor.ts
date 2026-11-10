@@ -126,6 +126,7 @@ export function buildConversationPayload(
     ...(tool.requiresTools && tool.requiresTools.length > 0
       ? { requiresTools: [...tool.requiresTools] }
       : {}),
+    ...(tool.buildFork ? { fork: tool.buildFork(request.context) } : {}),
   };
 }
 

@@ -89,6 +89,8 @@ export interface ParallelBranch {
   title: string;
   model?: string;
   perspective?: string;
+  /** A forking skill's branch (#2974): appended to the message. */
+  instructions?: string;
 }
 
 export type ConversationStatus = 'active' | 'archived';

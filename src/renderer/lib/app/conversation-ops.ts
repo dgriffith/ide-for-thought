@@ -175,6 +175,8 @@ export function createConversationOps(ctx: ConversationOpsCtx) {
       ...(prep.requiresTools && prep.requiresTools.length > 0
         ? { extraTools: prep.requiresTools }
         : {}),
+      // A forking skill opens on its fork (#2974).
+      ...(prep.fork ? { fork: prep.fork } : {}),
     });
   }
 

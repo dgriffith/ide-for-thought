@@ -38,8 +38,10 @@ export function parallelBranches(
   return Array.from({ length: n }, (_, i) => ({ title: `Attempt ${i + 1}` }));
 }
 
-/** What a branch is sent: the user's message, and the perspective to answer from when there is one. */
+/** What a branch is sent: the message, then a skill branch's own instructions or the perspective to answer from. */
 export function parallelMessage(message: string, branch: ParallelBranch): string {
+  const instructions = branch.instructions?.trim();
+  if (instructions) return `${message}\n\n${instructions}`;
   const perspective = branch.perspective?.trim();
   return perspective ? `${message}\n\n(Answer ${/^as\b/i.test(perspective) ? perspective : `as ${perspective}`}.)` : message;
 }

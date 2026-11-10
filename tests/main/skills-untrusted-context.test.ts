@@ -20,6 +20,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import path from 'node:path';
 import { loadSkillCatalog } from '../../src/main/skills/loader';
 import { compileSkill } from '../../src/main/skills/compile';
+import { parseSkill } from '../../src/main/skills/parse';
 import { renderTemplateDiagnostic, toRenderContext } from '../../src/main/skills/template';
 import type { SkillDef } from '../../src/shared/skills/types';
 import type { ToolContext } from '../../src/shared/tools/types';
@@ -98,7 +99,11 @@ describe('stock skills keep thoughtbase text out of the system prompt (#2438)', 
       const noteParams = skill.parameters.filter((p) => p.type === 'note').map((p) => p.id);
       for (const [name, tc] of Object.entries(CONTEXTS)) {
         const ctx = toRenderContext({ ...tc, parameterValues: paramValues(skill) }, noteParams);
-        for (const [field, tpl] of [['body', skill.body], ['firstMessage', skill.firstMessage]] as const) {
+        const forkTemplates = [
+          ...(skill.fork?.branches.map((b, i) => [`fork[${i}]`, b.instructions] as const) ?? []),
+          ...(skill.fork?.join ? [['join', skill.fork.join] as const] : []),
+        ];
+        for (const [field, tpl] of [['body', skill.body], ['firstMessage', skill.firstMessage], ...forkTemplates] as const) {
           if (!tpl) continue;
           for (const v of renderTemplateDiagnostic(tpl, ctx).autoRouted) {
             offenders.push(`${skill.id} ${field} [${name}]: {{${v}}}`);
@@ -115,8 +120,14 @@ describe('stock skills keep thoughtbase text out of the system prompt (#2438)', 
       const def = compileSkill(skill);
       for (const [name, tc] of Object.entries(CONTEXTS)) {
         const ctx = { ...tc, parameterValues: paramValues(skill) };
+        const fork = def.buildFork?.(ctx);
         const channels: Array<[string, string]> = def.buildSystemPrompt
-          ? [['system', def.buildSystemPrompt(ctx)], ['firstMessage', def.buildFirstMessage?.(ctx) ?? '']]
+          ? [
+            ['system', def.buildSystemPrompt(ctx)], ['firstMessage', def.buildFirstMessage?.(ctx) ?? ''],
+            // A forking skill's branch instructions and join are sent as user turns of their own (#2974).
+            ...(fork?.branches.map((b, i): [string, string] => [`fork[${i}]`, b.instructions ?? '']) ?? []),
+            ...(fork?.join ? [['join', fork.join] as [string, string]] : []),
+          ]
           : [['instructions', def.buildPrompt(ctx)]];
         for (const [channel, text] of channels) {
           for (const hit of text.match(CANARY) ?? []) leaks.push(`${skill.id} ${channel} [${name}]: ${hit}`);
@@ -149,5 +160,39 @@ describe('stock skills keep thoughtbase text out of the system prompt (#2438)', 
     expect(summarize.buildUserContext!(ctx)).toContain(
       `<${UNTRUSTED_TAG} kind="note" path="${C.notePath}">\n${C.noteContent}\n</${UNTRUSTED_TAG}>`,
     );
+  });
+});
+
+describe('a forking skill\'s branch instructions and join route thoughtbase text the same way (#2974)', () => {
+  const RAW = [
+    '---',
+    'name: Both sides',
+    'description: Argue both sides of the note.',
+    'menu: Analysis',
+    'outputMode: openConversation',
+    'context: [fullNote]',
+    'firstMessage: Look at this note.',
+    'fork:',
+    '  - title: For',
+    '    instructions: "Argue for what {{note.title}} claims: {{note.content}}"',
+    '  - title: Against',
+    '    instructions: Argue against it.',
+    'join: "Weigh both sides of {{note.content}}"',
+    '---',
+    'You weigh arguments.',
+  ].join('\n');
+
+  it('keeps the note out of every branch\'s instructions and the join, and hands it to the first user turn, delimited', () => {
+    const parsed = parseSkill(RAW, 'user', '/x/both-sides.md');
+    expect(parsed.errors).toEqual([]);
+    const def = compileSkill(parsed.skill!);
+    const fork = def.buildFork!({ ...note });
+    expect(fork.branches.map((b) => b.title)).toEqual(['For', 'Against']);
+    for (const text of [...fork.branches.map((b) => b.instructions!), fork.join!]) {
+      expect(text).not.toMatch(CANARY);
+    }
+    const userContext = def.buildUserContext!({ ...note });
+    expect(userContext).toContain(C.noteContent);
+    expect(undelimitedCanaries(userContext)).toEqual([]);
   });
 });
