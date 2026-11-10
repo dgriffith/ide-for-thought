@@ -36,6 +36,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import { closeMinerva, launchMinerva, projectRoot, seedProposal } from './helpers/launch';
 import { openEventTimeline } from './helpers/timeline';
+import { focusUntil } from './helpers/hover';
 import { openTypeCalendar, thisMonth, ymd } from './helpers/calendar';
 import { runAxe, formatViolations, seriousOrWorse } from '../helpers/axe-playwright';
 
@@ -344,7 +345,7 @@ for (const theme of THEMES) {
           'projects/Tax Return.md': '---\ntype: project\nstatus: done\n---\n# Tax Return\n',
           'projects/Someday Boat.md': '---\ntype: project\n---\n# Someday Boat\n',
         },
-      }, async ({ win }) => {
+      }, async ({ app, win }) => {
         await win.locator('.panel-tab[title="Objects"]').first().click();
         await win.getByRole('button', { name: 'Open Project view' }).click({ force: true });
         await win.getByRole('tab', { name: 'Kanban' }).click();
@@ -353,8 +354,8 @@ for (const theme of THEMES) {
         const board = win.locator('[data-plugin-layout="kanban"] iframe').contentFrame().locator('.kb-board');
         await expect(board.locator('[data-kanban-card]')).toHaveCount(3, { timeout: 15_000 });
         // Focus opens the card's hover preview (#2710), so it's scanned too.
-        await board.locator('[data-kanban-card]').first().focus();
-        await expect(win.getByRole('tooltip')).toBeVisible();
+        // In the plugin's frame, which only has focus while the window does (#3047).
+        await focusUntil(app, board.locator('[data-kanban-card]').first(), win.getByRole('tooltip'));
         await expect(win.locator('.note-hover-preview[data-status="ready"]')).toHaveCount(1, { timeout: 5_000 });
         await expectNoSerious(win, 'Kanban board', theme);
       });
@@ -376,10 +377,9 @@ for (const theme of THEMES) {
           'events/Someday.md': '---\ntype: event\n---\n# Someday\n',
           'meetings/Debrief.md': '---\ntype: meeting\ndate: 1969-07-25\n---\n# Debrief\n',
         },
-      }, async ({ win }) => {
+      }, async ({ app, win }) => {
         const { eventFor, frame: tl } = await openEventTimeline(win, 5);
-        await eventFor('Typo').focus();
-        await expect(win.getByRole('tooltip')).toBeVisible();
+        await focusUntil(app, eventFor('Typo'), win.getByRole('tooltip'));
         await expect(win.locator('.note-hover-preview[data-status="ready"]')).toHaveCount(1, { timeout: 5_000 });
         await expectNoSerious(win, 'Timeline', theme);
         await tl.getByRole('button', { name: /^Undated/ }).click();
