@@ -50,7 +50,8 @@ describe('inlineStyles (calendar export)', () => {
 
   it("scales with the page: the row's columns, a bar's span, where its hatch starts, its end mark's auto margin", () => {
     const doc = exported(GRID);
-    expect(styleOf(doc, '.calx-row').gridTemplateColumns).toBe('2.6em repeat(7, minmax(0, 1fr))');
+    // jsdom 31 serializes the 0 as `0px`, as Chromium does; either is the same track list.
+    expect(styleOf(doc, '.calx-row').gridTemplateColumns).toMatch(/^2\.6em repeat\(7, minmax\(0(px)?, 1fr\)\)$/);
     // The attribute as the export carries it (a DOM would normalise the calc() on read).
     expect(doc.querySelector('.calx-bar')!.getAttribute('style')).toContain('width: calc(3 * 100% + (3 - 1) * 1px - 4px)');
     expect(styleOf(doc, '.calx-hatch').left).toBe('40%');
