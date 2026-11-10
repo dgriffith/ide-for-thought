@@ -41,15 +41,17 @@ interface ErrorShape {
 
 /**
  * Stainless-generated SDK errors — Anthropic's and OpenAI's whole error
- * hierarchy — never assign `.name`, so every one of them reports the inherited
- * `'Error'`. Matching `err.name === 'APIConnectionError'` therefore silently
- * never fires, which is how a user's Cancel came back as an anonymous failure
- * block and a dropped connection came back with no Retry button (#1809).
+ * hierarchy — used to report the inherited `'Error'` as their `.name`, so
+ * matching `err.name === 'APIConnectionError'` silently never fired. That's
+ * how a user's Cancel came back as an anonymous failure block and a dropped
+ * connection came back with no Retry button (#1809). `@anthropic-ai/sdk` 1.6
+ * names them (`APIUserAbortError`, `APIConnectionError`,
+ * `APIConnectionTimeoutError`); an older SDK, or another Stainless one, may not.
  *
- * Their constructor messages ARE stable, and these classes only exist for
- * failures that never got an HTTP response, so we match the message when there
- * is no status. The `.name` checks stay for SDKs that do set one (Google raises
- * a genuine `DOMException` named `AbortError`).
+ * So both: the names, and the constructor messages, which ARE stable, and which
+ * these classes only use for failures that never got an HTTP response, so the
+ * message is matched only when there is no status. Google raises a genuine
+ * `DOMException` named `AbortError`.
  */
 const SDK_ABORT_MESSAGE = 'request was aborted.';
 const SDK_CONNECTION_MESSAGE = 'connection error.';
@@ -172,6 +174,7 @@ function looksLikeAbort(e: ErrorShape): boolean {
   return (
     e.name === 'AbortError'
     || e.name === 'TimeoutError'
+    || e.name === 'APIUserAbortError'
     || isBareSdkError(e, [SDK_ABORT_MESSAGE])
   );
 }

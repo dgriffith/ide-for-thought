@@ -91,9 +91,15 @@ describe('classifyProviderError', () => {
    * worth retrying was the one with no Retry button.
    */
   describe('the errors the Anthropic SDK actually throws', () => {
-    it('has no usable .name — the premise of these cases', () => {
-      expect(new APIUserAbortError().name).toBe('Error');
-      expect(new APIConnectionError({ message: undefined }).name).toBe('Error');
+    it('are classified whether or not the SDK names them', () => {
+      // @anthropic-ai/sdk 1.6 names its errors; before that every one reported
+      // the inherited 'Error', which is what made the name checks dead (#1809).
+      expect(new APIUserAbortError().name).toBe('APIUserAbortError');
+      expect(new APIConnectionError({ message: undefined }).name).toBe('APIConnectionError');
+      const unnamed = <E extends Error>(e: E): E => Object.defineProperty(e, 'name', { value: 'Error' });
+      expect(classifyProviderError(unnamed(new APIUserAbortError()))).toBe('cancelled');
+      expect(classifyProviderError(unnamed(new APIConnectionError({ message: undefined })))).toBe('network');
+      expect(classifyProviderError(unnamed(new APIConnectionTimeoutError({})))).toBe('timeout');
     });
 
     it('reads a user abort as cancelled', () => {
