@@ -26,6 +26,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { closeMinerva, launchMinerva, projectRoot } from './helpers/launch';
 import { seedNotes } from './helpers/timeline';
+import { hoverUntil } from './helpers/hover';
 import { addMonth, calendarOf, dragEventToDay, openTypeCalendar, shownMonth, startMoveToDate, thisMonth, ymd } from './helpers/calendar';
 
 const NOW = thisMonth();
@@ -87,8 +88,7 @@ test('the Calendar journey: Events as a month, paged, opened, rescheduled by poi
       // earlier preview is still open before hovering for this one (#2719).
       await win.mouse.move(2, 2);
       await expect(preview).toHaveCount(0, { timeout: 5_000 });
-      await cal.eventFor('Kickoff').hover();
-      await expect(preview).toBeVisible({ timeout: 5_000 });
+      await hoverUntil(win, cal.eventFor('Kickoff'), preview);
       await expect(preview.locator('.nhp-snippet:not(.nhp-loading)')).toContainText('The project starts.', { timeout: 5_000 });
       await cal.eventFor('Kickoff').click();
       await expect(win.locator('.tab.active')).toContainText('Kickoff', { timeout: 10_000 });

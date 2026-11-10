@@ -14,7 +14,7 @@
  * attempt is a real hover — the delay still has to elapse with the pointer at
  * rest, so this proves the same thing a single hover would.
  */
-import { expect, type Locator, type Page } from '@playwright/test';
+import { expect, type ElectronApplication, type Locator, type Page } from '@playwright/test';
 
 export async function hoverUntil(
   win: Page,
@@ -31,6 +31,41 @@ export async function hoverUntil(
     const y = box.y + box.height / 2;
     await win.mouse.move(x, y);
     await win.mouse.move(x + 1, y);
+    await expect(shown).toBeVisible({ timeout: perAttempt });
+  }).toPass({ timeout, intervals: [0] });
+}
+
+/**
+ * Focus until something appears (#3047).
+ *
+ * A plugin's view is an out-of-process frame, and Playwright's focus emulation
+ * covers the page, not that frame: the frame fires `focus` and `blur` only as
+ * the window really gains and loses the OS focus. A window that doesn't have
+ * it, because the previous app's quit or another window took it, leaves the
+ * card the frame's active element with no `focus` event, so nothing asks for
+ * its preview. Or it fires `focus` and then `blur` as the focus goes, and the
+ * preview goes with it. Captured: the host's `document.hasFocus()` true (emulated)
+ * and its active element the frame, the frame's own `false`, and no tooltip.
+ *
+ * So each attempt brings the window to the front, focuses the target afresh
+ * (blur first, so `focus` fires even if it was already the active element), and
+ * waits briefly for `shown`. Each attempt is a real keyboard focus; what it
+ * proves is the same.
+ */
+export async function focusUntil(
+  app: ElectronApplication,
+  target: Locator,
+  shown: Locator,
+  opts: { timeout?: number; perAttempt?: number } = {},
+): Promise<void> {
+  const { timeout = 15_000, perAttempt = 2_500 } = opts;
+  await expect(async () => {
+    await app.evaluate(({ app: a, BrowserWindow }) => {
+      a.focus({ steal: true });
+      BrowserWindow.getAllWindows()[0]?.focus();
+    });
+    await target.evaluate((el) => (el as HTMLElement).blur());
+    await target.focus();
     await expect(shown).toBeVisible({ timeout: perAttempt });
   }).toPass({ timeout, intervals: [0] });
 }
