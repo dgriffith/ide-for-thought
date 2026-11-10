@@ -84,17 +84,33 @@ test('the graph of the thoughtbase: open, filter, focus on a note, list, kept wi
  * Finding your way (#2959). A found note is centred, so the canvas's own centre
  * is that note — which is how the spec clicks, right-clicks and drags it.
  */
-/** The canvas's centre once it has stopped moving: Find and a selection add to the toolbar, which can wrap and move the canvas (#3066). */
+/**
+ * The canvas's centre once it has stopped moving, and been drawn there.
+ *
+ * - Stopped moving: Find and a selection add to the toolbar, which can wrap and
+ *   move the canvas (#3066).
+ * - Drawn: where WebGL is available the graph draws with Cytoscape's WebGL
+ *   renderer, which finds what's under a click in the last frame it DREW, not
+ *   from the nodes' positions (#3084). Find centres the note at once, but the
+ *   frame showing it comes a frame later, later still on a loaded machine, so
+ *   a click before then was tested against the old picture and hit the
+ *   background. Captured: the tap's rendered position (525, 365) on the note's
+ *   own (525, 365.5), the container box and Cytoscape's cache of it both
+ *   right, and the target "background". Two animation frames later Cytoscape
+ *   has drawn. A user clicks what they can see, so for them the drawn frame is
+ *   always current.
+ */
 async function settledCentre(canvas: import('@playwright/test').Locator): Promise<{ x: number; y: number }> {
   let last = '';
+  let b = (await canvas.boundingBox())!;
   for (let i = 0; i < 20; i++) {
-    const b = (await canvas.boundingBox())!;
+    b = (await canvas.boundingBox())!;
     const now = JSON.stringify(b);
-    if (now === last) return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
+    if (now === last) break;
     last = now;
     await new Promise((r) => setTimeout(r, 100));
   }
-  const b = (await canvas.boundingBox())!;
+  await canvas.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
   return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
 }
 
