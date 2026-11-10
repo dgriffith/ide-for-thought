@@ -43,9 +43,12 @@ function previewWith(fontFamily: string): HTMLElement {
   return root;
 }
 
+/** The font family mermaid was last given, quotes dropped: jsdom 31 serializes a computed
+ *  `font-family` without them (Chromium keeps them), and both name the same fonts. */
 function lastFontFamily(): unknown {
   const call = initialize.mock.calls.at(-1)?.[0] as { themeVariables?: Record<string, unknown> };
-  return call?.themeVariables?.fontFamily;
+  const family = call?.themeVariables?.fontFamily;
+  return typeof family === 'string' ? family.replace(/"/g, '') : family;
 }
 
 describe('hydrateMermaidBlocks font resolution (#1802)', () => {
@@ -60,7 +63,7 @@ describe('hydrateMermaidBlocks font resolution (#1802)', () => {
     await hydrateMermaidBlocks(previewWith('"Berkeley Mono", monospace'));
 
     expect(initialize).toHaveBeenCalledTimes(1);
-    expect(lastFontFamily()).toBe('"Berkeley Mono", monospace');
+    expect(lastFontFamily()).toBe('Berkeley Mono, monospace');
     expect(lastFontFamily()).not.toBe('inherit');
   });
 
@@ -73,7 +76,7 @@ describe('hydrateMermaidBlocks font resolution (#1802)', () => {
 
   it('re-initializes when the content font changes under an unchanged theme', async () => {
     await hydrateMermaidBlocks(previewWith('"IBM Plex Sans", sans-serif'));
-    expect(lastFontFamily()).toBe('"IBM Plex Sans", sans-serif');
+    expect(lastFontFamily()).toBe('IBM Plex Sans, sans-serif');
 
     // Same theme, different font — the old cache key ('dark') would have
     // short-circuited here and left every label measured for the previous font.
