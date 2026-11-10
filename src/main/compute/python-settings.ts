@@ -142,7 +142,11 @@ export async function probePythonInterpreter(candidate: string): Promise<PythonP
     proc.on('error', (err: Error) => {
       finish({ ok: false, path: interpreter, error: err.message });
     });
-    proc.on('exit', (code: number | null) => {
+    // `close`, not `exit`: `exit` can come before the child's output has been
+    // read, and under load a `python3 --version` that printed its version and
+    // exited 0 read as "no version" (a coverage run on CI). `close` waits for
+    // stdout and stderr to end.
+    proc.on('close', (code: number | null) => {
       // Older Pythons (<3.4) wrote --version to stderr. Both bytes
       // checked so the probe works against any reasonable interpreter.
       const combined = (stdout + stderr).trim();
