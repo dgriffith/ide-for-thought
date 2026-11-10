@@ -16,6 +16,7 @@ import type {
   ContextBundle,
   ConversationsUIState,
   ForkBranchLabel,
+  ParallelBranch,
 } from '../../../shared/conversation';
 import type { ConversationDraft } from '../../../shared/conversation-drafts';
 import type { ConversationRefactorDraft, ConversationReorgDraft, ConversationDeleteDraft } from '../../../shared/conversation-refactor-drafts';
@@ -678,6 +679,41 @@ async function send(content: string, currentNotePath?: string): Promise<void> {
     tab.pendingMcpConfirm = null;
     extensionDraftsStore.clearFor(tab.id);
     refreshBranchOutcome(tab);
+  }
+}
+
+/**
+ * "Ask in parallel" (#2974): the composer's message as several branches, on
+ * models or from perspectives, their answers joined into this conversation side
+ * by side. Runs as the tab's turn: the fork card shows it, Stop stops it.
+ */
+async function askInParallel(branches: ParallelBranch[], currentNotePath?: string): Promise<void> {
+  const tab = activeTab();
+  if (!tab) throw new Error('No active conversation');
+  const text = tab.composer.trim();
+  if (!text || tab.streaming || branches.length === 0) return;
+  tab.composer = '';
+  tab.conversation.messages = [
+    ...tab.conversation.messages,
+    { role: 'user', content: text, timestamp: new Date().toISOString() },
+  ];
+  tab.streaming = true;
+  tab.turnStartedAt = Date.now();
+  tab.streamedChunks = '';
+  tab.failure = null;
+  announce(`Asking ${branches.length} ways at once`);
+  try {
+    await api.conversations.askParallel(tab.id, text, plainSnapshot(branches), currentNotePath);
+    const reloaded = await api.conversations.load(tab.id);
+    if (reloaded) tab.conversation = keepKnownTitle(reloaded, tab.conversation);
+    announceTurnComplete(tab);
+  } catch (e) {
+    handleTurnFailure(tab, e, text);
+  } finally {
+    tab.streaming = false;
+    tab.waiting = null;
+    tab.turnStartedAt = null;
+    tab.streamedChunks = '';
   }
 }
 
@@ -1367,6 +1403,7 @@ export function getConversationsStore() {
     branchConversation,
     openBranchTab,
     send,
+    askInParallel,
     retryLastTurn,
     dismissFailure,
     answerQuestion,

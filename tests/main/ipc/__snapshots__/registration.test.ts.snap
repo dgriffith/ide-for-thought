@@ -39,6 +39,7 @@ exports[`IPC registration contract (#997) > matches the known set of registered 
   "compute:saveCellOutput",
   "conversation:append",
   "conversation:archive",
+  "conversation:askParallel",
   "conversation:askUserReply",
   "conversation:branch",
   "conversation:cancel",

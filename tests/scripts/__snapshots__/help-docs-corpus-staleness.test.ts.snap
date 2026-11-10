@@ -33,6 +33,7 @@ exports[`help-docs corpus staleness (#1288) > chunk ids freshly extracted from w
   "conversations-chatting.html#model",
   "conversations-chatting.html#opening",
   "conversations-chatting.html#opening",
+  "conversations-chatting.html#parallel",
   "conversations-chatting.html#scoping",
   "conversations-chatting.html#scoping",
   "conversations-chatting.html#sending",
