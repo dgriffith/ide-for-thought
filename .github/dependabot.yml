@@ -63,6 +63,18 @@ updates:
       # actually in the tarball — once upstream republishes declarations.
       - dependency-name: "@retorquere/bibtex-parser"
         versions: ["10.x"]
+      # 13.0.8 through 13.0.15 (the latest when written) can't turn
+      # sentence-casing off: `sentenceCase: false` now sets `english: []`,
+      # which `lodash.merge(defaults, options)` merges index by index into the
+      # default English langids, so the default list survives whole. Every
+      # imported title came out sentence-cased ("A census of na d-traced
+      # neutral ISM", "Über konvergenz nichtlinearer systeme"): proper nouns,
+      # acronyms and German nouns mangled. `english: []` passed directly is
+      # merged away the same way. package.json pins 13.0.7, the last good
+      # release; drop this entry and the pin when a release keeps the
+      # import-bibtex tests green.
+      - dependency-name: "@retorquere/bibtex-parser"
+        versions: [">=13.0.8"]
 
   # ── GitHub Actions themselves ────────────────────────────────────────────
   # The workflows pin actions by major tag (actions/checkout@v4, …); those

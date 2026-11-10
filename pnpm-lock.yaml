@@ -176,8 +176,8 @@ importers:
         specifier: ^0.6.0
         version: 0.6.0
       '@retorquere/bibtex-parser':
-        specifier: ^13.0.15
-        version: 13.0.15
+        specifier: 13.0.7
+        version: 13.0.7
       '@traqula/parser-sparql-1-1':
         specifier: 1.4.0
         version: 1.4.0
@@ -2565,8 +2565,8 @@ packages:
   '@rdfjs/types@2.0.1':
     resolution: {integrity: sha512-uyAzpugX7KekAXAHq26m3JlUIZJOC0uSBhpnefGV5i15bevDyyejoB7I+9MKeUrzXD8OOUI3+4FeV1wwQr5ihA==}
 
-  '@retorquere/bibtex-parser@13.0.15':
-    resolution: {integrity: sha512-MriwzL6O6NDBMZy6H5Et4Q2tZC0hFbgD+iMewxnGlBmuHQY4tmEeACe9vjLdjk7UeLzsoTZpsp5loz2N/KnQ8w==}
+  '@retorquere/bibtex-parser@13.0.7':
+    resolution: {integrity: sha512-Bwqa+eK7B679MoD+A/Ec8DnhPtTmPW/8VtVZ2GADV2gozS6gdjGlsRgj0j5g5g2WV7a+S3Z1/OTglDMETz+a+g==}
 
   '@rolldown/binding-android-arm-eabi@1.2.16':
     resolution: {integrity: sha512-ia3DwAs0OsMGS7+IConptSiyk9pEXkOx/AbJ2n/lAGxH3QkWQus1t8d7gnAT38FCU2sQu8lUbeR6AiZFv4JxaA==}
@@ -10910,7 +10910,7 @@ snapshots:
     dependencies:
       '@types/node': 26.4.0
 
-  '@retorquere/bibtex-parser@13.0.15':
+  '@retorquere/bibtex-parser@13.0.7':
     dependencies:
       '@unified-latex/unified-latex-util-pegjs': 1.8.4
       '@unified-latex/unified-latex-util-print-raw': 1.8.4

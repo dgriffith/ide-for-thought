@@ -72,7 +72,7 @@
     "@google/genai": "^3.0.0",
     "@huggingface/transformers": "^4.3.2",
     "@mozilla/readability": "^0.6.0",
-    "@retorquere/bibtex-parser": "^13.0.15",
+    "@retorquere/bibtex-parser": "13.0.7",
     "@traqula/parser-sparql-1-1": "1.4.0",
     "@types/markdown-it-footnote": "^3.0.4",
     "chart.js": "^4.6.1",
