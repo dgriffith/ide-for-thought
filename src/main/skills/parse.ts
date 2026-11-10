@@ -10,12 +10,14 @@ import type { ContextRequirement, OutputMode, ToolParameter } from '../../shared
 import {
   SKILL_MENUS,
   type SkillDef,
+  type SkillFork,
   type SkillMenu,
   type SkillSource,
 } from '../../shared/skills/types';
 import { validateTemplate, type TemplatePluginSettings } from './template';
 import { slugifyId as slugify } from '../../shared/slug';
 import { findFrontmatter, normalizeNoteText } from '../../shared/frontmatter-block';
+import { MAX_FORK_MAX_BRANCHES } from '../../shared/tools/fork-settings';
 
 const CONTEXT_REQUIREMENTS: readonly ContextRequirement[] = [
   'selectedText', 'fullNote', 'relatedNotes', 'taggedNotes', 'claimUnderCursor', 'selectionRange',
@@ -101,6 +103,54 @@ function normalizeStringArray(raw: unknown, field: string, allowed: readonly str
     out.push(s);
   }
   return out;
+}
+
+/** `{{item}}` in a `fork: { each, instructions }` (#2974), replaced before the template is checked. */
+const ITEM = /\{\{\s*item\s*\}\}/g;
+
+/**
+ * A skill's `fork:` and `join:` (#2974). Either a list of branches, each
+ * `{ title, instructions }`, or one instruction over a list:
+ * `{ each: [a, b], instructions: "… {{item}} …", title?: "{{item}}" }`.
+ * Two to eight branches; how many actually start is also capped by the
+ * user's own limit when the skill runs.
+ */
+function normalizeFork(raw: unknown, joinRaw: unknown, errors: string[]): SkillFork | undefined {
+  if (raw === undefined) {
+    if (joinRaw !== undefined) errors.push('`join` only applies to a skill with `fork`');
+    return undefined;
+  }
+  const branches: SkillFork['branches'] = [];
+  if (Array.isArray(raw)) {
+    raw.forEach((entry, i) => {
+      const e = typeof entry === 'object' && entry !== null ? entry as Record<string, unknown> : {};
+      const title = asString(e.title);
+      const instructions = asString(e.instructions);
+      if (!title || !instructions) errors.push(`fork[${i}] needs a \`title\` and \`instructions\``);
+      else branches.push({ title, instructions });
+    });
+  } else if (typeof raw === 'object' && raw !== null) {
+    const r = raw as Record<string, unknown>;
+    const instructions = asString(r.instructions);
+    const title = asString(r.title) ?? '{{item}}';
+    if (!Array.isArray(r.each) || r.each.some((x) => typeof x !== 'string' || !x.trim())) {
+      errors.push('`fork.each` must be a list of names, one per branch');
+    } else if (!instructions) {
+      errors.push('`fork.instructions` is required with `fork.each`');
+    } else {
+      for (const item of r.each as string[]) {
+        branches.push({ title: title.replace(ITEM, item.trim()), instructions: instructions.replace(ITEM, item.trim()) });
+      }
+    }
+  } else {
+    errors.push('`fork` must be a list of { title, instructions }, or { each, instructions }');
+  }
+  if (branches.length > 0 && (branches.length < 2 || branches.length > MAX_FORK_MAX_BRANCHES)) {
+    errors.push(`\`fork\` needs 2 to ${MAX_FORK_MAX_BRANCHES} branches (got ${branches.length})`);
+  }
+  const join = joinRaw === undefined ? undefined : asString(joinRaw);
+  if (joinRaw !== undefined && !join) errors.push('`join` must be text');
+  return { branches, ...(join ? { join } : {}) };
 }
 
 /** `mcp:<server key>` or `mcp:<server key>/<tool>` in a plugin skill's `tools:` (#2649). */
@@ -197,10 +247,22 @@ export function parseSkill(
   let slashCommand = asString(fm.slashCommand);
   if (slashCommand && !slashCommand.startsWith('/')) slashCommand = `/${slashCommand}`;
 
+  const fork = normalizeFork(fm.fork, fm.join, errors);
+  if (fork) {
+    if (outputModeRaw !== 'openConversation') errors.push('`fork` needs `outputMode: openConversation`');
+    if (!firstMessage) errors.push('`fork` needs a `firstMessage`: it is what every branch is asked');
+  }
+
   // Template validation (context-independent): catch typos / unbalanced blocks.
   for (const err of validateTemplate(body, pluginSettings)) errors.push(`body: ${err}`);
   if (firstMessage) {
     for (const err of validateTemplate(firstMessage, pluginSettings)) errors.push(`firstMessage: ${err}`);
+  }
+  for (const [i, b] of (fork?.branches ?? []).entries()) {
+    for (const err of validateTemplate(b.instructions, pluginSettings)) errors.push(`fork[${i}].instructions: ${err}`);
+  }
+  if (fork?.join) {
+    for (const err of validateTemplate(fork.join, pluginSettings)) errors.push(`join: ${err}`);
   }
 
   if (errors.length > 0) return { errors, label };
@@ -227,6 +289,7 @@ export function parseSkill(
     requiresSelection,
     ...(requiresNote !== undefined ? { requiresNote } : {}),
     firstMessage,
+    ...(fork ? { fork } : {}),
     body,
     source,
     filePath,

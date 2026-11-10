@@ -660,7 +660,7 @@ export interface ChannelMap {
   'conversation:setTitle': (conversationId: string, title: string | null) => Conversation;
   'conversation:compact': (conversationId: string) => CompactResult;
   'conversation:branch': (parentId: string, options: BranchCreateOptions) => Conversation;
-  'conversation:askParallel': (conversationId: string, message: string, branches: ParallelBranch[], currentNotePath?: string) => void;
+  'conversation:askParallel': (conversationId: string, message: string, branches: ParallelBranch[], currentNotePath?: string, join?: string) => void;
 
   // Conversation draft filing (renderer approves an inline card)
   'conversation:fileDraft': (draft: ConversationDraft) => FileDraftResult;

@@ -775,12 +775,13 @@ export interface ConversationsApi {
   compact(conversationId: string): Promise<import('../../../shared/conversation').CompactResult>;
   /** Fork a branch from a conversation (#2970). Resolves to the new branch. */
   branch(parentId: string, options: import('../../../shared/conversation').BranchCreateOptions): Promise<Conversation>;
-  /** Send one message as several branches and join their answers in this conversation (#2974). Resolves when joined. */
+  /** Send one message as several branches and join their answers in this conversation (#2974). With `join` (a forking skill), then run a turn on it. Resolves when done. */
   askParallel(
     convId: string,
     message: string,
     branches: import('../../../shared/conversation').ParallelBranch[],
     currentNotePath?: string,
+    join?: string,
   ): Promise<void>;
   /** Subscribe to drafts produced by the propose_notes tool. Drafts are scoped per conversation. */
   onDraft(cb: (draft: import('../../../shared/conversation-drafts').ConversationDraft) => void): () => void;

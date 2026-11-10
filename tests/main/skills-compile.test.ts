@@ -123,6 +123,26 @@ describe('compiled skill through the conversation payload builder', () => {
     });
   });
 
+  it('a forking skill\'s payload carries its branches and join, rendered with the run\'s parameters (#2974)', () => {
+    const def = compileSkill(skill({
+      body: 'SYS',
+      firstMessage: 'Look at {{param.topic}}.',
+      parameters: [{ id: 'topic', label: 'Topic', type: 'text' }],
+      fork: {
+        branches: [{ title: 'For', instructions: 'Argue for {{param.topic}}.' }, { title: 'Against', instructions: 'Argue against {{param.topic}}.' }],
+        join: 'Weigh both views of {{param.topic}}.',
+      },
+    }));
+    const payload = buildConversationPayload(def, { model: 'm', toolModelOverrides: {} }, { context: { parameterValues: { topic: 'tariffs' } } });
+    expect(payload.firstMessage).toBe('Look at tariffs.');
+    expect(payload.fork).toEqual({
+      branches: [{ title: 'For', instructions: 'Argue for tariffs.' }, { title: 'Against', instructions: 'Argue against tariffs.' }],
+      join: 'Weigh both views of tariffs.',
+    });
+    // A skill without one carries none.
+    expect(buildConversationPayload(compileSkill(skill({ body: 'b' })), { model: 'm', toolModelOverrides: {} }, { context: {} })).not.toHaveProperty('fork');
+  });
+
   it('omits model when it equals the global default', () => {
     const def = compileSkill(skill({ body: 'b', model: 'claude-sonnet-4-6' }));
     const payload = buildConversationPayload(

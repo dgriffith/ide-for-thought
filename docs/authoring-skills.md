@@ -130,6 +130,8 @@ palette, and the editor right-click menu (because it requests `fullNote`).
 | `outputNotePrefix` | string | — | Basename prefix for `newNote` results (`<prefix>-<timestamp>.md`). |
 | `requiresSelection` | boolean | `false` | Hide the skill unless there's a non-empty editor selection. |
 | `firstMessage` | template | — | An auto-fired first user turn for `openConversation` skills. Omit to let the user type first. |
+| `fork` | list, or `{ each, instructions }` | — | Ask the first message several ways at once, one branch per entry, then join the answers. See [Forking skills](#forking-skills). |
+| `join` | template | — | With `fork`: the turn the conversation runs on the branches' answers. |
 
 `id` can't collide with a stock skill or another user skill — user skills are
 **additive only**. To change a stock skill, disable it (Settings → Skills) and
@@ -386,6 +388,51 @@ answer. Prefer `parameters` where you can; reach for `ask_user` sparingly.
 
 Reach for `newNote` only when the result is a clean, self-contained artifact the
 user won't iterate on inside the conversation.
+
+## Forking skills
+
+Some skills are several independent passes at once: both sides of an argument,
+one pass per dimension, the same question from several angles. `fork:` runs
+them in parallel (#2974). The conversation opens and sends `firstMessage` as one
+**branch** per entry, each with that entry's instructions appended. Each branch
+is a conversation of its own, with the skill's system prompt and material. The
+answers come back side by side, and then the conversation runs a turn on
+`join:`, with every answer in front of it.
+
+```yaml
+outputMode: openConversation
+firstMessage: "Look at the claim in this note."
+fork:
+  - title: For
+    instructions: Make the strongest case for the claim.
+  - title: Against
+    instructions: Make the strongest case against it.
+join: Weigh the two cases and name the cruxes, the points they really turn on.
+```
+
+To give every branch the same instruction about a different thing, write one
+instruction over a list. `{{item}}` is filled in for each, in the title too,
+and the title defaults to the item:
+
+```yaml
+fork:
+  each: [cost, risk, time]
+  instructions: Assess the plan only in terms of {{item}}.
+  title: "By {{item}}"
+```
+
+- **Rules.** `fork` needs `outputMode: openConversation` and a `firstMessage`,
+  which is what every branch is asked. It takes 2 to 8 branches. When the
+  skill runs, the user's own fork limit (Settings → AI, 4 by default) also
+  applies, and a skill over it reports that rather than starting. Omit `join`
+  to just show the answers.
+- **Templates.** Instructions and `join` are templates, rendered like the body:
+  `{{param.x}}` works, and note, selection, claim or source text is routed to
+  the first user turn as material, never into the instructions themselves.
+  Every branch carries that material.
+- **What the user sees.** A fork card with each branch's progress, Stop and
+  Open. The answers then appear side by side, each openable as its branch, and
+  the join's reply follows.
 
 ## Prompt voice
 

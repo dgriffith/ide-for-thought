@@ -38,10 +38,18 @@ export function compileSkill(skill: SkillDef): ThinkingToolDef {
   const render = (template: string, ctx: ToolContext): string => renderBoth(template, ctx).text;
   // The first user turn's material: every {{#context}} block of the body, then
   // of firstMessage (plus anything auto-routed out of either).
+  // A forking skill's branch instructions and join are templates too (#2974);
+  // thoughtbase material in them is routed to the same first user turn, which
+  // every branch inherits, rather than into the instructions.
+  const templates = [
+    skill.firstMessage,
+    ...(skill.fork?.branches.map((b) => b.instructions) ?? []),
+    ...(skill.fork?.join ? [skill.fork.join] : []),
+  ].filter((t) => t.length > 0);
   const userContext = (ctx: ToolContext): string => {
     const pieces = [...renderBoth(skill.body, ctx).context];
-    if (skill.firstMessage) {
-      for (const piece of renderBoth(skill.firstMessage, ctx).context) {
+    for (const template of templates) {
+      for (const piece of renderBoth(template, ctx).context) {
         if (!pieces.includes(piece)) pieces.push(piece);
       }
     }
@@ -73,6 +81,13 @@ export function compileSkill(skill: SkillDef): ThinkingToolDef {
   if (skill.outputMode === 'openConversation') {
     def.buildSystemPrompt = (ctx) => render(skill.body, ctx);
     def.buildFirstMessage = (ctx) => render(skill.firstMessage, ctx);
+    const fork = skill.fork;
+    if (fork) {
+      def.buildFork = (ctx) => ({
+        branches: fork.branches.map((b) => ({ title: b.title, instructions: render(b.instructions, ctx) })),
+        ...(fork.join ? { join: render(fork.join, ctx) } : {}),
+      });
+    }
   }
   if (skill.requiresNote !== undefined) def.requiresNote = skill.requiresNote;
   if (skill.group) def.group = skill.group;

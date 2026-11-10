@@ -1042,6 +1042,32 @@ describe('Ask in parallel (#2974)', () => {
     expect((join[4] as { forkAnswers: { status: string }[] }).forkAnswers.map((a) => a.status)).toEqual(['stopped', 'stopped']);
   });
 
+  it('a forking skill: each branch gets the message plus its instructions, then the conversation runs a turn on the join (#2974)', async () => {
+    wire();
+    await askParallel(evt, 'conv-1', 'Look at this note.', [
+      { title: 'For', instructions: 'Argue for it.' },
+      { title: 'Against', instructions: 'Argue against it.' },
+    ], undefined, '  Weigh both sides.  ');
+    const seeds = h.create.mock.calls.map((c) => (c[4] as { messages: { content: string }[] }).messages.at(-1)!.content);
+    expect(seeds).toEqual(['Look at this note.\n\nArgue for it.', 'Look at this note.\n\nArgue against it.']);
+    const parentWrites = h.appendMessage.mock.calls.filter((c) => c[1] === 'conv-1').map((c) => [c[2], c[3]]);
+    // The message, the joined answers, then the join as the user's turn and the reply to it.
+    expect(parentWrites.map(([role]) => role)).toEqual(['user', 'assistant', 'user', 'assistant']);
+    expect(parentWrites[2]![1]).toBe('Weigh both sides.');
+  });
+
+  it('no join turn after a Stop (#2974)', async () => {
+    wire();
+    h.completeWithTools.mockImplementation((params: { callbacks: { signal?: AbortSignal } }) => new Promise((_res, rej) => {
+      params.callbacks.signal!.addEventListener('abort', () => rej(Object.assign(new Error('aborted'), { name: 'AbortError' })));
+    }));
+    const run = askParallel(evt, 'conv-1', 'Q', [{ title: 'A', instructions: 'x' }, { title: 'B', instructions: 'y' }], undefined, 'Weigh them.');
+    await vi.waitFor(() => expect(h.completeWithTools).toHaveBeenCalledTimes(2));
+    await cancel(evt, 'conv-1');
+    await run;
+    expect(h.appendMessage.mock.calls.filter((c) => c[1] === 'conv-1' && c[2] === 'user').map((c) => c[3])).toEqual(['Q']);
+  });
+
   it('a later turn gives the model the join delimited as branch results, not as its own words', async () => {
     const joined = {
       ...CONV, status: 'active',
